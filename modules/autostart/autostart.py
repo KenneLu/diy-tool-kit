@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: autostart | TEMPLATE-VER: 1.0.0
+# TEMPLATE-MODULE: autostart | TEMPLATE-VER: 1.1.0
 """T3｜开机自启三件套（蓝本 local-speak2text，规范 G4.1 认定的更优形态）。
 
 get_autostart_cmd 优先指向稳定安装位 INSTALL_EXE（路径永不因更新改变）；
@@ -14,8 +14,12 @@ from appconfig import APP_NAME
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
-def get_autostart_cmd():
+def get_autostart_cmd(target="stable"):
+    """target: "stable"=稳定安装位形态（local-speak2text 蓝本）；
+    "runtime"=运行目录形态（dsh/opencodex，无稳定位概念）。行为差异只此一处。"""
     if getattr(sys, "frozen", False):
+        if target == "runtime":
+            return '"%s"' % os.path.abspath(sys.executable)
         from paths import INSTALL_EXE, is_stable_install
 
         if is_stable_install() or INSTALL_EXE.exists():

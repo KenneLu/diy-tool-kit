@@ -1,29 +1,31 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: i18n | TEMPLATE-VER: 1.0.0
-"""T5｜轻量 i18n 骨架（蓝本 local-speak2text/i18n.py，重 i18n 见 reme-helper/src/i18n.py，二期）。
+# TEMPLATE-MODULE: i18n | TEMPLATE-VER: 2.0.0
+"""T5 · i18n v2 —— 机制与词表分离（数据驱动，蓝本 local-speak2text/i18n.py）。
 
-zh 键同时充当 key，en 缺失回退中文，永远不会 KeyError。
-拷贝后把 _ZH/_EN 换成本工具的词表；键名约定：menu_* / notify_* / tray_* / status_*。
+代码只管机制（回退/格式化/持久化/探测）；词条是**数据**：工具根目录
+`locales/zh.json` + `locales/en.json`（扁平 KV，utf-8）。工具加词条只改 JSON，
+本文件与模板永远归一化一致（执行文档 N2/M1）。zh 键为基准，en 缺失回退 zh，
+永不 KeyError。内置最小兜底表：locales 缺失时机制仍可用。
 """
 import json
 import os
 
-_ZH = {
-    "menu_quit": "退出",
-    "menu_open_logs": "打开日志目录",
-    "menu_check_update": "检查更新",
-    "menu_update_now": "立即更新",
-}
+_BUILTIN_ZH = {"menu_quit": "退出", "menu_open_logs": "打开日志目录"}
+_BUILTIN_EN = {"menu_quit": "Quit", "menu_open_logs": "Open log folder"}
 
-_EN = {
-    "menu_quit": "Quit",
-    "menu_open_logs": "Open log folder",
-    "menu_check_update": "Check for updates",
-    "menu_update_now": "Update now",
-}
-
-TABLES = {"zh": _ZH, "en": _EN}
+TABLES = {"zh": dict(_BUILTIN_ZH), "en": dict(_BUILTIN_EN)}
 LANG = "zh"
+
+
+def load_tables(locales_dir):
+    """从 locales_dir 合并 zh.json / en.json（数据文件，随工具分发）。失败静默。"""
+    for lang, filename in (("zh", "zh.json"), ("en", "en.json")):
+        path = os.path.join(str(locales_dir), filename)
+        try:
+            with open(path, encoding="utf-8") as f:
+                TABLES[lang].update(json.load(f))
+        except (OSError, ValueError):
+            pass
 
 
 def detect_system_lang():
@@ -41,16 +43,23 @@ def init(language="auto"):
     LANG = language if language in TABLES else "zh"
 
 
-def t(key, *args):
-    text = TABLES.get(LANG, _ZH).get(key) or _ZH.get(key) or key
+def t(key, *args, **kwargs):
+    """取词。支持 %s 与 {name} 两种填充。"""
+    text = TABLES.get(LANG, {}).get(key) or _BUILTIN_ZH.get(key) or key
     if args and "%" in text:
         text = text % args
+    if kwargs:
+        text = text.format(**kwargs)
     return text
+
+
+def available_langs():
+    return sorted(TABLES.keys())
 
 
 def load_language_from_config(config_path):
     try:
-        with open(config_path, "r", encoding="utf-8-sig") as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             return str(json.load(f).get("language", "auto"))
     except Exception:
         return "auto"
@@ -60,7 +69,7 @@ def save_language_to_config(config_path, language):
     try:
         cfg = {}
         if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8-sig") as f:
+            with open(config_path, encoding="utf-8-sig") as f:
                 cfg = json.load(f)
         cfg["language"] = language
         with open(config_path, "w", encoding="utf-8") as f:

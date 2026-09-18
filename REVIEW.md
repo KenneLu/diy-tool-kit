@@ -38,6 +38,7 @@
 | 2026-09-18 | R1 | 全家族工具 + 全部模块 | ✅ | sync_check：0 漂移 / 0 申报偏差 / 2 参数文件；模板 9 文件 py_compile 绿；本日完成接口化——dsh/ocx 的 update_helper 从"申报偏差"升级为"归一化一致" | AI |
 | 2026-09-18 | R2 | 10 模块 | ✅（2 项登记） | ① dsh/ocx 的 T5 i18n 触发条件已满足（公开仓库）但未实现 → 登记待办，按需排期；② dsh/ocx 的 T2/T3/T12 内联等构**保留现状**（不为抽象而抽象：拆文件收益低、自由度重要），需要微调时直接改工具内联代码 | AI |
 | 2026-09-18 | R3 | 3 工具（reme-helper 当日已随 v1.2.3 全套 CI 绿） | ✅ | dsh/ocx：py_compile + import + 更新逻辑（dsh 真实查到 v1.7.0）绿；l-s2t：py_compile + i18n 断言绿（当日 v1.2.0 CI 全绿佐证） | AI |
+| 2026-09-18 | R1+R2+R3 | W1 模板升级（i18n v2 数据驱动 / paths 回填 / autostart 参数化）+ W2–W4 四工具接口化重构 | ✅ 全绿 | sync_check：dsh/ocx 的 update_helper/paths/log_kit/tray_kit 归一化一致、appconfig param；l-s2t i18n v2 74 词条 JSON 断言绿；dsh/ocx py_compile+import+更新逻辑绿；三工具已 tag 发版（1.3.0/1.8.0/1.2.0） | AI |
 
 ## 四、发现登记簿（跨轮待办）
 

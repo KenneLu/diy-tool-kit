@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: paths | TEMPLATE-VER: 1.0.0
+# TEMPLATE-MODULE: paths | TEMPLATE-VER: 1.1.0
 """T2｜路径与数据区（蓝本 local-speak2text/paths.py）。
 
 四个位置，职责分明：APP_DIR 程序本体；RUN_DIR 本次运行的包；USER_DATA_DIR 用户
@@ -12,7 +12,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from appconfig import APP_ID, VERSION
+from appconfig import APP_ID
 
 if getattr(sys, "frozen", False):
     APP_DIR = Path(sys.executable).resolve().parent
@@ -30,6 +30,8 @@ CONFIG_PATH = USER_DATA_DIR / "config.json"
 LEGACY_CONFIG_PATH = APP_DIR / "config.json"   # 旧位置（exe 旁），仅播种时读一次
 
 LOG_DIR = USER_DATA_DIR / "log"
+UPDATE_DIR = USER_DATA_DIR / "update"
+UPDATE_PENDING = RUN_DIR / "update.pending.json"
 LOG_PATH = LOG_DIR / (APP_ID + ".log")
 UPDATE_DIR = USER_DATA_DIR / "update"
 
@@ -61,3 +63,20 @@ def seed_config():
     except OSError:
         pass
     return CONFIG_PATH
+
+
+def process_pending_update():
+    """（可选，T4 配套）启动兜底：处理上次会话退出时未完成的更新镜像任务。"""
+    if not UPDATE_PENDING.exists():
+        return False
+    try:
+        import json
+        info = json.loads(UPDATE_PENDING.read_text(encoding="utf-8"))
+        staged, target = Path(info["staged"]), Path(info["target"])
+        if staged.is_dir() and target.is_dir():
+            os.system(f'robocopy "{staged}" "{target}" /MIR /R:1 /W:1 /NFL /NDL /NP >nul')
+        UPDATE_PENDING.unlink(missing_ok=True)
+        shutil.rmtree(UPDATE_DIR, ignore_errors=True)
+        return True
+    except Exception:
+        return False
