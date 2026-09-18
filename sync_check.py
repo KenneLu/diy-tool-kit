@@ -116,14 +116,14 @@ def main() -> int:
                 print(f"[param] {name}/{label} (参数文件，按设计豁免)")
             elif is_declared:
                 declared.append((name, tool_file, rel))
-                print(f"[decl ] {name}/{label} deviates from _template/{rel}{ver_note} (declared override)")
+                print(f"[decl ] {name}/{label} deviates from {TEMPLATE_DIR.name}/{rel}{ver_note} (declared override)")
             else:
                 drift.append((name, tool_file, rel))
-                print(f"[DRIFT] {name}/{label} deviates from _template/{rel}{ver_note}")
+                print(f"[DRIFT] {name}/{label} deviates from {TEMPLATE_DIR.name}/{rel}{ver_note}")
 
     print()
     for name, tool_file, rel in missing:
-        print(f"[MISS ] {name}: _template/{rel} 不存在（检查头部路径）")
+        print(f"[MISS ] {name}: {TEMPLATE_DIR.name}/{rel} 不存在（检查头部路径）")
     print(f"summary: {len(drift)} undeclared drift, {len(declared)} declared override(s), "
           f"{len(params)} param file(s), {len(missing)} missing template(s)")
     if drift or missing:

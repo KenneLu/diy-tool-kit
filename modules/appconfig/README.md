@@ -1,12 +1,12 @@
 # T1 · appconfig —— 参数区（拷贝后唯一要改的文件）
 
-> 规范出处：TOOL_DEVELOPMENT.md §F2「单一真源」、执行文档 D6/D15。
+> 规范出处：STANDARDS.md §F2「单一真源」、执行文档 D6/D15。
 > 蓝本：reme-helper 的常量区 + local-speak2text/paths.py 的字段集。
 
 ## 定位
 
 工具之间的全部差异收敛到一个文件。其余模板文件拷贝后**零修改**（sync_check 按
-字节比对，见 `_template/sync_check.py`）。这是"拷贝式模板 + 稳定接口"的基石：
+字节比对，见 `my-diy-tool-template/sync_check.py`）。这是"拷贝式模板 + 稳定接口"的基石：
 模板升级时你只 diff 这个文件。
 
 ## 对外接口（稳定承诺）

@@ -1,12 +1,17 @@
-# my_diy_tools 模板库总文档（拷贝式 · 单一事实源分工）
+# my-diy-tool-template —— 家族工具模板库与开发流程框架（拷贝式）
 
-> **去重原则**：规范性条款（必须/禁止/判级）的唯一家是 [`../TOOL_DEVELOPMENT.md`](../TOOL_DEVELOPMENT.md)；
-> 本目录只放**操作层**——模块接口、采纳步骤、模板代码。两者冲突时以 TOOL_DEVELOPMENT 为准并回改这里。
+> **三件套框架**（开发新工具 = 按此顺序走完）：
+> ① **README**（本文件）——概述引导 + 模块索引 + 拼接指南；
+> ② **[STANDARDS.md](STANDARDS.md)**——家族规范正文（能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 坑清单），执行时依此；
+> ③ **[REVIEW.md](REVIEW.md)**——每次开发/修改完成后的三轮校验 + 家族工具对应关系矩阵。
+>
+> `modules/<模块>/` 是规范对应的**实现件**（模块超详细文档 + 模板代码）。
+> 规范与实现冲突时：以 STANDARDS.md 为准，回改模板并登记 REVIEW。
 
 ## 目录结构
 
 ```
-_template\
+my-diy-tool-template\
   README.md            ← 本文档：标准索引 + 拼接指南
   sync_check.py        ← T10 漂移检查（构建门禁的一个闸）
   REVIEW.md            ← 三轮复审机制 + 对应关系矩阵 + 复审记录
@@ -33,15 +38,15 @@ _template\
 
 ## 新工具拼接指南（从零到发布）
 
-1. **定级**：对照 TOOL_DEVELOPMENT §A 全表逐条过（别只看触发列——基线 8 这类挂在
+1. **定级**：对照 STANDARDS §A 全表逐条过（别只看触发列——基线 8 这类挂在
    "开源/交付他人"下的条目最容易漏，2026-09-18 实测翻过车）；
 2. **必拷**：`modules/appconfig/`（填参数）+ `modules/paths/`；
 3. **按需选模块**：托盘工具 → `tray_kit` + `log_kit` + `autostart` + `build_release`；
    公开发布 → `baseline`（双语 README）+ `update_helper`；要图标 → `icons`；双语 UI → `i18n`；
-4. 每个拷贝文件**顶部加**：`# TEMPLATE-FROM: _template/modules/<模块>/<文件> | TEMPLATE-VER: <模板版本>`；
+4. 每个拷贝文件**顶部加**：`# TEMPLATE-FROM: my-diy-tool-template/modules/<模块>/<文件> | TEMPLATE-VER: <模板版本>`；
    有意定制改加 `# TEMPLATE-LOCAL-OVERRIDE: <原因>`；
 5. `main()` 装配顺序：单实例 → paths.seed → 日志 → 自启自愈 → 托盘（D14 八段）→ 更新检查；
-6. build.bat 门禁加 sync_check 闸（本地；CI 检出不含 _template，跑不了）；
+6. build.bat 门禁加 sync_check 闸（本地；CI 检出不含 my-diy-tool-template，跑不了）；
 7. `--smoke` 写上、CHANGELOG 开张、tag `v<semver>` 发版。
 
 ## 同步与复审（摘要有意短，细节各自成文）

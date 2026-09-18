@@ -1,6 +1,6 @@
 # T6 · icons —— 代码生成双 ico
 
-> 规范出处：TOOL_DEVELOPMENT.md §G5。
+> 规范出处：STANDARDS.md §G5。
 > 蓝本：local-speak2text/icons.py + reme-helper 的多尺寸帧表。
 
 ## 定位

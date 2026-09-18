@@ -1,6 +1,6 @@
 # T8+T9 · build_release —— 门禁构建 + tag 发版链
 
-> 规范出处：TOOL_DEVELOPMENT.md §D1（构建即门禁）、§G1/G3/G4、§H 发布链规范 1–6。
+> 规范出处：STANDARDS.md §D1（构建即门禁）、§G1/G3/G4、§H 发布链规范 1–6。
 > 蓝本：local-speak2text 的 build.bat/release.bat/workflows（reme-helper 的 ASCII 教训已吸收）。
 
 ## 定位

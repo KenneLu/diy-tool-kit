@@ -1,6 +1,6 @@
 # T11 · baseline —— 仓库基线件规范（README 双语 / CHANGELOG / LICENSE / .gitignore）
 
-> 规范出处：TOOL_DEVELOPMENT.md §A1 基线 7/8、§G5「双语 README 规范」、§B1。
+> 规范出处：STANDARDS.md §A1 基线 7/8、§G5「双语 README 规范」、§B1。
 > 蓝本：reme-helper / local-speak2text 的仓库形态。
 
 ## 定位

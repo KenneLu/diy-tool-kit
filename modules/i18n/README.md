@@ -1,6 +1,6 @@
 # T5 · i18n —— 轻量中英双表
 
-> 规范出处：TOOL_DEVELOPMENT.md §E4（T1 触发）、§A2 T1 行。
+> 规范出处：STANDARDS.md §E4（T1 触发）、§A2 T1 行。
 > 蓝本：local-speak2text/i18n.py（302 行完整版）。重形态（中文即键 + AST 覆盖审计）见 reme-helper/src/i18n.py，文案量百条级才需要。
 
 ## 定位

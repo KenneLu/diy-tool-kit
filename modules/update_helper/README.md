@@ -1,6 +1,6 @@
 # T4 · update_helper —— 在线更新三段式（查 → 下 → 换）
 
-> 规范出处：TOOL_DEVELOPMENT.md §G4/G4.1、§H 发布链规范 6（zip 约定）。
+> 规范出处：STANDARDS.md §G4/G4.1、§H 发布链规范 6（zip 约定）。
 > 蓝本：reme-helper 的查-下-换设计 + local-speak2text/updater.py（稳定位形态）+ dsh/opencodex（运行目录形态）。
 > **本模块是"接口化"的旗舰案例**：dsh-helper 与 opencodex-helper 的副本与模板正文完全一致，差异全部收敛进各自的 `appconfig.py`。
 
