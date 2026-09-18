@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: icons | TEMPLATE-VER: 1.0.0
+# TEMPLATE-MODULE: icons | TEMPLATE-VER: 1.0.1
 """T6｜代码生成双 ico（蓝本 local-speak2text/icons.py）。
 
 图标由代码画出来（appconfig.ICON_DRAW），构建时喂给 PyInstaller——仓库里不进
@@ -9,7 +9,7 @@ import argparse
 
 from PIL import Image, ImageDraw
 
-from appconfig import APP_ID, ICON_DRAW
+from modules.appconfig import APP_ID, ICON_DRAW
 
 
 def make_image(size=64, **style):

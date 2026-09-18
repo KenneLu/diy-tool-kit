@@ -1,4 +1,4 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.1.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.2.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
 # 原理：扫描各工具目录里带 `# TEMPLATE-FROM: <模板库目录>/<相对路径>` 头的文件，
@@ -10,7 +10,8 @@
 #   [decl ] 内容有差异，但文件头申报了 TEMPLATE-LOCAL-OVERRIDE: <原因>
 #   [DRIFT] 内容或 VER 不一致且未申报 —— 红灯，退出码 1
 #   [param] appconfig.py —— 参数文件，按设计豁免比对
-#   [skip]  蓝本工具（BLUEPRINT_TOOLS）：模板的来源，修改应反向沉淀进模板
+#   [skip]  蓝本工具（BLUEPRINT_TOOLS）：模板的来源，修改应反向沉淀进模板；
+#           豁免是迁移中的临时态（STANDARDS B4 原则③ 全量模板化），名单只减不增
 #
 # 用法：
 #   python my-diy-tool-template/sync_check.py                    # 检查 my_diy_tools 下所有工具
@@ -32,6 +33,8 @@ def load_blueprints() -> set[str]:
     return {line.strip() for line in cfg.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")}
 FROM_RE = re.compile(r"^#\s*TEMPLATE-FROM:\s*[A-Za-z0-9_.-]+/([\w./-]+)", re.M)
+# 副本误用正本风格头（TEMPLATE-MODULE: <模块名>，无库名路径）时按模块名推导路径（1.2.0）
+MODULE_RE = re.compile(r"^#\s*TEMPLATE-MODULE:\s*([\w-]+)\s*(?:\||$)", re.M)
 VER_RE = re.compile(r"TEMPLATE-VER:\s*([\d.]+)")
 OVERRIDE_RE = re.compile(r"^#\s*TEMPLATE-LOCAL-OVERRIDE:", re.M)
 META_LINE = re.compile(r"^\s*#\s*TEMPLATE-")
@@ -65,10 +68,23 @@ def scan_tool(tool_dir: Path):
         except OSError:
             continue
         match = FROM_RE.search(head)
-        if not match:
-            continue
+        if match:
+            rel = match.group(1)
+        else:
+            mmod = MODULE_RE.search(head)
+            if not mmod:
+                continue
+            mod = mmod.group(1)
+            rel = f"modules/{mod}/{mod}.py"
+            if not (TEMPLATE_DIR / rel).exists():
+                # 布局兜底：模块文件夹下唯一 py 时按唯一者解析；否则视为无有效出处，跳过
+                mod_dir = TEMPLATE_DIR / "modules" / mod
+                cands = sorted(mod_dir.glob("*.py")) if mod_dir.is_dir() else []
+                if len(cands) != 1:
+                    continue
+                rel = cands[0].relative_to(TEMPLATE_DIR).as_posix()
         ver = VER_RE.search(head)
-        found.append((py, match.group(1), bool(OVERRIDE_RE.search(head)),
+        found.append((py, rel, bool(OVERRIDE_RE.search(head)),
                       ver.group(1) if ver else ""))
     return found
 
@@ -81,7 +97,7 @@ def main() -> int:
     parser.add_argument("--roots", nargs="*", default=sorted(
         d.name for d in ROOT.iterdir()
         if d.is_dir() and not d.name.startswith(("_", "."))
-        and d.name not in {"__pycache__"}
+        and d.name not in {"__pycache__", TEMPLATE_DIR.name}
     ), help="tool dirs under my_diy_tools (default: all non-underscore dirs)")
     args = parser.parse_args()
 
