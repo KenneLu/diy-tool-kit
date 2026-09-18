@@ -93,29 +93,32 @@
 
 ## B. 项目骨架
 
-### B1 目录结构（以托盘工具为准）
+### B1 目录结构（2026-09-18 W-h 定稿：**一级目录不出现代码**）
 
 ```text
 <TOOLS_ROOT>\                       # 各工具目录的父目录
 ├─ (规范正文已随模板库：my-diy-tool-template/STANDARDS.md)
 └─ <工具名>\                        # 一个工具一个目录（B2 登记）；目录名 = exe 名主体
-   ├─ main.py                       # 入口：托盘/命令行入口、自检子命令、事件循环
-   ├─ paths.py                      # 路径与 VERSION 单一事实源、用户数据区、迁移播种
-   ├─ i18n.py                       # 中英词表 + t()（T1 启用；未启用时文案集中常量区）
-   ├─ icons.py                      # 图标代码生成（托盘态 + 任务栏态，G5）
-   ├─ updater.py                    # 升级检查/自动升级（T10 启用）
-   ├─ <业务模块>.py                  # 业务逻辑与界面解耦，可独立自测
+   ├─ src\                          # **全部代码住这里**（业内 src layout）
+   │  ├─ main.py                    # 入口：托盘/命令行入口、自检子命令、事件循环
+   │  ├─ <业务模块>.py               # 业务逻辑与界面解耦，可独立自测
+   │  └─ modules\<模块>\             # 家族模板消费位（整文件夹：README + 代码 + __init__.py）
+   ├─ tests\                        # 测试在**顶层**、与 src 平级（业内惯例；禁止 src/tests——
+   │                                #  打包会误收集测试代码，conftest 路径也更绕）
+   ├─ resources\img\                # 手工美术资产（唯一入库的图像；代码生成图标不入库，G5）
    ├─ config.json                   # 首次运行配置模板（随源码；用户实际配置在 AppData）
-   ├─ README.md / LICENSE / CHANGELOG.md
-   ├─ build.bat                     # 门禁构建（D1）
-   ├─ release.bat                   # 打 tag 发布（T9）
+   ├─ README.md / README.zh-CN.md / LICENSE / CHANGELOG.md
+   ├─ build.bat / release.bat       # 构建与发版（bat 留一级：CRLF + ASCII-only，J 坑）
    ├─ .gitignore / .github\workflows\  # tests.yml + release.yml（T8/T9）
-   ├─ tests 或 test_*.py            # 测试（D3，按触发裁剪）
-   ├─ models\ 等大资源               # 不入 git；CI 里下载
+   ├─ asr-modules\ 等大资源          # 不入 git；CI 里下载
    └─ release\<工具名>-<版本>\       # 本机构建产物（G1）
 ```
 
-**最小可运行集合**：`main.py`、`paths.py`、`config.json`、`README.md`、`build.bat`、`.gitignore`、`LICENSE`。
+**一级目录白名单**：`src\`、`tests\`、`resources\`、`doc\`（如有）、bat、yml、md、出厂 `config.json`、大资源目录。**禁止**：任何 `.py` 出现在一级（含 main.py）。
+
+**dev 态锚定纪律（W-h 教训）**：src/ 下的模块凡以 `__file__` 锚定"仓库根/exe 旁"语义的，**必须写明锚定层级并配 dev 态自测**——模块搬家会让 `__file__` 深度变化（reme paths 深两级、l-s2t paths 一级，各按实际层级锚定并注释）；frozen 态语义（exe 旁）不受影响，但 dev 态冒烟（`--smoke`）必须实测路径断言。
+
+**最小可运行集合**：`src\main.py`、`config.json`、`README.md`、`build.bat`、`.gitignore`、`LICENSE`。
 
 ### B2 工具登记表
 
@@ -519,6 +522,8 @@ helper 的价值是让服务的启停可视、可控、可更新——而不是�
 | CI 里 PyInstaller 相对 `--add-data` | `--specpath build` 时相对路径按 spec 目录解析 → "Unable to find build\assets"；workflow 里写 `$pwd\assets;assets` 绝对路径（2026-09-17 两仓库同翻车） |
 | 多实例共享退出请求/日志文件 | 测试工具链的一次清理会误伤用户常驻托盘；数据根用 `<APP>_DATA_DIR` 整体重定向隔离（F11/D12） |
 | 本机 build 门禁全绿 ≠ CI 绿 | `--specpath`/绝对路径/`%~dp0` 这类本机语义在 CI 干净检出上才有真值；tag 前先看一次 CI 或复刻干净布局 |
+| bat 里给原生 exe 传路径用了正斜杠 | for /f 的 `findstr ... src/main.py` 会被从 `/` 处拆成开关 + 文件名，报"无法打开 main.py"；**findstr/robocopy/tasklist 等 bat 原生命令一律反斜杠**，python 程序的参数不受影响（2026-09-18 W-h dsh/l-s2t 双翻车） |
+| 脚本批量写文件把 CRLF 写成 LF | `write_text(newline="")` 会把读进来的 CRLF 按原样变 LF——**bat 变 LF 后 cmd 解析可能崩**（for/goto 行异常）；py 文件则污染 diff。脚本改完必须按 HEAD 行尾归一（2026-09-18 W-h/W-f 两轮同款事故） |
 | frozen 冒烟过 ≠ 源码态可跑 | 打包态 PyInstaller 自动收集模块，会掩盖源码态的缺导入；入口/路径引导（`sys.path` 引导、`--paths src`）必须有 dev 态 `python main.py` 实测（2026-09-18 l-s2t 入口 `Path` 未导入即 NameError，打包冒烟没拦住） |
 | commit 信息 ≠ 磁盘事实 | 声称"已改 CI 编译清单"实际文件未改——复审必走 diff，不采信转述（2026-09-18 三工具门禁路径漏改同源） |
 | py_compile 只验语法 | import 级 NameError / ModuleNotFoundError 抓不到；门禁必须含真实 import 或启动自测（frozen 冒烟不能替代 dev 态启动） |
