@@ -18,6 +18,17 @@ set VERSION=%VERSION:"=%
 set PACKAGE=<APP_ID>-%VERSION%
 set EXE=%PACKAGE%.exe
 
+rem "norun"/"nopause" args are for CI (no smoke / no pause).
+set SMILE_ARGS=%*
+
+echo [GATE] running-instance check (any version blocks the build) ...
+tasklist /fi "IMAGENAME eq %EXE%" 2>nul | find /i "<APP_ID>-" >nul
+if not errorlevel 1 (
+  echo [ERROR] %PACKAGE%*.exe is running. Exit the tray app first.
+  if /i not "%~1"=="nopause" pause
+  exit /b 1
+)
+
 echo [GATE] compile check ...
 %PY% -m py_compile main.py
 if errorlevel 1 (

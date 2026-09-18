@@ -11,7 +11,7 @@
 |---|---|
 | `README.md` + `README.zh-CN.md` | **基线 8，触发条件 = 开源/交付他人**（⚠️ 与 T1 i18n 触发无关，2026-09-18 勘误）。英文 canonical + 中文版；顶部语言切换行（英文版 `**English** \| [简体中文](README.zh-CN.md)`，中文版 `[English](README.md) \| **简体中文**`，当前语言加粗不带链接）；不是机翻直译，同信息各自地道；两份都随 release zip |
 | `CHANGELOG.md` | 每版本一节，与 tag 对应；未发版改动挂 `## Unreleased` |
-| `LICENSE` | MIT（KenneLu） |
+| `LICENSE` | MIT（版权行占位，采纳后自填） |
 | `.gitignore` | build/dist/out/release/__pycache__/*.pyc/log/config.json（数据区已在 LOCALAPPDATA，exe 旁只允许出厂模板） |
 
 ## 自查清单

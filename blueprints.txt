@@ -1,0 +1,4 @@
+# 蓝本工具名单（每行一个目录名；蓝本=模板的来源，sync_check 豁免比对）
+# 新增蓝本直接加行，无需改代码。
+local-speak2text
+reme-helper

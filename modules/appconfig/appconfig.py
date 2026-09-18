@@ -14,7 +14,7 @@ APP_ID = "my-helper"
 APP_NAME = "My Helper"
 VERSION = "1.0.0"
 
-REPO_OWNER = "KenneLu"
+REPO_OWNER = "your-github-id"
 REPO_NAME = "my-helper"
 EXE_NAME = "my-helper.exe"
 

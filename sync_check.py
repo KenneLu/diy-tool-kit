@@ -1,7 +1,7 @@
 # TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.1.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
-# 原理：扫描各工具目录里带 `# TEMPLATE-FROM: _template/<相对路径>` 头的文件，
+# 原理：扫描各工具目录里带 `# TEMPLATE-FROM: <模板库目录>/<相对路径>` 头的文件，
 # 与模板正本做**归一化哈希**比对——双方剔除 `# TEMPLATE-*` 元信息行后哈希相等
 # 即为一致（副本头标明出处，正本头标明模块身份，这两行差异不计入）。
 #
@@ -13,8 +13,8 @@
 #   [skip]  蓝本工具（BLUEPRINT_TOOLS）：模板的来源，修改应反向沉淀进模板
 #
 # 用法：
-#   python _template/sync_check.py                    # 检查 my_diy_tools 下所有工具
-#   python _template/sync_check.py --roots dsh-helper opencodex-helper
+#   python my-diy-tool-template/sync_check.py                    # 检查 my_diy_tools 下所有工具
+#   python my-diy-tool-template/sync_check.py --roots dsh-helper opencodex-helper
 
 import argparse
 import hashlib
@@ -23,9 +23,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent      # my_diy_tools/
-TEMPLATE_DIR = Path(__file__).resolve().parent     # _template/
-BLUEPRINT_TOOLS = {"local-speak2text", "reme-helper"}
-FROM_RE = re.compile(r"^#\s*TEMPLATE-FROM:\s*_template/([\w./-]+)", re.M)
+TEMPLATE_DIR = Path(__file__).resolve().parent     # 模板库根（目录名可改，逻辑不依赖）
+def load_blueprints() -> set[str]:
+    """蓝本名单从 blueprints.txt 读（每行一个目录名）——家族增长不改代码。"""
+    cfg = Path(__file__).resolve().parent / "blueprints.txt"
+    if not cfg.exists():
+        return set()
+    return {line.strip() for line in cfg.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")}
+FROM_RE = re.compile(r"^#\s*TEMPLATE-FROM:\s*[A-Za-z0-9_.-]+/([\w./-]+)", re.M)
 VER_RE = re.compile(r"TEMPLATE-VER:\s*([\d.]+)")
 OVERRIDE_RE = re.compile(r"^#\s*TEMPLATE-LOCAL-OVERRIDE:", re.M)
 META_LINE = re.compile(r"^\s*#\s*TEMPLATE-")
@@ -67,6 +73,9 @@ def scan_tool(tool_dir: Path):
     return found
 
 
+BLUEPRINTS = load_blueprints()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="template drift check")
     parser.add_argument("--roots", nargs="*", default=sorted(
@@ -78,7 +87,7 @@ def main() -> int:
 
     drift, declared, missing, params = [], [], [], []
     for name in args.roots:
-        if name in BLUEPRINT_TOOLS:
+        if name in BLUEPRINTS:
             print(f"[skip]  {name}: blueprint (template source)")
             continue
         tool_dir = ROOT / name
@@ -90,7 +99,7 @@ def main() -> int:
             template_file = TEMPLATE_DIR / rel
             if not template_file.exists():
                 missing.append((name, tool_file, rel))
-                print(f"[MISS ] {name}/{tool_file.relative_to(tool_dir)} -> _template/{rel} 不存在")
+                print(f"[MISS ] {name}/{tool_file.relative_to(tool_dir)} -> {TEMPLATE_DIR.name}/{rel} 不存在")
                 continue
             same = sha256_text(tool_file.read_text(encoding="utf-8", errors="replace")) \
                 == sha256_text(template_file.read_text(encoding="utf-8", errors="replace"))
@@ -101,7 +110,7 @@ def main() -> int:
                 ver_note = f" (VER {tool_ver} != {tpl_ver})"
             label = tool_file.relative_to(tool_dir)
             if same:
-                print(f"[ok]    {name}/{label} == _template/{rel}")
+                print(f"[ok]    {name}/{label} == {TEMPLATE_DIR.name}/{rel}")
             elif tool_file.name == "appconfig.py":
                 params.append(name)
                 print(f"[param] {name}/{label} (参数文件，按设计豁免)")
