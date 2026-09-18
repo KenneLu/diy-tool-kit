@@ -9,18 +9,18 @@
 
 | 模块 | reme-helper | local-speak2text | dsh-helper | opencodex-helper |
 |---|---|---|---|---|
-| T1 appconfig | 蓝本（常量区内联） | 蓝本（paths.py 内联） | **appconfig.py 副本（param）** | **appconfig.py 副本（param）** |
-| T2 paths | 蓝本（内联四区） | **paths.py 蓝本复制** | main.py 内联等构（声明） | main.py 内联等构（声明） |
-| T3 autostart | 蓝本（sync_autostart_path 路线） | main.py 三件套（蓝本正身） | main.py reg 版等构（声明） | main.py reg 版等构（声明） |
-| T4 update_helper | 蓝本（内联更新链） | updater.py 变体（稳定位形态，蓝本） | **副本 == 模板（归一化一致）** | **副本 == 模板（归一化一致）** |
-| T5 i18n | 蓝本（重形态） | **i18n.py 蓝本复制** | ⏳ 未启用（T1 触发条件已满足，待办） | ⏳ 同左 |
-| T6 icons | 蓝本（write_app_icon） | **icons.py 蓝本复制** | assets png（未触发改造，声明） | 无（代码画圆） |
-| T7 tray_kit | 蓝本（三循环/签名/自愈正身） | main.py 内联等构（单实例/ui_q） | main.py 内联等构（互斥体/N7 掩码） | main.py 内联等构 |
-| T8/T9 build_release | 蓝本（build+release+CI 全套） | **build.bat/release.bat/workflows 正身** | build.bat + workflows 变体（含 sync_check 闸） | 同 dsh |
-| T10 sync_check | 不适用（被审方） | 不适用（蓝本豁免） | **build.bat 门禁闸** | **build.bat 门禁闸** |
-| T12 log_kit | 蓝本（1MB×3 参数出处） | **log_kit.py 蓝本复制** | main.py 内联等构（声明） | main.py 内联等构（声明） |
+| T1 appconfig | **src/modules/appconfig 副本（param；W-f）** | 蓝本（paths.py 内联） | **src/modules/appconfig 整文件夹（param）** | **src/modules/appconfig 整文件夹（param）** |
+| T2 paths | **src/modules/paths 副本（OVERRIDE：dev RUN_DIR=仓库根；W-f）** | **paths.py 蓝本复制** | **src/modules/paths 副本 == 模板 1.1.1** | **同 dsh** |
+| T3 autostart | 内联（OVERRIDE 申报：APP_ID 键名 + sync_autostart_path 修复语义） | main.py 三件套（蓝本正身） | main.py reg 版等构（声明） | main.py reg 版等构（声明） |
+| T4 update_helper | 内联（OVERRIDE 申报：bat+备份目录链路，行为差异大） | updater.py 变体（稳定位形态，蓝本） | **src/modules/update_helper 副本 == 模板 1.0.1** | **同 dsh** |
+| T5 i18n | **src/modules/i18n 重形态模块 + pairs.json（OVERRIDE：与轻量 T5 不同构；W-f）** | **src/modules/i18n 副本 == 模板 2.1.0** | ⏳ 未启用（T1 触发条件已满足，待办） | ⏳ 同左 |
+| T6 icons | 内联（OVERRIDE 申报：运行态着色 vs 构建期静态） | **icons.py 蓝本复制** | assets png（未触发改造，声明） | 无（代码画圆） |
+| T7 tray_kit | **src/modules/tray_kit 副本·mutex 机制（OVERRIDE：显式互斥名；W-f）+ 签名/退出留 main** | main.py 内联等构（单实例/ui_q） | **src/modules/tray_kit 副本 == 模板 1.0.1** | **同 dsh** |
+| T8/T9 build_release | 蓝本（build+release+CI 全套） | **build.bat/release.bat/workflows 正身** | build.bat + workflows 变体（含 sync_check 闸、--paths src） | 同 dsh |
+| T10 sync_check | 不适用（被审方） | 不适用（蓝本豁免，临时态） | **build.bat 门禁闸** | **build.bat 门禁闸** |
+| T12 log_kit | **src/modules/log_kit 副本（OVERRIDE：root-logger 形态；W-f）** | **log_kit.py 蓝本复制** | **src/modules/log_kit 副本 == 模板 1.0.2** | **同 dsh** |
 | T11 baseline | README 双语/CHANGELOG 全齐 | 全齐 | ✅ 1.7.0 补齐 + 双语 | ✅ 1.1.0 补齐 + 双语 |
-| service_link（G4.2） | ✅ 1.2.4 已接入（退出勾选持久化 + only_attached 有界清理；ADOPTED 优雅 API 待补） | main.py 内联等构（接管设计） | ⏳ 待接入 | ⏳ 待接入（且退出签名击杀需按 G4.2 改造） |
+| service_link（G4.2） | 语义已接入 1.2.4（勾选持久化 + only_attached 有界清理）；**模块预置，状态机接线待办**（含 ADOPTED 优雅 API，REVIEW #8） | main.py 内联等构（接管设计） | ⏳ 待接入 | ⏳ 待接入（且退出签名击杀需按 G4.2 改造） |
 
 形态图例：**副本** = 与模板归一化一致的拷贝（sync_check [ok]）；`（param）` = 参数文件豁免；
 `（声明）` = 内联等构，已在 REVIEW 备案，不强制抽文件；`蓝本` = 该工具是模板的来源，sync_check 豁免。
@@ -41,6 +41,7 @@
 | 2026-09-18 | R2 | 10 模块 | ✅（2 项登记） | ① dsh/ocx 的 T5 i18n 触发条件已满足（公开仓库）但未实现 → 登记待办，按需排期；② dsh/ocx 的 T2/T3/T12 内联等构**保留现状**（不为抽象而抽象：拆文件收益低、自由度重要），需要微调时直接改工具内联代码 | AI |
 | 2026-09-18 | R3 | 3 工具（reme-helper 当日已随 v1.2.3 全套 CI 绿） | ✅ | dsh/ocx：py_compile + import + 更新逻辑（dsh 真实查到 v1.7.0）绿；l-s2t：py_compile + i18n 断言绿（当日 v1.2.0 CI 全绿佐证） | AI |
 | 2026-09-18 | R1+R2+R3 | W1 模板升级（i18n v2 数据驱动 / paths 回填 / autostart 参数化）+ W2–W4 四工具接口化重构 | ✅ 全绿 | sync_check：dsh/ocx 的 update_helper/paths/log_kit/tray_kit 归一化一致、appconfig param；l-s2t i18n v2 74 词条 JSON 断言绿；dsh/ocx py_compile+import+更新逻辑绿；三工具已 tag 发版（1.3.0/1.8.0/1.2.0） | AI |
+| 2026-09-18 | R1+R2 | W-e/W-f 收尾 + reme 全量模板化（文档三裁决后） | ✅ 全绿 | sync_check 全家族 0 漂移（模板红灯→dsh/ocx 副本同步→归零，"接口不动实现换血"首次实战：log_kit 1.0.2 回退分支 / tray_kit 1.0.1 探测函数 / i18n 2.1.0 向上查找）；reme：--smoke PASS、8 套件绿、lang-audit missing=0；l-s2t/dsh 冻结冒烟 PASS；reme 冻结冒烟留版本号落定后（W-g） | AI |
 
 ## 四、发现登记簿（跨轮待办）
 
