@@ -1,41 +1,63 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: icons | TEMPLATE-VER: 1.0.1
-"""T6｜代码生成双 ico（蓝本 local-speak2text/icons.py）。
+# TEMPLATE-MODULE: icons | TEMPLATE-VER: 2.0.0
+"""T6｜代码生成双 ico（G5）：构建期生成，仓库里不进二进制图标资源。
 
-图标由代码画出来（appconfig.ICON_DRAW），构建时喂给 PyInstaller——仓库里不进
-二进制图标资源。write_app_icons 一次生成托盘 ico（多尺寸帧）+ 任务栏小 ico。
+2.0.0：生成**流程**全部在本模板（帧表/写入/__main__ 锚定），工具只通过
+appconfig 提供图形来源，二选一：
+  ICON_DRAW(size)  -> PIL.Image   纯代码画（推荐，零美术素材；参考 l-s2t draw_mic）
+  ICON_ASSET       -> 相对仓库根的 png 路径（手工资产派生；参考 dsh，OVERRIDE 申报）
+
+生成两个 .ico：
+  <APP_ID>.ico          托盘态：16/24/32/48/64/256 帧
+  <APP_ID>-taskbar.ico  任务栏/窗口/exe：按 Windows 外壳真实索取的像素铺帧，
+                        覆盖 100%~200% DPI（标题栏/任务栏/Alt-Tab），缺档缩放发糊。
+
+build.bat 接入四件套：GATE `python src\\icons.py` -> PyInstaller `--icon
+<APP_ID>-taskbar.ico` -> 两个 ico `--add-data` 随包 -> 交付断言 taskbar ico 在位。
 """
-import argparse
+import os
+from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
-from modules.appconfig import APP_ID, ICON_DRAW
+from modules.appconfig import APP_ID, ICON_DRAW, ICON_ASSET
 
-
-def make_image(size=64, **style):
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    ICON_DRAW(d, size, **style) if _accepts_style() else ICON_DRAW(d, size)
-    return img
+TRAY_SIZES = (16, 24, 32, 48, 64, 256)
+# 100%~200% DPI 下外壳真实索取的像素档（reme-helper 同款清单）
+TASKBAR_SIZES = (16, 20, 24, 28, 30, 32, 36, 40, 42, 48, 56, 64, 96, 128, 256)
 
 
-def _accepts_style():
-    import inspect
-    return len(inspect.signature(ICON_DRAW).parameters) > 2
+def base_image():
+    """图形来源二选一：ICON_ASSET 派生（统一 256 基图）优先，否则 ICON_DRAW(256)。"""
+    if ICON_ASSET:
+        asset = Path(ICON_ASSET)
+        if not asset.is_absolute():
+            # 相对路径按仓库根语义：向上找 main.py 所在的 src/，其父级即仓库根
+            # ——与本模块所在深度无关（src/icons.py 与 src/modules/icons/ 都命中）
+            _root = next((p for p in Path(__file__).resolve().parents
+                          if (p / "main.py").exists()),
+                         Path(__file__).resolve().parents[1]).parent
+            asset = _root / asset
+        img = Image.open(asset).convert("RGBA")
+        return img.resize((256, 256), Image.LANCZOS)
+    if ICON_DRAW:
+        return ICON_DRAW(256)
+    raise RuntimeError("appconfig must provide ICON_DRAW or ICON_ASSET (G5)")
 
 
-def write_app_icons(out_dir="."):
-    tray_sizes = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
-    frame = make_image(256)
-    # PIL 的 ICO 多尺寸帧：save 一次带 sizes 即可
-    frame.save(out_dir + f"/{APP_ID}.ico", format="ICO", sizes=tray_sizes)
-    small = make_image(24).resize((24, 24))
-    small.save(out_dir + f"/{APP_ID}-taskbar.ico", format="ICO", sizes=[(16, 16), (24, 24)])
-    return {"tray": out_dir + f"/{APP_ID}.ico", "taskbar": out_dir + f"/{APP_ID}-taskbar.ico"}
+def make_icons(base_dir):
+    """在 base_dir 下生成托盘态与任务栏态两个 ico，返回 (托盘, 任务栏) 路径。"""
+    tray_path = os.path.join(base_dir, f"{APP_ID}.ico")
+    taskbar_path = os.path.join(base_dir, f"{APP_ID}-taskbar.ico")
+    img = base_image()
+    img.save(tray_path, sizes=[(s, s) for s in TRAY_SIZES])
+    img.save(taskbar_path, sizes=[(s, s) for s in TASKBAR_SIZES])
+    return tray_path, taskbar_path
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=f"generate {APP_ID} icons")
-    parser.add_argument("--out", default=".")
-    args = parser.parse_args()
-    print(write_app_icons(args.out))
+    # dev 态 ico 落仓库根：向上找 main.py 所在的 src/，其父级即根（与模块深度无关）
+    _src = next((p for p in Path(__file__).resolve().parents if (p / "main.py").exists()), None)
+    base = str(_src.parent) if _src else os.getcwd()
+    t, k = make_icons(base)
+    print("OK", t, k, "exists:", os.path.exists(t), os.path.exists(k))
