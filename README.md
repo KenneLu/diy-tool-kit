@@ -37,6 +37,11 @@ my-diy-tool-template\
 | [baseline](modules/baseline/README.md) (T11) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
 | [service_link](modules/service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | ⏳ 模板就绪，工具接入待排期 |
 
+> **"现役用户/蓝本"列的目标态（2026-09-18 用户定，STANDARDS B4 原则③）**：四个工具**全部**
+> 消费模板（`src/modules/<模块>/` 整文件夹采纳，路径统一）；"蓝本""内联等构"都是迁移中的
+> 临时形态——工具与模板合不上时，优先优化模板的接口与架构，不给工具留豁免；sync_check
+> 的豁免名单（blueprints.txt）只减不增。
+
 ## 新工具拼接指南（从零到发布）
 
 1. **定级**：对照 STANDARDS §A 全表逐条过（别只看触发列——基线 8 这类挂在
@@ -53,7 +58,9 @@ my-diy-tool-template\
 ## 同步与复审（摘要有意短，细节各自成文）
 
 - **模板升级**：改 `modules/<x>/` → 升该文件 `TEMPLATE-VER` → 各工具跑 sync_check →
-  逐工具独立 commit + 门禁绿 + semver 判级（先报后动，push 是用户决定权）；
+  逐工具独立 commit（**每个 commit 前验证修改有效**）+ 门禁绿 + semver 判级
+  （+0.0.1 可自判；**+0.1 / +1 仅用户确认**——D16；push 是用户决定权）；
+  **日常维护一般不发版，commit 累计较多才集中发版**，发版前必须人工功能回归（G3 第 6 条）；
 - **三轮复审**：R1 机械比对 / R2 语义对照 / R3 回归验证——机制、矩阵与记录见
   [REVIEW.md](REVIEW.md)。模板升位后必跑三轮；工具发版前至少跑 R1。
 

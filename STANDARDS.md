@@ -121,19 +121,19 @@
 
 | 工具 | 目录 | 一句话用途 | 版本 | 生效配置 | 日志 |
 |---|---|---|---|---|---|
-| reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.3` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
-| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.2.0` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
-| dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.7.0` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\` |
-| opencodex-helper | `opencodex-helper` | 多目标 SSH 反向隧道 + opencodex 服务控制 | `1.1.0` | `%LOCALAPPDATA%\opencodex-helper\config.json` | `%LOCALAPPDATA%\opencodex-helper\log\` |
+| reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.4` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
+| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.0` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
+| dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.8.1` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\` |
+| opencodex-helper | `opencodex-helper` | 多目标 SSH 反向隧道 + opencodex 服务控制 | `1.2.1` | `%LOCALAPPDATA%\opencodex-helper\config.json` | `%LOCALAPPDATA%\opencodex-helper\log\` |
 
-新工具追加一行；登记表是"这类问题该看哪个工具"的索引。
+新工具追加一行；登记表是"这类问题该看哪个工具"的索引。**版本列 = 磁盘当前值**（含尚未发版的本地版本；2026-09-18 起，此前滞后于源码实况——发版状态以各仓库 CHANGELOG/Release 为准）。
 
 ### B3 命名与版本
 
 | 项 | 规则 |
 |---|---|
 | 工具名 | 小写连字符，直述功能（`local-speak2text`、`reme-helper`）；目录名 = exe 名主体 = 包名前缀 |
-| 版本号 | 三段式 `主.次.修订`（semver 口径：破坏/功能/修复）；**只写在源码一处**（如 `paths.py` / `main.py`），构建脚本与 CI 用 findstr 读取，**禁止**在脚本里手写第二份。**判级规则（D15，2026-09-17 定）**：非实验版本一律从 `1.0.0` 起步；日常小功能/bug 修复 **+0.0.1**；改动累计出现较大功能性差异、或一个大功能完成 **+0.1**；业务方向性巨变 **+1**（极少）。日常开发基本就是 +0.0.1 |
+| 版本号 | 三段式 `主.次.修订`（semver 口径：破坏/功能/修复）；**只写在源码一处**（如 `paths.py` / `main.py`），构建脚本与 CI 用 findstr 读取，**禁止**在脚本里手写第二份。**判级规则（D15，2026-09-17 定）**：非实验版本一律从 `1.0.0` 起步；日常小功能/bug 修复 **+0.0.1**；改动累计出现较大功能性差异、或一个大功能完成 **+0.1**；业务方向性巨变 **+1**（极少）。日常开发基本就是 +0.0.1。**判级权限与 commit/发版纪律（D16，2026-09-18 用户定）**：`+0.0.1` AI 可判级，但**每个 commit 前必须验证修改有效**；`+0.1` 与 `+1` **只能由用户确认，禁止自行判级**；一次需做多处独立调整时可连续 commit，但升版 + push 发版前必须整轮回归验证。发版节奏见 G3 第 6 条 |
 | exe 命名 | **exe 不带版本号**——开机自启注册表存的是 exe 完整路径，带版本号每次升级都留死链；版本号由 release 文件夹与 zip 名承担 |
 | 发布目录 | `release\<工具名>-<版本>\`，一版一目录，已存在即拒绝构建（可复现）；本机构建不发布，发布物来自 CI（G3） |
 | 用户配置 | `%LOCALAPPDATA%\<工具名>\config.json`；凭据单独文件且不入库 |
@@ -152,12 +152,19 @@
 - 复审节奏：模板升位后三轮必跑（机械/语义/回归）；工具发版前至少跑 R1 机械比对；
 - dsh/opencodex 的 `update_helper` 已与模板归一化一致（差异收敛进各自 `appconfig.py`）——这是"改模板一处、同步全家族"的样板。
 
-**两条原则（执行文档沉淀）**：① **拷贝式优先，不为抽象而抽象**——业务特性导致的分叉以
+**三条原则（执行文档沉淀）**：① **拷贝式优先，不为抽象而抽象**——业务特性导致的分叉以
   `TEMPLATE-LOCAL-OVERRIDE` 声明留痕，不强抽接口；能一致的一致，不能一致的自由度优先；
   ② **执行文档跟着项目走**——每个项目自带执行文档（需求/事实/决策/执行记录），结项后长期
-  有效的部分沉淀进本文件与模块文档，项目档案随即归档。
+  有效的部分沉淀进本文件与模块文档，项目档案随即归档；
+  ③ **全量模板化，不搞特殊（2026-09-18 用户定）**——四个工具一律消费模板（`src/modules/<模块>/`
+  整文件夹采纳：README + 代码 + `__init__.py`，路径四工具统一）；工具与模板合不上时，
+  **优先优化模板的接口与架构去吸收差异**（在保证可读性与维护性的前提下），而不是给单个工具
+  留旁门；**代码与数据配表分离**是底线（词表、配置表一律外置为数据文件）。颗粒度护栏
+  （抽的三条件 / 不抽的三个信号，见执行文档 §1.4）继续有效——它管"抽多粗"，本条管"必须往模板收敛"。
 
-**防漂移四件套**：① 拷贝文件头保留 `# TEMPLATE-FROM: my-diy-tool-template/xxx.py | TEMPLATE-VER: 1.0.0`；② `sync_check.py` 哈希比对点名漂移；③ 用模板件的工具，门禁加一步 sync_check；④ 有意定制在文件头申报 `# TEMPLATE-LOCAL-OVERRIDE: <原因>`，sync_check 列为"已申报偏差"而非报错。模板修 bug → `TEMPLATE-VER` 升位 → 逐工具独立 commit + 门禁绿 + semver 判级（先报后动）。`local-speak2text` 是模板来源（blueprint），sync_check 里登记豁免——它的修改应反向沉淀进模板。
+**防漂移四件套**：① 拷贝文件头保留 `# TEMPLATE-FROM: my-diy-tool-template/xxx.py | TEMPLATE-VER: 1.0.0`；② `sync_check.py` 哈希比对点名漂移；③ 用模板件的工具，门禁加一步 sync_check；④ 有意定制在文件头申报 `# TEMPLATE-LOCAL-OVERRIDE: <原因>`，sync_check 列为"已申报偏差"而非报错。模板修 bug → `TEMPLATE-VER` 升位 → 逐工具独立 commit + 门禁绿 + semver 判级（先报后动）。`blueprints.txt`（现：local-speak2text、reme-helper）登记的是**模板来源与待对齐工具**——
+豁免是**迁移中的临时态**，不是永久身份：目标态是四工具全部消费模板（原则③），名单**只减不增**；
+蓝本的实现差异应反向沉淀进模板，对齐完成后即从名单移除该行。
 
 **实例隔离纪律（硬性，F11/D12）**：测试、构建脚本、CI 里跑的实例**必须**用 `<大写工具名>_DATA_DIR` 重定向独立数据区，严禁与用户常驻实例共享 config / log / quit.request 等任何落盘文件——否则工具链的一次清理会带走用户的托盘（2026-09-17 reme-helper"闪退"事件的直接教训）。
 
@@ -192,6 +199,8 @@
 | 升级 | **检查-下载-校验-暂存-退出替换** | `check_update` / `download_update` / `prepare_update_cmd` | sha256 必查；退出时一次性 cmd 做 robocopy /MIR |
 | 图标 | **代码生成双图标** | `icons.py` → 托盘态 + 任务栏态 ico | 15 档帧尺寸铺满高 DPI |
 | 更新源 | **update_repo 配置** | `owner/repo` | 未配置时更新功能静默降级 |
+| 模板收敛 | **全量模板化（不搞特殊）** | `src/modules/<模块>/` 整文件夹 | 四工具一律消费模板；合不上优先改模板接口；代码/数据配表分离（B4③） |
+| 发版闸 | **人工回归闸**（D16） | 发版 = 升版+tag+push 前必经 | 自动化可代跑门禁，人工功能回归不可省；日常维护不发版、commit 累计较多集中发版 |
 
 ---
 
@@ -292,7 +301,7 @@ harness 测试缝（T6）：界面测试通过窗口构建后的回调拿操作�
 - 词表覆盖所有用户可见文案：托盘菜单、浮窗/状态条、通知、对话框标题、错误信息。**数据不动**：路径、模型名、用户输入不参与翻译。
 - **词表即数据（2026-09-18）**：词条放 `locales/zh.json` + `locales/en.json`，加词条只改数据文件不改代码——模板 `modules/i18n/`（v2.0.0）机制与词表分离。
 - 门禁：关键键 zh/en 双语断言进构建（D1 门禁 2）；启用 T5 后加静态覆盖扫描。
-- reme-helper 的重形态（中文即键 + 片段组合翻译 + AST 覆盖率 + 全树扫描）适用于文案量大（百条级）的工具；小工具用轻量形态即可，但**词表必须从第一天建**，事后补成本翻倍。
+- reme-helper 的重形态（中文即键 + 片段组合翻译 + AST 覆盖率 + 全树扫描）适用于文案量大（百条级）的工具；小工具用轻量形态即可，但**词表必须从第一天建**，事后补成本翻倍。轻/重是**数据格式**分叉，机制层的"词表即数据"底线两形态通用（重形态 2026-09-18 起词表外置 `pairs.json`，加词条同样只改数据不改代码）。
 
 ### E5 交互规范（必须，GUI 类）
 
@@ -363,6 +372,7 @@ release\<工具名>-<版本>\
 3. **发布物特征**：Release 标题 = `<工具名>-<版本>`；资产 = `<工具名>-<版本>-windows-x64.zip` + `.sha256`；zip 里的 exe **不带版本号**。用户解压即用；工具内「检查更新」读的正是这个 Release 的 tag。
 4. **手动触发 release.yml ≠ 发版**：`workflow_dispatch` 只构建并上传 artifact（dry-run 语义），发布步骤被 `if: startsWith(github.ref, 'refs/tags/v')` 拦住。想验证构建又不想发版，用手动触发。
 5. **tag 与版本必须一致**：tag 从 `paths.py` 读出来的版本生成（release.bat 自动做）；tag 打错版本号，Release 会出现但工具内升级检查比对的是源码 VERSION，会造成混乱——发现打错立刻删 tag 重打（未发布前零成本）。
+6. **发版节奏与人工回归闸（D16，2026-09-18 用户定）**：**日常维护一般不发版，commit 累计较多才集中发版**；发版动作 = 升版本号 + 打 tag + push，动手前必须通过**人工功能回归**（按验证清单实试四工具），自动化可以代跑门禁/构建/检查，但**禁止"自动升版 + 自动 push 发版"的无人连招**。第 5 条 tag 一致性纪律不变。
 
 **双语 README 规范（对应基线 8，reme-helper 形态）**：
 
@@ -448,7 +458,7 @@ helper 的价值是让服务的启停可视、可控、可更新——而不是�
 1. **发版一律 tag 触发**：本地不打构建包发布——`release.bat` 打 `v<VERSION>` tag 并推送，`release.yml` 在 CI 干净检出上构建、出 zip+sha256、发布 GitHub Release。手动 `workflow_dispatch` 只出工件不发布（dry-run 语义写进 run-name）。本机构建品只用于开发自测。
 2. **CI 依赖清单必须入库**：`requirements.txt` 是 CI 的硬依赖——`actions/setup-python` 开了 `cache: pip` 而仓库没有依赖清单会**直接报错**（2026-09-17 实测翻车）。装什么、build 需要什么（pyinstaller）都要列全。
 3. **CI 拿不到的大资源在 workflow 里下载**：模型等大文件不入 git，tests/release workflow 里显式下载到 CI 期待的位置，或在无资源时明确跳过并说明。
-4. **推送与版本号授权（协作规范，非技术）**：push 需用户明确指令，"测试通过"只是质量确认；版本号变更先报判级再动手。细则见 ReMe `git-commit-discipline.md` 规则 6/7。
+4. **推送与版本号授权（协作规范，非技术）**：push 需用户明确指令，"测试通过"只是质量确认；版本号变更先报判级再动手——**+0.1 / +1 仅用户可确认（D16）**。细则见 ReMe `git-commit-discipline.md` 规则 6/7 与 G3 第 6 条。
 5. **远端历史重写（force push）只在小窗口期允许**：仓库新建无协作者、无 tag、无 Release 时可整历史压平重推；一旦有他人克隆或已有 Release，禁止改写远端。
 6. **更新包 zip 约定（2026-09-17 定）**：zip 内一层 `<工具名>-<版本>/` 目录 + 同名 `.sha256` 附件；`update_helper` 按此解析暂存目录与校验。CI 的 `--add-data` 用 `$pwd\<dir>` 绝对路径（见 J 坑清单）。
 
@@ -509,3 +519,6 @@ helper 的价值是让服务的启停可视、可控、可更新——而不是�
 | CI 里 PyInstaller 相对 `--add-data` | `--specpath build` 时相对路径按 spec 目录解析 → "Unable to find build\assets"；workflow 里写 `$pwd\assets;assets` 绝对路径（2026-09-17 两仓库同翻车） |
 | 多实例共享退出请求/日志文件 | 测试工具链的一次清理会误伤用户常驻托盘；数据根用 `<APP>_DATA_DIR` 整体重定向隔离（F11/D12） |
 | 本机 build 门禁全绿 ≠ CI 绿 | `--specpath`/绝对路径/`%~dp0` 这类本机语义在 CI 干净检出上才有真值；tag 前先看一次 CI 或复刻干净布局 |
+| frozen 冒烟过 ≠ 源码态可跑 | 打包态 PyInstaller 自动收集模块，会掩盖源码态的缺导入；入口/路径引导（`sys.path` 引导、`--paths src`）必须有 dev 态 `python main.py` 实测（2026-09-18 l-s2t 入口 `Path` 未导入即 NameError，打包冒烟没拦住） |
+| commit 信息 ≠ 磁盘事实 | 声称"已改 CI 编译清单"实际文件未改——复审必走 diff，不采信转述（2026-09-18 三工具门禁路径漏改同源） |
+| py_compile 只验语法 | import 级 NameError / ModuleNotFoundError 抓不到；门禁必须含真实 import 或启动自测（frozen 冒烟不能替代 dev 态启动） |
