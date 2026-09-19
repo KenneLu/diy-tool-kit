@@ -40,6 +40,15 @@ Follow-up in the same round (two corrections):
   wrong and had been copied byte-for-byte into all four tools. No VER bump: module
   READMEs are unversioned prose, and the interface itself (`<APP_ID-derived>_CONFIG`)
   is unchanged — only the stale exception note is gone.
+- **Module-level OVERRIDE covers the README** — when any `.py` in a tool's module dir
+  declares `TEMPLATE-LOCAL-OVERRIDE`, the whole module is intentionally diverged, so its
+  README cannot match the template: that mismatch now reports `[decl]` instead of
+  `[DIFF]` (reme's heavy-form `i18n/`). `[NOHDR]` is now emitted only for `.py`; the
+  `.md` path never suggests "add a header", because that is the forbidden action.
+
+Self-proof (three samples, reproducible): (A) header-bearing `.md` → `[DIFF]`;
+(B) byte-identical `.md` → `[ok]`; (C) module with `TEMPLATE-LOCAL-OVERRIDE` and a
+differing README → `[decl]`. All three keep the exit code at 0.
 
 ## 2026-09-19 (template freeze: sync_check 1.3.0 + three module fixes)
 

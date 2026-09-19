@@ -36,6 +36,9 @@
 #           代码副本设计的（剔掉 TEMPLATE-* 行再比哈希），而 markdown 标题也以 `#` 开头，
 #           沿用会静默吞掉 `# TEMPLATE-FROM:`，使"带头/不带头"都判相等。故 .md：
 #           要么逐字节相同（[ok]），要么 [DIFF]；**不产生 [NOHDR]**，也不参与头/VER 判定。
+#           例外：若同模块的任一 .py 已申报 TEMPLATE-LOCAL-OVERRIDE（整模块有意分叉，
+#           如 reme 的重形态 i18n），其 README 差异记 [decl]（已申报），不记 [DIFF]。
+#           [NOHDR] 仅保留给 .py —— 那里 TEMPLATE 头是必需品；文档不需要也不应有头。
 #
 # 用法：
 #   python my-diy-tool-template/sync_check.py                    # 检查 my_diy_tools 下所有工具
@@ -208,9 +211,13 @@ def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
     if not template_file.exists():
         return "miss", "", tool_ver, "?"
     if tool_file.suffix.lower() == ".md":
-        # 非代码件：逐字节比，绝不做"头/VER/申报"判定（口径见 CONFORMANCE §4.1.10a）
+        # 非代码件：逐字节比，不做"头/VER"判定（口径见 CONFORMANCE §4.1.10a）。
+        # 但**模块级** OVERRIDE 例外：整个模块是有意分叉时（如 reme 重形态 i18n），
+        # 其 README 不可能与正本一致，应记 [decl] 而非 [DIFF]——差异已申报，不是漂移。
         if sha256_bytes(tool_file) == sha256_bytes(template_file):
             return "ok", "", "", "?"
+        if is_declared:
+            return "decl", "", "", "?"
         return "diff", "", "", "?"
     same = sha256_text(read_text(tool_file)) == sha256_text(read_text(template_file))
     m = VER_RE.search(read_text(template_file))
@@ -316,6 +323,12 @@ def main() -> int:
             mod_dir = tool_dir / "src" / "modules" / mod
             if mod_dir.is_dir():
                 consumed.add(mod)
+            # 模块级申报：该工具模块目录里任一 .py 带 TEMPLATE-LOCAL-OVERRIDE，
+            # 即视整模块为有意分叉；其 README 差异随之记 [decl] 而非 [DIFF]。
+            mod_declared = mod_dir.is_dir() and any(
+                OVERRIDE_RE.search(read_text(f)[:4096])
+                for f in mod_dir.rglob("*.py")
+                if f.is_file() and not (set(f.parts) & SCAN_SKIP_DIRS))
             for tpl_py in pys:
                 tpl_rel = tpl_py.relative_to(TEMPLATE_DIR).as_posix()
                 cand = mod_dir / tpl_py.relative_to(TEMPLATE_DIR / "modules" / mod)
@@ -332,11 +345,13 @@ def main() -> int:
                     continue
                 head = read_text(cand)[:4096]
                 mver = VER_RE.search(head)
+                # .md 用模块级申报；.py 仍用文件级申报
+                decl_here = (mod_declared if cand.suffix.lower() == ".md"
+                             else bool(OVERRIDE_RE.search(head)))
                 kind, note, tv, pv = compare(
-                    cand, tpl_rel, is_blueprint, bool(OVERRIDE_RE.search(head)),
+                    cand, tpl_rel, is_blueprint, decl_here,
                     mver.group(1) if mver else "", has_template_header(head))
-                emit(kind, name, tool_dir, cand, tpl_rel, note, tv, pv,
-                     bool(OVERRIDE_RE.search(head)))
+                emit(kind, name, tool_dir, cand, tpl_rel, note, tv, pv, decl_here)
 
         # ③ 模板有、工具没有 → 整模块缺失（黄灯）
         for mod in sorted(tpl_modules):
