@@ -34,7 +34,8 @@ CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__
 > **绝不产生 `[NOHDR]`**，也不参与头/VER 判定。
 > **唯一例外（模块级 OVERRIDE）**：同模块任一 `.py` 已申报 `TEMPLATE-LOCAL-OVERRIDE` 时，
 > 整模块属有意分叉，其 README 不可能一致 → 记 `[decl]`（已申报），不记 `[DIFF]`
-> （实例：reme 重形态 `i18n/`）。`[NOHDR]` **仅保留给 `.py`**。
+> （实例：reme 重形态 `i18n/`）。输出带**申报来源**（如 `(declared via __init__.py)`），
+> 让"有意分叉"与"漏拷"一眼可分。`[NOHDR]` **仅保留给 `.py`**。
 >
 > **反向自证（已固化为可重复执行的回归样本）**：`python my-diy-tool-template/sync_check.py --selftest`
 > —— A 带头 `.md` → `[DIFF]`；B 逐字节相同 → `[ok]`；C 模块 `.py` 带 OVERRIDE 且 README 不同

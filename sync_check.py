@@ -219,7 +219,8 @@ def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
         if sha256_bytes(tool_file) == sha256_bytes(template_file):
             return "ok", "", "", "?"
         if is_declared:
-            return "decl", "", "", "?"
+            # is_declared 此处是**申报来源文件名**（字符串），带到输出里让"有意分叉"一眼可辨
+            return "decl", f" (declared via {is_declared})", "", "?"
         return "diff", "", "", "?"
     same = sha256_text(read_text(tool_file)) == sha256_text(read_text(template_file))
     m = VER_RE.search(read_text(template_file))
@@ -238,7 +239,7 @@ def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
     if is_blueprint and behind:
         return "lag", note, tool_ver, tpl_ver
     if is_declared:
-        return "decl", note, tool_ver, tpl_ver
+        return "decl", note + " (declared override)", tool_ver, tpl_ver
     return "drift", note, tool_ver, tpl_ver
 
 
@@ -268,12 +269,12 @@ def selftest() -> int:
         a.mkdir(parents=True)
         (a / "README.md").write_bytes(
             b"# TEMPLATE-FROM: my-diy-tool-template/modules/paths/README.md\n" + tpl_bytes)
-        cases.append(("A header-bearing .md", a / "README.md", False, "diff"))
+        cases.append(("A header-bearing .md", a / "README.md", False, "diff", None))
 
         b = base / "b" / "src" / "modules" / "paths"
         b.mkdir(parents=True)
         (b / "README.md").write_bytes(tpl_bytes)
-        cases.append(("B byte-identical .md", b / "README.md", False, "ok"))
+        cases.append(("B byte-identical .md", b / "README.md", False, "ok", None))
 
         c = base / "c" / "src" / "modules" / "paths"
         c.mkdir(parents=True)
@@ -282,14 +283,16 @@ def selftest() -> int:
             "# TEMPLATE-FROM: my-diy-tool-template/modules/paths/paths.py | TEMPLATE-VER: 1.1.3\n"
             "# TEMPLATE-LOCAL-OVERRIDE: selftest - module intentionally diverged\n"
             "X = 1\n", encoding="utf-8")
-        cases.append(("C module-level OVERRIDE .md", c / "README.md", True, "decl"))
+        cases.append(("C module-level OVERRIDE .md", c / "README.md", "paths.py",
+                      "decl", "declared via paths.py"))
 
         failed = 0
-        for label, cand, declared, want in cases:
-            got = compare(cand, rel, False, declared, "", False)[0]
-            ok = got == want
+        for label, cand, declared, want, want_note in cases:
+            got, note = compare(cand, rel, False, declared, "", False)[:2]
+            ok = got == want and (want_note is None or want_note in note)
             failed += 0 if ok else 1
-            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: got {got}, want {want}")
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: "
+                  f"got {got}{note!r}, want {want}")
         print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
         return 1 if failed else 0
     finally:
@@ -345,7 +348,7 @@ def main() -> int:
             print(f"[lag]  {name}/{leaf} lags {TEMPLATE_DIR.name}/{rel}{note}{dec}")
         elif kind == "decl":
             declared.append((name, tool_file, rel))
-            print(f"[decl ] {name}/{leaf} deviates from {TEMPLATE_DIR.name}/{rel}{note} (declared override)")
+            print(f"[decl ] {name}/{leaf} deviates from {TEMPLATE_DIR.name}/{rel}{note}")
         elif kind == "drift":
             drift.append((name, tool_file, rel))
             print(f"[DRIFT] {name}/{leaf} deviates from {TEMPLATE_DIR.name}/{rel}{note}")
@@ -383,10 +386,14 @@ def main() -> int:
                 consumed.add(mod)
             # 模块级申报：该工具模块目录里任一 .py 带 TEMPLATE-LOCAL-OVERRIDE，
             # 即视整模块为有意分叉；其 README 差异随之记 [decl] 而非 [DIFF]。
-            mod_declared = mod_dir.is_dir() and any(
-                OVERRIDE_RE.search(read_text(f)[:4096])
-                for f in mod_dir.rglob("*.py")
-                if f.is_file() and not (set(f.parts) & SCAN_SKIP_DIRS))
+            # 记下**申报来源文件名**，输出里带上，便于与"漏拷"一眼区分。
+            mod_declared = ""
+            if mod_dir.is_dir():
+                for f in sorted(mod_dir.rglob("*.py")):
+                    if (f.is_file() and not (set(f.parts) & SCAN_SKIP_DIRS)
+                            and OVERRIDE_RE.search(read_text(f)[:4096])):
+                        mod_declared = f.name
+                        break
             for tpl_py in pys:
                 tpl_rel = tpl_py.relative_to(TEMPLATE_DIR).as_posix()
                 cand = mod_dir / tpl_py.relative_to(TEMPLATE_DIR / "modules" / mod)
