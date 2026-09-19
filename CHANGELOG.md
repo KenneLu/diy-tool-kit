@@ -25,6 +25,22 @@ Measured after the change: 0 drift; 9 `[NOHDR]` (reme's 5 module READMEs, dsh/oc
 appconfig READMEs, reme i18n ×2) and 6 `[MISSING-FILE]` (dsh/l-s2t/ocx each missing
 `icons/README.md` and `icons/__init__.py`). Yellow only; exit code stays 0.
 
+Follow-up in the same round (two corrections):
+
+- **`.md` now compares byte-for-byte and reports `[DIFF]`, never `[NOHDR]`**
+  (CONFORMANCE §4.1.10a). The line-stripping normaliser was built for *code* copies
+  (drop the provenance header, then hash); markdown headings also start with `#`, so a
+  `# TEMPLATE-FROM:` line would be silently dropped and a header-carrying README would
+  compare equal to a header-less one. Policy: module READMEs carry **no** TEMPLATE
+  header and must be byte-identical. Self-proved by planting a header-bearing README
+  copy in a scratch tool: it reports `[DIFF]`, exit code stays 0.
+- **`modules/paths/README.md:18` corrected** — it still claimed l-s2t's
+  `LOCALSPEAK2TEXT_*` was "the one known exception" to the env-var derivation. That
+  exception no longer exists (l-s2t renamed to `LOCAL_SPEAK2TEXT_*`); the sentence was
+  wrong and had been copied byte-for-byte into all four tools. No VER bump: module
+  READMEs are unversioned prose, and the interface itself (`<APP_ID-derived>_CONFIG`)
+  is unchanged — only the stale exception note is gone.
+
 ## 2026-09-19 (template freeze: sync_check 1.3.0 + three module fixes)
 
 This round closes the "one-of-five" blind spots the conformance audit found, then

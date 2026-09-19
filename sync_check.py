@@ -31,6 +31,11 @@
 #   [MISSING-FILE] 模块已被采纳（目录在，或有文件申报来自该模块），但模板里的某个件
 #           工具侧没有（例：模板新增 `icons/__init__.py` 或模块 `README.md` 而工具未拷）
 #           —— 黄灯（复核员实测漏检）。
+#   [DIFF]  非代码件（.md）与正本**逐字节不一致** —— 黄灯（§4.1.10a）。
+#           口径：模块 README 与正本**逐字节一致、不带任何 TEMPLATE 头**——头机制是为
+#           代码副本设计的（剔掉 TEMPLATE-* 行再比哈希），而 markdown 标题也以 `#` 开头，
+#           沿用会静默吞掉 `# TEMPLATE-FROM:`，使"带头/不带头"都判相等。故 .md：
+#           要么逐字节相同（[ok]），要么 [DIFF]；**不产生 [NOHDR]**，也不参与头/VER 判定。
 #
 # 用法：
 #   python my-diy-tool-template/sync_check.py                    # 检查 my_diy_tools 下所有工具
@@ -80,8 +85,22 @@ LEGACY_ALIAS = {
 
 
 def sha256_text(text: str) -> str:
+    """代码副本用：剔除 `# TEMPLATE-*` 元信息行后归一化哈希。"""
     norm = "\n".join(line for line in text.splitlines() if not META_LINE.match(line))
     return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+
+
+def sha256_bytes(path: Path) -> str:
+    """非代码件（.md）用：**逐字节哈希、不剔任何行**。
+
+    剔行归一化是为**代码副本**设计的（去掉出处声明行再比）。markdown 标题也以 `#`
+    开头，若沿用剔行，`# TEMPLATE-FROM:` 会被静默吞掉 —— "带头的 README"与"不带头的
+    README"会比对成相等（CONFORMANCE §4.1.10a）。故 .md 必须逐字节比。
+    """
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
 
 
 def ver_tuple(ver: str) -> tuple:
@@ -117,9 +136,16 @@ def is_scan_target(path: Path) -> bool:
 
 
 def scan_tool(tool_dir: Path):
-    """头部通道：返回 [(tool_file, template_rel, declared, tool_ver)]。"""
+    """头部通道：返回 [(tool_file, template_rel, declared, tool_ver)]。
+
+    **只收 .py**：头部机制是为**代码副本**设计的（剔掉出处行再比哈希）。模块 README
+    按口径不带任何 TEMPLATE 头、与正本逐字节一致（CONFORMANCE §4.1.10a），因此 .md
+    一律走布局通道，绝不在这里被头解析。
+    """
     found = []
-    for py in sorted(p for p in tool_dir.rglob("*") if p.is_file() and is_scan_target(p)):
+    for py in sorted(p for p in tool_dir.rglob("*")
+                     if p.is_file() and p.suffix.lower() == ".py"
+                     and not (set(p.parts) & SCAN_SKIP_DIRS)):
         head = read_text(py)[:4096]
         match = FROM_RE.search(head)
         if match:
@@ -128,8 +154,6 @@ def scan_tool(tool_dir: Path):
             mmod = MODULE_RE.search(head)
             if not mmod:
                 continue
-            if py.suffix.lower() != ".py":
-                continue   # TEMPLATE-MODULE 只用于推导 <模块>.py / __init__.py，非 .py 不适用
             mod = mmod.group(1)
             # `TEMPLATE-MODULE: <模块>` 只标模块，不标文件名：__init__.py 必须映射到
             # 模板的同名 __init__.py（1.3.0 起模板 __init__.py 也带此头，否则会拿
@@ -175,10 +199,19 @@ def template_modules() -> dict:
 
 def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
             tool_ver: str, has_header: bool):
-    """返回 (kind, note, tool_ver, tpl_ver)；kind ∈ miss/ok/param/nohdr/lag/decl/drift。"""
+    """返回 (kind, note, tool_ver, tpl_ver)。
+
+    kind ∈ miss/ok/param/nohdr/lag/decl/drift（.py 语义）
+         ∪ diff（.md：逐字节不一致 —— 黄灯，不引入 NOHDR）。
+    """
     template_file = TEMPLATE_DIR / rel
     if not template_file.exists():
         return "miss", "", tool_ver, "?"
+    if tool_file.suffix.lower() == ".md":
+        # 非代码件：逐字节比，绝不做"头/VER/申报"判定（口径见 CONFORMANCE §4.1.10a）
+        if sha256_bytes(tool_file) == sha256_bytes(template_file):
+            return "ok", "", "", "?"
+        return "diff", "", "", "?"
     same = sha256_text(read_text(tool_file)) == sha256_text(read_text(template_file))
     m = VER_RE.search(read_text(template_file))
     tpl_ver = m.group(1) if m else "?"
@@ -223,13 +256,17 @@ def main() -> int:
     args = parser.parse_args()
 
     tpl_modules = template_modules()
-    drift, declared, missing, params, lags, nohdr, miss_mod, miss_file = (
-        [], [], [], [], [], [], [], [])
+    drift, declared, missing, params, lags, nohdr, miss_mod, miss_file, diffs = (
+        [], [], [], [], [], [], [], [], [])
 
     def emit(kind, name, tool_dir, tool_file, rel, note, tool_ver, tpl_ver, is_declared):
         leaf = tool_file.relative_to(tool_dir)
         if kind == "ok":
             print(f"[ok]    {name}/{leaf} == {TEMPLATE_DIR.name}/{rel}{note}")
+        elif kind == "diff":
+            diffs.append((name, tool_file, rel))
+            print(f"[DIFF]  {name}/{leaf} != {TEMPLATE_DIR.name}/{rel}"
+                  f" —— 模块文档须与正本逐字节一致、不带任何 TEMPLATE 头（§4.1.10a）")
         elif kind == "param":
             params.append(name)
             print(f"[param] {name}/{leaf} (参数文件，按设计豁免)")
@@ -311,18 +348,19 @@ def main() -> int:
     print()
     for name, tool_file, rel in missing:
         print(f"[MISS ] {name}: {TEMPLATE_DIR.name}/{rel} 不存在（检查头部路径）")
-    if lags or nohdr or miss_mod or miss_file:
+    if lags or nohdr or miss_mod or miss_file or diffs:
         print(f"needs human decision (yellow, non-blocking): "
-              f"lag={len(lags)}, nohdr={len(nohdr)}, missing-module={len(miss_mod)}, "
-              f"missing-file={len(miss_file)}"
+              f"lag={len(lags)}, diag-md-diff={len(diffs)}, nohdr={len(nohdr)}, "
+              f"missing-module={len(miss_mod)}, missing-file={len(miss_file)}"
               f" —— 见 my-diy-tool-template/ALIGNMENT.md 对应格子")
     print(f"summary: {len(drift)} undeclared drift, {len(lags)} blueprint lag(s), "
           f"{len(declared)} declared override(s), {len(params)} param file(s), "
-          f"{len(nohdr)} no-header mismatch(es), {len(miss_mod)} missing module(s), "
-          f"{len(miss_file)} missing file(s), {len(missing)} missing template(s)")
+          f"{len(diffs)} doc byte-diff(s), {len(nohdr)} no-header mismatch(es), "
+          f"{len(miss_mod)} missing module(s), {len(miss_file)} missing file(s), "
+          f"{len(missing)} missing template(s)")
     if drift or missing:
         print("fix: 把模板修复同步到该工具（独立 commit + 门禁绿），或在文件头申报 TEMPLATE-LOCAL-OVERRIDE。")
-        print("     [NOHDR]/[MISSING-MODULE]/[lag] 为黄灯：需人判断跟/不跟，不阻断门禁。")
+        print("     [DIFF]/[NOHDR]/[MISSING-MODULE]/[MISSING-FILE]/[lag] 为黄灯：需人判断跟/不跟，不阻断门禁。")
         return 1
     return 0
 

@@ -23,9 +23,15 @@ CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__
 （模块 README 隐身）均已闭环。
 
 > **「整文件夹采纳」的正式定义（1.4.0 固化）**：一个模块被采纳 =
-> **`README.md` + `__init__.py` + 代码文件**，三者都要与模板**归一化一致**（哈希级）。
+> **`README.md` + `__init__.py` + 代码文件**，三者都要与模板一致。
+> `.py` 按**归一化哈希**（剔 `TEMPLATE-*` 行）；**`.md` 按逐字节哈希**。
 > 只给 `.py` 装闸而让 `README.md` 无闸，等于"模块文档可以无限漂移"——这正是第 4 盲区。
 > 模板专属目录（`baseline/`、`build_release/`）**不适用**本定义：它们不拷贝进 `src/modules/`。
+>
+> **`.md` 口径（CONFORMANCE §4.1.10a）**：模块 README **不带任何 TEMPLATE 头，与正本逐字节一致**。
+> 头机制是为代码副本设计的（剔掉出处行再比哈希），而 markdown 标题也以 `#` 开头，沿用会把
+> `# TEMPLATE-FROM:` 静默吞掉，使"带头/不带头"都判相等。故 `.md`：要么 `[ok]`，要么 `[DIFF]`，
+> **绝不产生 `[NOHDR]`**，也不参与 VER/OVERRIDE 判定。
 
 | 状态 | 含义 | sync_check 标签 | 阻断退出码 |
 |---|---|---|---|
@@ -37,6 +43,7 @@ CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__
 | `INLINE` | 工具内联实现，不在 `src/modules/<模块>/` 也无头 | 由 `[MISSING-MODULE]` 间接暴露 | 否 |
 | `MISSING-MODULE` | 模板 `modules/<模块>/` 有代码，工具无目录且无申报 | `[MISSING-MODULE]` | 否（黄灯） |
 | `MISSING-FILE` | 模块已被采纳（目录在/有文件申报来自它），但模板里的某个件工具侧没有 | `[MISSING-FILE]` | 否（黄灯） |
+| `DIFF(.md)` | 非代码件（模块 README）与正本**逐字节不一致**；无头、不参与 VER/申报判定 | `[DIFF]` | 否（黄灯） |
 | `MISSING` | 头部申报的模板路径不存在 | `[MISS]` | **是**（红灯） |
 | `N/A` | 设计上本就不该拷贝 | — | — |
 
@@ -55,13 +62,17 @@ python my-diy-tool-template\sync_check.py --roots reme-helper local-speak2text
 python my-diy-tool-template\conformance_check.py --roots reme-helper
 ```
 
-本次快照的 `sync_check` 摘要（**退出码 0**，1.4.0 扫描范围含 README；实现者持续收敛，以实时输出为准）：
+本次快照的 `sync_check` 摘要（**退出码 0**，1.4.0：`.py + .md`、`.md` 逐字节；以实时输出为准）：
 `0 undeclared drift, 0 blueprint lag(s), 2 declared override(s), 4 param file(s),`
-`3 no-header mismatch(es), 9 missing module(s), 6 missing file(s), 0 missing template(s)`。
-3 条 `NOHDR` = dsh/ocx 的 `appconfig/README.md` + reme 的 `i18n/README.md`；
-2 条 `[decl]` = reme i18n 重形态（已补 OVERRIDE 申报）；
-6 条 `MISSING-FILE` = dsh/l-s2t/ocx 各缺 `icons/README.md` 与 `icons/__init__.py`。
-**l-s2t 已 0 DIFF**（模块 README 全部 `[ok]`）。
+`2 doc byte-diff(s), 0 no-header mismatch(es), 9 missing module(s), 6 missing file(s)`。
+2 条 `[DIFF]` = l-s2t `paths/README.md`（模板本轮修掉"唯一例外"旧文案，副本待重拷）
+与 reme `i18n/README.md`（重形态）；`[NOHDR]` 已归零（`.py` 无头差异当前为 0）；
+2 条 `[decl]` = reme i18n 重形态；6 条 `MISSING-FILE` = dsh/l-s2t/ocx 各缺
+`icons/README.md` 与 `icons/__init__.py`。
+
+**自证（§4.1.10a 要求）**：临时目录造一个"带 `# TEMPLATE-FROM:` 头的 `paths/README.md` 副本"，
+`sync_check --roots _sc_selftest` 必须报 **`[DIFF]`**（旧实现会把它当元信息剔掉、误判 `[ok]`），
+退出码 0；实测通过，临时目录已删。
 模板升位瞬间曾出现 **4 条红灯**（dsh/ocx 各 2 条：`paths` 1.1.2→**1.1.3**、`tray_kit`
 2.0.1→**2.0.2**），属 §0.2 级联清单的预期中间态；**dsh/ocx 已在同步波次中重拷，红灯自消**。
 数字随队友收敛持续下降——**以实时命令输出为准**。
@@ -103,7 +114,7 @@ reme 因 `icons` 整模块未采纳，记 `[MISSING-MODULE]`。
 | **log_kit.py** (1.0.2) | `SAME` 1.0.2（**已回基**，队友 #2，root-logger 分叉已并入正文或撤销） | `SAME` 1.0.2（**已收敛**，队友 #3） | `SAME` 1.0.2 | `SAME` 1.0.2 |
 | **service_link.py** (0.1.0) | `SAME`（**已文件夹化**，队友 #2）但**未接线**（`main.py` 无 import） | `MISSING-MODULE` | `MISSING-MODULE` | `MISSING-MODULE` |
 | **`__init__.py`**（各模块） | `i18n/__init__.py` 已申报 OVERRIDE（`[decl]`，重形态）；其余 `SAME` | 全部 `SAME`（已跟进 1.0.1） | `SAME` | `SAME` |
-| **`README.md`**（各模块，1.4.0 起纳入） | `NOHDR` ×1（`i18n/README.md`，重形态未申报头）；其余 4 个已回基 `[ok]` | 全部 `SAME`（**0 DIFF**） | `NOHDR` ×1（appconfig；余 `SAME`） | `NOHDR` ×1（appconfig；余 `SAME`） |
+| **`README.md`**（各模块，1.4.0 起纳入） | `DIFF` ×1（`i18n/README.md` 重形态）；其余 4 个 `[ok]` | `DIFF` ×1（`paths/README.md` **待重拷**：模板刚修掉"唯一例外"旧文案）；其余 `[ok]` | 全部 `[ok]`（appconfig 已回基） | 全部 `[ok]`（appconfig 已回基） |
 | **`icons/` 整夹**（README + `__init__.py`） | `MISSING-MODULE`（整模块未采纳） | `MISSING-FILE` ×2（README + `__init__.py` 未拷） | `MISSING-FILE` ×2 | `MISSING-FILE` ×2 |
 | **sync_check.py** (1.4.0) | `N/A` 设计不拷贝：门禁按路径调用模板正本 | `N/A` 同左 | `N/A` 同左 | `N/A` 同左 |
 
@@ -468,6 +479,8 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
 
    汇总：**l-s2t 0 DIFF（17 SAME）**；dsh/ocx 各 1 DIFF（appconfig README）；reme 7 DIFF
    （5 个 README + i18n×2 未申报）。1.4.0 上线后 `sync_check` 的输出与上表逐格吻合。
-8. **README 无模板头 → 差异只能记 `[NOHDR]` 黄灯**：模板与工具的模块 README 都不带
-   `TEMPLATE-FROM/MODULE` 头，故比对走布局通道；要让它具备"版本/申报"语义，需给 README
-   也补头（当前不强制，A/B 级黄灯可见即可）。
+8. **README 不带头是硬口径（§4.1.10a），差异记 `[DIFF]` 而非 `[NOHDR]`**：模块 README
+   与正本逐字节一致、不带任何 TEMPLATE 头。**不能给 `.md` 补头**——markdown 标题也以 `#`
+   开头，归一化的剔行逻辑会把 `# TEMPLATE-FROM:` 当元信息静默剔除，于是"带头副本"与
+   "不带头副本"比对结果都是 `[ok]`，而字节并不相同（helpers-dev 实测触发过）。故 `.md`
+   一律走逐字节哈希，只有 `[ok]` / `[DIFF]` 两种结果。
