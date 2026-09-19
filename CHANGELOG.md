@@ -2,6 +2,25 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (control-cell rule for verifiers; the cmd-idiom chapter is not inherited)
+
+- **A criterion/verification script must carry a "control cell".** Folded into **C-22's docstring** and
+  **CONFORMANCE §4.1.33** (both texts identical). The reviewer's own account: running only the
+  *"VAR empty → abort"* cell produced the conclusion "this idiom always breaks"; adding the
+  *"VAR has a value → must NOT break"* cell revealed that **the first failure was his own transplant
+  artifact** — the guard region depends on its surrounding lines, so extracting it out of context
+  changed its semantics. ⇒ Operational form: **a stand-in/extraction must be a minimal control, and it
+  must have a reverse cell proving it "should not blow up (or should not go red)"** — minimal-variable
+  method **plus** a control cell, or **the verification script itself will lie**. Same rule as
+  "negative samples must cut both ways: a sample that is always red has no discriminating power".
+- **STANDARDS §J gains a header note: the chapter collects *idioms themselves*, and does not assume they
+  come from the template.** Evidence: `if defined X if "%X:~-1%"=="\" …` aborts the whole bat on the
+  *"no instance running"* path — and **the template contains no such line**. Each repo hand-wrote its own
+  guard. ⇒ The lesson outgrows the defect: **copy-based "one-of-five" comparison can only govern the part
+  that gets copied**; the code *outside* the shared files has no authoritative original to compare against.
+  That is a structural blind spot of the mechanism (same family as §4.1.18), and it is why per-repo
+  verification has to be a probe run, not a diff.
+
 ## 2026-09-19 (C-2 lands as a mechanism; C-37 asserts it by measurement; two escape corruptions found)
 
 - **C-2: "don't delete the running instance" stops being a discipline and becomes kernel-enforced.**
