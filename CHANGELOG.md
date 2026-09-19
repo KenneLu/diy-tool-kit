@@ -27,7 +27,8 @@ halves of the analysis were right.
   doc with a TAB is always an accident — which is exactly the incident I hit when a `	` inside
   a Python string landed in CHANGELOG.md as a real TAB. Positive/negative samples included.
 - **That J-坑 recurred twice more while writing this very entry**: the heredoc turned my
-  `	`/`
+  `	`/`
+
 ` into real bytes twice (once inside the C-28 sample itself, once in a comment
   about it). Both were caught by reading the bytes back and are now written with **explicit byte
   values** (`bytes([9])`, `bytes([13, 10])`). Three occurrences in one day, all in code that was
@@ -138,7 +139,10 @@ The lead's review asked for a runtime reverse sample for the two `start` sites (
   the script exits in well under a second (a modal box would hang it), it writes
   `update.failed`, **the install directory is untouched** (`/purge` never ran), the work dir is
   removed (it reached `:cleanup`), and the script deletes itself. The sandbox's install dir has
-  **no exe**, so even a mistaken `start` launches nothing. Measured: `0.3s`, all five green.
+  **no exe**, so nothing gets launched — but note a missing path still pops the "Windows cannot
+  find" modal and blocks forever (a dialog depends on the *path*, not the directory); if the
+  guard ever fails, this case hangs, which is exactly what its "exits in 0.3s" assertion
+  catches. Measured: `0.3s`, all five green.
 - Why this had to be a run, not an assertion on the text: the text assertions can only show the
   guard is *written*; they cannot show the path is *blocked*. The failure mode is a GUI-subsystem
   dialog, which no process flag can suppress — the only observable is "it never returns".
