@@ -2,6 +2,65 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (state rule into STANDARDS D6; update_helper 1.4.0; reme reference re-audit)
+
+reme-dev published `reme-helper/UPDATE-CHAIN-REFERENCE.md` (`10c76df`) as the comparison
+baseline. Re-auditing against it produced one new rule, one module hardening, and three
+corrections to conclusions people (including me) were carrying around.
+
+- **STANDARDS gains §D6 — "状态的唯一写入点与暴露方式"**: state is exposed either as a
+  **container mutated in place** or through an **accessor**; state promised to outside
+  readers must have a **single write point**; a module-level scalar rebound via `global`
+  while outsiders read it through a package `import *` is banned. One shape, three real
+  silent failures: `i18n.LANG` (menu stayed Chinese), `update_helper.PENDING_CMD` (update
+  downloaded, never installed), and reme's `tray_signature()` missing the update state
+  (the "download and update" item never lit up). The rule carries a **mechanical ladder**:
+  C-21 (FAIL, already broken) → C-23 (WARN, fragile shape) → C-24 (WARN, menu state not
+  in the signature).
+- **`modules/update_helper/` 1.3.0 → 1.4.0**, absorbing §1/§2 of the baseline's transport
+  list as *structure* rather than convention:
+  * state now lives in a `_PUBLISHED` dict mutated in place; `UPDATE_READY` / `PENDING_CMD`
+    are **read-only derived** values from a module-level `__getattr__` — there is no
+    rebindable scalar left. Reverse self-proof: put the old `from .update_helper import *`
+    facade back and the package no longer receives those names at all (loud error) instead
+    of receiving a dead `None` (silent).
+  * **new `launch_pending_cmd()`** — `CREATE_NO_WINDOW | DETACHED_PROCESS`, the reme form.
+    Previously "how to launch it" was left to the consumer, so tools wrote
+    `os.system('start "" /min …')` themselves; the bat must outlive the parent and must not
+    flash a console, and that belongs to this module.
+  * **empty stage is intercepted before anything is touched** (reviewer-reported hazard):
+    `robocopy /e /purge` from a swept/empty stage returns 0–7 and would **wipe the install
+    dir**, after which `start ""` on a missing exe pops a modal error box nobody can
+    dismiss — the bat hangs forever. Now: no exe in stage → don't touch the install dir,
+    write the failure marker, bring the old version back. Every `start` also gained an
+    existence guard (start a non-existent exe is the one unrecoverable action here).
+- **`conformance_check.py`: new C-23 / C-24** (C-22 is taken by the bat hygiene task),
+  both WARN, both with `--selftest` positive/negative samples. On the real tree C-23
+  correctly names `modules/i18n/i18n.py: LANG` in three tools (the same fragile shape,
+  still to be converted) and C-24 names dsh/ocx's missing menu-signature mechanism, while
+  reme and l-s2t pass. The first C-24 regex swallowed a *different* function body whenever
+  the signature had a return annotation (`def f() -> tuple:` has no `):`), which produced a
+  false red on reme — the fix and the reason are recorded in a code comment.
+- **`sync_check.py` selftest group E** grew from 17 to 21 assertions: the five new ones
+  cover "no `global` rebinding", "the two names are not module globals", "an in-place write
+  is visible immediately", "`import *` does not carry the derived names", and the two bat
+  guards.
+- **Three carried-over conclusions corrected** (recorded in `ALIGNMENT.md` §7.2):
+  1. "the template copied reme's sha256-skip" — no: 1.2.0 did, **1.3.0 is fail-closed**, and
+     reme fixed its side the same day. The difference no longer exists.
+  2. "the template has persistent throttling, reme doesn't" — **half true**: the throttle
+     state is a per-process dict, so a restart still hits GitHub once. The baseline document
+     calls it "persistent", which the code does not support. Behaviour left as-is (one
+     request per launch is fine against a 60/hour quota) but the wording is corrected.
+  3. "the template's apply.cmd also skips the robocopy rc check" — the *memory* was of the
+     right shape in the wrong file: `apply.cmd` **does** check rc (1.3.0). The real gap is
+     `modules/paths/paths.py: process_pending_update()` — `robocopy /MIR` with no rc check,
+     no rollback, and `return True` regardless. reme has no counterpart, so under the
+     arbitration rule it is not the baseline; it is an **unpermitted gap** with two options
+     (merge into `update_helper`, or keep it and check rc / drop `/MIR`). Both touch
+     `paths.py`, which four tools consume byte-identically → escalated as a decision, not
+     changed unilaterally.
+
 ## 2026-09-19 (build.bat VERSION parse: end-to-end evidence, and a repeatable harness for it)
 
 Asked to swap the template's VERSION parse for the form that has **end-to-end** evidence

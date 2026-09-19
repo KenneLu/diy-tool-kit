@@ -1,7 +1,11 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.5.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.6.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
-# 1.5.0：`--selftest` 新增 **E 组：update_helper 1.3.0 替换脚本语义回归**。1.3.0 按用户仲裁
+# 1.6.0：E 组再扩 5 条——照 reme 基准文档 §9-1/§9-2 落地后要能**反向自证**：
+#   模块里没有 `global` 重绑、`UPDATE_READY`/`PENDING_CMD` 不是模块全局、
+#   就地改容器即刻对外可见、**`import *` 不搬运派生名**（旧缺陷无法静默复现）、
+#   以及 bat 的两处新守卫（空暂存包前置拦截 / start 前存在性检查）。
+## 1.5.0：`--selftest` 新增 **E 组：update_helper 1.3.0 替换脚本语义回归**。1.3.0 按用户仲裁
 #   规则照 reme 已验证链路补齐"失败回退"（快照先于替换、rc>=8 不启动新 exe、回铺、失败
 #   marker），这些语义**只存在于生成的 .bat 文本里**，py 层测不到；E 组对脚本生成器做
 #   正向断言 + 对"旧合成形态"做**反向断言**（证明断言不是空转）。仅 sync_check 自身变更，
@@ -315,6 +319,7 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         p, t = Path(path).resolve(), Path(tgt).resolve()
         return p != t and t not in p.parents
 
+    newexe = str(Path(target) / exe)
     vars_ = {}
     for ln in cmds:
         if ln.startswith('set "') and "=" in ln:
@@ -341,6 +346,12 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
          and vars_.get("SNAPSHOT") == snapshot and vars_.get("FAILED") == failed),
         ("备份在 target 之外", outside(vars_.get("BACKUP", backup), target)),
         ("替换前先快照", snap_i >= 0 and copy_i > snap_i),
+        ("空暂存包前置拦截（不碰安装目录）",
+         idx('if not exist "%%STAGE%%\\%s" goto stage_invalid' % exe) >= 0
+         and 0 <= idx('if not exist "%%STAGE%%\\%s" goto stage_invalid' % exe) < snap_i),
+        ("start 前有存在性守卫（缺 exe 不弹模态框）",
+         idx('if not exist "{newexe}" goto install_failed'.replace("{newexe}", newexe)) > copy_i
+         and 'if exist "%s" start "" "%s"' % (newexe, newexe) in text),
         ("检查 rc，失败不启动新 exe", rc_i > copy_i),
         ("成功后才轮转备份（失败时旧备份还在）", rot_i > rc_i and delbak_i > rc_i),
         ("失败回铺快照", idx('robocopy "%SNAPSHOT%" "%TARGET%"') > rc_i),
@@ -373,6 +384,30 @@ def _update_helper_cases():
         sys.path.insert(0, need)
     try:
         spec.loader.exec_module(mod)
+        # 1.4.0：状态必须是"就地修改的容器 + 只读派生"，不得再有可被 global 重绑的标量
+        import ast as _ast
+        src = path.read_text(encoding="utf-8")
+        tree = _ast.parse(src)
+        rebound = sorted({n for node in _ast.walk(tree) if isinstance(node, _ast.Global)
+                          for n in node.names})
+        out.append(("E 模块里没有 global 重绑", not rebound, "global: " + ",".join(rebound)))
+        out.append(("E UPDATE_READY/PENDING_CMD 不是模块全局",
+                    "UPDATE_READY" not in vars(mod) and "PENDING_CMD" not in vars(mod),
+                    "模块命名空间里%s该名" % ("有" if "UPDATE_READY" in vars(mod) else "没有")))
+        mod._PUBLISHED["ready"] = "9.9.9"
+        out.append(("E 就地改容器即刻对外可见（派生读法）",
+                    mod.update_ready() == "9.9.9" and mod.UPDATE_READY == "9.9.9",
+                    "update_ready()=%r UPDATE_READY=%r" % (mod.update_ready(), mod.UPDATE_READY)))
+        mod._PUBLISHED["ready"] = None
+        # 反向自证：老形状（包门面 import *）在 1.4.0 上拿不到派生状态 ⇒ 缺陷无法静默复现
+        star_ns = {}
+        exec("from modules.update_helper.update_helper import *", star_ns)
+        out.append(("E import * 不搬运 UPDATE_READY（结构上防死副本）",
+                    "UPDATE_READY" not in star_ns and "PENDING_CMD" not in star_ns,
+                    "import * 后%s" % ("含该名（危险）" if "UPDATE_READY" in star_ns else "不含该名")))
+        out.append(("E 拉起脚本的语义在本模块（DETACHED+无窗口）",
+                    "def launch_pending_cmd" in src and "DETACHED_PROCESS" in src
+                    and "CREATE_NO_WINDOW" in src, "见 launch_pending_cmd"))
         tgt, stage, work = r"C:\t\target", r"C:\t\upd\stage", r"C:\t\upd"
         snap, bak, failed = r"C:\t\_backup.pre", r"C:\t\_backup", r"C:\t\update.failed"
         text = mod.build_apply_script(tgt, stage, work, bak, r"C:\t\update.log",

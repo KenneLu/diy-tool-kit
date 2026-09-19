@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.0.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.1.0
+# 1.1.0：新增 C-23（模块级状态被 global 重绑 = 脆形态）与 C-24（菜单读的容器状态未进签名 /
+#   有菜单无签名机制），补 STANDARDS §D6 的机械阶梯 C-21 → C-23 → C-24；两条都有 --selftest
+#   正反样本。C-22 号被"bat/cmd 字节卫生"占用，故本组从 C-23 起编号。
 """CONFORMANCE §5.1 的机械化落地：把"靠 AI 记得住"变成"不绿就报"。
 
 与 sync_check.py 的分工：
@@ -590,8 +593,142 @@ def c21(c: Ctx):
                        if bad else "无 import * 状态复制")
 
 
+# ---------------------------------------------------------------- C-22..C-24
+# 说明：C-22 号已被"bat/cmd 字节卫生"占用（另一路任务），故本组从 C-23 起编号。
+_CONTAINERS = (ast.Dict, ast.List, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)
+
+
+def _is_container(node) -> bool:
+    if isinstance(node, _CONTAINERS):
+        return True
+    if isinstance(node, ast.Call):
+        fn = node.func
+        name = fn.id if isinstance(fn, ast.Name) else (
+            fn.attr if isinstance(fn, ast.Attribute) else "")
+        return name in {"dict", "list", "set", "defaultdict", "OrderedDict", "deque"}
+    return False
+
+
+def _rebound_state(py_path: Path, read) -> list:
+    """返回 [`名字:行号(形态)`]：模块级公有名被函数内 `global` **重绑**。
+
+    这正是两次静默失效的形状（`i18n.LANG`、`update_helper.PENDING_CMD`）：
+    `global` 重绑 = 换了一个对象/值，而**导入方手里的引用不会跟着变**
+    （`import *` 拷的是对象引用，标量更是直接拷值）⇒ 外部读到的是死副本。
+    **就地修改**（`d.update(...)` / `d["k"]=v`）不受影响——那两条路是 STANDARDS §D6 认可的：
+    容器就地改，或经访问器暴露。容器**重绑**同样在禁列（与标量同理），故两类都报、分别标注。
+    """
+    try:
+        tree = ast.parse(read(py_path))
+    except SyntaxError:
+        return []
+    kinds = {}
+    for node in tree.body:
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = [t for t in node.targets if isinstance(t, ast.Name)]
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            targets = [node.target]
+        for tg in targets:
+            if not tg.id.startswith("_"):
+                kinds[tg.id] = ("容器重绑" if _is_container(node.value) else "标量", node.lineno)
+    rebound = {n for node in ast.walk(tree) if isinstance(node, ast.Global)
+               for n in node.names}
+    return ["%s:%d(%s)" % (n, kinds[n][1], kinds[n][0]) for n in sorted(rebound & set(kinds))]
+
+
+@check("C-23", "WARN", "模块级状态不得被 global 重绑（外部读会拿到死副本，STANDARDS §D6）")
+def c23(c: Ctx):
+    """C-21 的**前一层**：C-21 查"已经坏了"（`import *` 真的拷了状态），本条查**脆形态**——
+    状态写成模块级名字、由函数 `global` 重绑。这样写今天可能没事（门面若用 `__getattr__`
+    委派就挡住了），但任何人把 `import *` 加回来就静默复发。
+
+    正路只有两条（§D6）：**可变容器就地改**（`d.update()` / `d[k]=v`），或**经访问器暴露**。
+    """
+    mods = c.src / "modules"
+    if not mods.is_dir():
+        return True, "无 src/modules/"
+    bad = []
+    for p in sorted(mods.rglob("*.py")):
+        if p.name == "__init__.py":
+            continue
+        for hit in _rebound_state(p, c.read):
+            bad.append("%s: %s" % (p.relative_to(c.dir).as_posix(), hit))
+    return (not bad), ("模块级状态被 global 重绑（改为容器就地改/访问器）: " + "; ".join(bad)
+                       if bad else "无 global 重绑的模块级状态")
+
+
+# ⚠️ 参数表用 `[^)]*`，**不能**用 `.*?\):`：带返回注解的签名（`def f() -> tuple:`）里没有
+# 紧跟的 `):`，非贪婪展开会一路吞到别处的 `):`，于是"签名体"取到的是**另一个函数**——
+# 实测把 reme 的 `tray_signature` 误判成不含 HELPER_UPDATE_STATE（假红灯）。
+_SIG_DEF = re.compile(r"^def (\w*signature\w*)\s*\([^)]*\)[^:\n]*:(.*?)(?=^\S|\Z)", re.M | re.S)
+_MENU_KW = re.compile(r"(?:enabled|checked|visible|default)\s*=\s*(.+)")
+
+
+def _menu_state_tokens(text: str, read) -> list:
+    """菜单动态项里引用的**模块级容器**名（如 `CFG` / `HELPER_UPDATE_STATE`）。
+
+    刻意**只认容器**：函数式读取（`service_is_healthy()`）与类属性状态由各自的重画路径负责，
+    本检查看不到，也就不硬判（宁可窄、不可误报——误报会让人不再信任工具，见文件头纪律①）。
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    containers = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and _is_container(node.value):
+            containers.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) \
+                and node.value is not None and _is_container(node.value):
+            containers.add(node.target.id)
+    if not containers:
+        return []
+    used = set()
+    for line in text.splitlines():
+        m = _MENU_KW.search(line)
+        if not m:
+            continue
+        used.update(n for n in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", m.group(1)) if n in containers)
+    return sorted(used)
+
+
+@check("C-24", "WARN", "驱动托盘菜单的状态必须进入菜单签名（E2-09/§D6）")
+def c24(c: Ctx):
+    """菜单只在**签名变化**时重画；签名漏掉某个状态 ⇒ 该状态变了菜单也不刷新。
+
+    reme 已实测踩过（`tray_signature()` 原先不含更新状态 ⇒ 后台查到新版后「下载并更新」
+    不亮，2026-09-19 修）。本条只管**模块级容器**这一种载体（高置信）：容器在菜单项里被读、
+    却不进签名 → 报。函数式读取与类属性状态不在范围内（见 `_menu_state_tokens` 的说明）。
+    """
+    menu_files = [p for p in c.py_files() if "MenuItem(" in c.read(p)]
+    if not menu_files:
+        return True, "未见托盘菜单（无 MenuItem(）"
+    problems, checked = [], 0
+    for p in menu_files:
+        text = c.read(p)
+        m = _SIG_DEF.search(text)
+        has_sigobj = "MenuSignature(" in text
+        tokens = _menu_state_tokens(text, c.read)
+        if not m and not has_sigobj:
+            problems.append("%s 有菜单但无签名函数/MenuSignature（状态变了不会重画）"
+                            % p.relative_to(c.dir).as_posix())
+            continue
+        if not tokens:
+            checked += 1
+            continue
+        body = (m.group(2) if m else text)
+        missing = [t for t in tokens if t not in body]
+        if missing:
+            problems.append("%s: 菜单读了 %s 但签名不含它"
+                            % (p.relative_to(c.dir).as_posix(), ",".join(missing)))
+        checked += 1
+    return (not problems), ("；".join(problems) if problems
+                            else "签名覆盖菜单容器状态（受检文件 %d）" % checked)
+
+
 def selftest() -> int:
-    """C-21 反向自证（`--selftest`，可重复执行）：合成样本，正例必须被点名、反例必须放行。"""
+    """C-21/C-23/C-24 反向自证（`--selftest`，可重复执行）：合成样本，正例须点名、反例须放行。"""
     import shutil
     import tempfile
     base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
@@ -615,6 +752,40 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-21 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
+
+        # C-23：标量/容器被 global 重绑 → 报；就地改容器 → 放行
+        c23_cases = (
+            ("pos_scalar", "STATE = None\n\n\ndef f():\n    global STATE\n    STATE = 1\n", False),
+            ("pos_container_rebind", "STATE = {}\n\n\ndef f():\n    global STATE\n    STATE = {\"a\": 1}\n", False),
+            ("neg_inplace", "STATE = {}\n\n\ndef f():\n    STATE[\"a\"] = 1\n", True),
+        )
+        for name, body, want in c23_cases:
+            d = base / ("c23_" + name) / "src" / "modules" / "demo"
+            d.mkdir(parents=True)
+            (d / "demo.py").write_text(body, encoding="utf-8")
+            (d / "__init__.py").write_text("from .demo import f\n", encoding="utf-8")
+            ok, detail = c23(Ctx(name, base / ("c23_" + name)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-23 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail))
+
+        # C-24：菜单读容器却不在签名里 → 报；进了签名 → 放行；无菜单 → 放行
+        menu_pos = ("import pystray\nCFG = {}\n\n\ndef _menu_signature():\n    return (1,)\n\n\n"
+                    "def build():\n    return pystray.MenuItem('x', None, enabled=lambda i: CFG.get('a'))\n")
+        menu_neg = menu_pos.replace("return (1,)", "return (CFG.get('a'),)")
+        c24_cases = (("pos_missing", menu_pos, False), ("neg_covered", menu_neg, True),
+                     ("neg_no_menu", "CFG = {}\n", True))
+        for name, body, want in c24_cases:
+            d = base / ("c24_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(body, encoding="utf-8")
+            ok, detail = c24(Ctx(name, base / ("c24_" + name)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-24 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail))
+
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         return 1 if failed else 0
     finally:
