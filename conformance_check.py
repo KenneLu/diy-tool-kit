@@ -1866,6 +1866,14 @@ _TEMP_REGRESSION_20260919 = {
     "opencodex-helper": ["icon-probe-f6pwh8sm", "icon-probe-r28q2h6d",
                          "smoke-proof-4ibz3s31", "smoke-proof-a15nu1_k", "tmpq_u7g0sl"],
     "local-speak2text": ["tmp.kFj54SLt7t"],
+    # 复核员对 %TEMP% 顶层**全部 43 个 `tmp*`** 做的形态普查（2026-09-19，样本量 43）：
+    #   `tmp.` + 10 位 `[A-Za-z0-9]`（**带点**，总长 14）= **40 个** ⇒ GNU shell `mktemp -d`；
+    #   `tmp` + 8 位 `[a-z0-9_]`（**无点**，总长 11）= **3 个** ⇒ Python `tempfile.mkdtemp()`。
+    #   **关键指纹**：`tmp_8qhz_0a` 里的**下划线**——GNU `mktemp` 的字母表**不含 `_`**，Python 的**含**。
+    #   ⇒ **两个种群并存**（lead 先前"只有固定名"→"加上无前缀 mkdtemp"→"全是 shell"三次表述各对一半）。
+    # 下面三个**无点无前缀**样本专为这件事登记：它们同时验证**形态腿能抓到 Python 残留**、
+    # **生成器腿永远抓不到**（无前缀可枚举）——比只放 shell 形态的样本更有区分力。
+    "_shape_census_20260919": ["tmp0whlwvmi", "tmpigh0g540", "tmp_8qhz_0a"],
 }
 # 负样本回归集（2026-09-19 实测；**它证明的是"不看名字也能命中"，不是"零误报"**）：
 #   * ⚠️ **这是自标定集**：规则就是拿这批名字标定出来的，再用同一条规则命中它们
