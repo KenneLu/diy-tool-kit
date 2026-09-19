@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.7
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.8
+# 1.9.8：**新增 C-42**（FAIL）= **重定向位置不得出现 `dev/null`**（收窄版：不写成“全文不得出现 dev/”，否则注释里的路径与 URL 会误报）；文本口径与 C-33 同一条边界（正文保留、散文不算），自证 5 条腿。
 # 1.9.7：**新增 C-41**（FAIL）= 退出确认的「链路不可用」分支必须固定为**不停服务**（不得沿用已存勾选）——判据只看降级分支，**原生框那一支不算**；
 #   实测模板 + 四家全绿（今天无违规，立判据是为了防 `tray_kit` 统一之后长回去），自证 5 条腿。
 # 1.9.6：**新增 C-40**（FAIL）= 版本目录 ↔ 自启目标必须一致（强断言）+ 孤儿版本目录必须两栏登记（WARN）；读**磁盘 + 注册表**，纯函数 + 可注入 `path_exists` （样本不受活状态污染），自证 6 条。
@@ -2988,6 +2989,95 @@ def c41_template(c: Ctx):
     return check_quit_fallback(c.dir, "modules")
 
 
+# ---------------------------------------------------------------- C-42
+# **重定向位置上的 `dev/null`**（lead 2026-09-19 定，收窄版；来自 ls2t-dev 挖到的一个很深的事故）。
+# **事故链**：他用 **bash heredoc** 打补丁，`nul` 在**到达 Python 之前**被改写成 `/dev/null`
+#   （同时 LF→CRLF）：
+#       powershell -NoProfile -Command "Start-Sleep -Milliseconds {tick_ms}" >/dev/null 2>nul
+#   **实测影响**：`rc=0` 但 **0.03s**、stderr 报"系统找不到指定的路径" ⇒ **`powershell` 根本没执行、
+#   睡眠没发生**（对照：正确写法 **0.68s**、stderr 空）。于是等待循环里 `tries` 以 `tasklist` 的
+#   极限速度狂涨、**120 拍几秒烧完**，`:giveup` 在旧进程没退时就放弃，
+#   **而日志仍打印 `120 polls x 1000ms (nominal budget 120s)`**。
+# **三层判据都看不见**：C-22（仍是 ASCII + CRLF）、C-33（找 `ping`）、`test_update_safety`
+#   （根本走不到那条重定向）。**而他的自证是假绿**——他比对的是**同一个字面量**，
+#   被**同一条规则**一起改写、一起错。
+#
+# **为什么写成"重定向位置"而不是"全文不得出现 `dev/`"**（lead 明确要求收窄）：
+#   注释里的路径（`H:/Tools/dev/…`）与 URL（`/dev/`）会**误报**；收窄到重定向位置后**零误报**
+#   —— Windows 上**没有任何合法理由**在重定向位置出现 `dev/null`。
+# **等级 FAIL**：一旦出现，那条命令**根本没执行**，而外围全是绿的。
+_DEVNULL_REDIRECT = re.compile(">" + chr(92) + "s*/?dev/null" + chr(92) + "b", re.I)   # chr(92) 构造反斜杠：绝不过转义层（今天已被它坑三次）
+
+
+def _redirect_text(p: Path, text: str) -> str:
+    """取"会被执行的那部分文本"：`.py` 掩掉注释/docstring（**保留其余字符串**——渲染 bat 的
+    模板正是字符串，那才是要查的）；`.bat`/`.cmd` 逐行丢掉 `rem` / `::`。
+
+    ⚠️ 与 C-33 同一条豁免边界（§4.1.37）：**散文不算**。否则**本条判据自己的说明文字**
+    （里面就写着那行错误写法）会把自己判红——那是今天已经犯过两次的错误。
+    """
+    if p.suffix.lower() == ".py":
+        return _masked_code_text(text)
+    kept = []
+    for line in text.splitlines():
+        s = line.strip().lower()
+        if s.startswith("rem ") or s == "rem" or s.startswith("::"):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def check_devnull_redirect(root: Path):
+    """`root` 下的 `.py`/`.bat`/`.cmd`：**重定向位置不得出现 `dev/null`**。
+
+    ⚠️ **扫描面按绝对路径排除仪器自身**（与 C-33 同一条，§4.1.37）：
+    本判据的**正样本**里就必然写着那个被禁形态（否则它没有区分力）——
+    不排除就是“**判据把自己的自证样本当成违规**”。这一次它真的发生了：
+    实现当天就在 `conformance_check.py:4087` 报了两处（都是自己的样本）。
+    """
+    self_path = Path(__file__).resolve()
+    hits, scanned, excluded = [], 0, []
+    files = [p for p in root.rglob("*")
+             if p.is_file() and p.suffix.lower() in (".py", ".bat", ".cmd")
+             and not any(part in _PY_SKIP_DIRS for part in p.parts)]
+    for p in sorted(files):
+        if p.resolve() == self_path:
+            excluded.append(p.relative_to(root).as_posix())
+            continue
+        scanned += 1
+        try:
+            text = _redirect_text(p, p.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        rel = p.relative_to(root).as_posix()
+        for n, m in enumerate(_DEVNULL_REDIRECT.finditer(text), 1):
+            line = text[:m.start()].count("\n") + 1
+            frag = text[m.start():m.start() + 40].splitlines()[0]
+            hits.append("%s:%d(命中%d) `%s`" % (rel, line, n, frag))
+    if hits:
+        return False, ("%d 处在**重定向位置**出现 `dev/null`：%s。【为什么是硬违规】"
+                       "Windows 上 `>` 后面跟 `/dev/null` 会让该命令**根本不执行**"
+                       "（实测 `rc=0` 但 0.03s、stderr 报「系统找不到指定的路径」；正确写法 0.68s）"
+                       "——而外围判据全是绿的：字节卫生看不见、C-33 找的是 `ping`、"
+                       "运行期测试走不到那条重定向。【正确形态】Windows 上一律 `>nul 2>nul`。"
+                       "【扫描面】%d 个 .py/.bat/.cmd%s" % (len(hits), "；".join(hits[:6]), scanned,
+                        ("；排除仪器自身 " + ", ".join(excluded)) if excluded else ""))
+    return True, ("重定向位置无 `dev/null`。扫描面：%d 个 .py/.bat/.cmd%s（`.py` 掩掉注释/docstring、"
+                  "保留其余字符串——渲染 bat 的模板正是字符串）"
+                  % (scanned, ("；排除仪器自身 " + ", ".join(excluded)) if excluded else ""))
+
+
+@check("C-42", "FAIL", "重定向位置不得出现 `dev/null`（Windows 上该命令根本不执行）")
+def c42(c: Ctx):
+    """见上方注释。**收窄到"重定向位置"**：注释里的 `H:/Tools/dev/…` 与 URL 不算。"""
+    return check_devnull_redirect(c.dir)
+
+
+@template_check("C-42", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+def c42_template(c: Ctx):
+    return check_devnull_redirect(c.dir)
+
+
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
@@ -4000,6 +4090,34 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-41 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
+
+        # C-42（2026-09-19，lead 定·收窄版）：**重定向位置不得出现 `dev/null`**。
+        # 五格：lead 点名的三个样本（红 / 绿 / 绿）+ 一个 .bat 形态 + 一个"名字像但不同"的反向格。
+        c42_cases = (
+            ("redirect_devnull_flagged",
+             {"src/main.py": 'BAT = "x >/dev/null 2>nul\n"\n'}, False),
+            ("comment_dev_path_ok",
+             {"src/main.py": "# see H:/Tools/dev/notes\nX = 1\n"}, True),
+            ("template_string_nul_ok",
+             {"src/main.py": 'BAT = "powershell -NoProfile -Command \\"Start-Sleep -Milliseconds 1000\\" >nul 2>nul"\n'},
+             True),
+            ("bat_file_redirect_flagged",
+             {"scripts/a.bat": "@echo off\r\nfoo.exe > /dev/null\r\n"}, False),
+            # 反向格：**名字像但不是它** ⇒ 必须放行（证明判据收窄到了"重定向位置 + 完整词"）
+            ("devnull_like_name_ok",
+             {"src/main.py": 'X = "a > dev/nullish thing"\n'}, True),
+        )
+        for name, files, want in c42_cases:
+            d = base / ("c42_" + name)
+            for rel, body in files.items():
+                fp = d / rel
+                fp.parent.mkdir(parents=True, exist_ok=True)
+                fp.write_text(body, encoding="utf-8", newline="")
+            ok, detail = check_devnull_redirect(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-42 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-36：归一化算子的性质断言。样本 2 条——

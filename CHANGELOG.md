@@ -2,6 +2,51 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-42: `dev/null` in redirect position; and why the self-check was green anyway)
+
+- **C-42 (FAIL, tool + template channel), narrowed on the lead's instruction.** In `.py`/`.bat`/`.cmd`
+  the **redirect position must not contain `dev/null`** — matched as `>` (including `2>`, `>>`) plus
+  optional whitespace plus `dev/null`. **Not** written as "`dev/` must not appear anywhere": that
+  would false-positive on comments holding paths (`H:/Tools/dev/...`) and on URLs. Narrowed to the
+  redirect position it has **zero false positives** — there is no legal reason for it there on
+  Windows, where `> /dev/null` makes the command **not run at all** (`rc=0` in 0.03s, stderr says the
+  path was not found; correct form: 0.68s, empty stderr).
+- **The accident, by ls2t-dev**: patching through a **bash heredoc** rewrote `nul` into `/dev/null`
+  **before Python ever saw it** (and flipped LF to CRLF), so the `powershell` sleep never ran —
+  `tries` raced up at `tasklist` speed, 120 ticks burned in seconds, `:giveup` fired while the old
+  process was still alive, **and the log still printed `120 polls x 1000ms (nominal budget 120s)`**.
+  **All three existing judges were blind to it**: C-22 (still ASCII+CRLF), C-33 (looks for `ping`),
+  `test_update_safety` (never reaches that redirect). **And his self-check was green** — he compared
+  the **same literal**, rewritten by the same rule, so the comparison had to pass.
+- **Text surface follows C-33's boundary (§4.1.37)**: `.py` masks comments/docstrings but **keeps
+  other strings** (the rendered-bat template is a string — that is what must be scanned);
+  `.bat`/`.cmd` drops `rem`/`::` lines. Otherwise **this criterion's own explanation would indict
+  itself**.
+- **The criterion caught a real false red on its first run — in itself.** The template channel
+  reported `conformance_check.py:4087` twice: the positive sample I had just written
+  (`BAT = "x >/dev/null 2>nul"`). Same lesson as C-33, second instance in one day: **a criterion's
+  own fixtures necessarily contain the banned shape** ⇒ the scan surface now **excludes the
+  instrument by absolute path and prints the exclusion** ("stale exclusion" and "never scanned" must
+  not look alike).
+- **Five self-test legs**: the three the lead named (redirect hit -> red; `H:/Tools/dev/x` in a
+  comment -> green; `>nul` inside a template string -> green), a `.bat` shape -> red, and the reverse
+  cell `devnull_like_name_ok` (`> dev/nullish` -> green, proving the narrowing reaches the whole
+  word). **Measured: all four tools and the template are `[ok]`** (24/44/25/33 + 22 files).
+- **Registered as §4.1.44 + discipline ⑪**, and as the **second instance in §4.1.20** next to the
+  `ping` one — **opposite directions**: `ping` *waited too long* (9.0s/tick, a nominal 120s took
+  ~18 minutes); `>/dev/null` **did not wait at all** (120 ticks in seconds). Both share the root
+  cause — **nobody measured the assumed unit of waiting** — and both printed a "seconds" figure that
+  was not true. ⇒ The conclusion gets wider: **don't just measure how long it waited; measure
+  whether the command ran at all.**
+- **Discipline ⑪ (the lead judged this more valuable than the criterion): when the *modifying* path
+  and the *verifying* path share the same transformation layer, they err together.** Patching via
+  heredoc and self-checking with the same literal means one rewrite rule acts on both sides, so the
+  comparison **must** pass. ⇒ Acceptance must assert **a property no rewrite could satisfy**
+  ("no `dev/null` in redirect position"), **not** "equals the string I expected"; and literal
+  comparisons must be done in **bytes/hex** (ls2t-dev built `nul` from `bytes([0x6e,0x75,0x6c])`;
+  the tail hex is `7d2220 3e6e756c 20 323e6e756c`). Same family as "the enumeration decides the
+  horizon", "0 hits must print the scan surface" and "readings need a ruler".
+
 ## 2026-09-19 (C2 landing note: the release-dir guard was pushing users at the destructive action)
 
 - **helpers-dev's framing, adopted verbatim by the lead, is now written into C2's registration
