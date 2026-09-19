@@ -2,6 +2,36 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C2 landing note: the release-dir guard was pushing users at the destructive action)
+
+- **helpers-dev's framing, adopted verbatim by the lead, is now written into C2's registration
+  (§4.1.29).** `build.bat` carries two guards, and their relationship is the point:
+  * **(1)** `if exist "%RELEASE_DIR%"` -> error *"already exists. Delete it or bump VERSION"*
+    (G1: one directory per version, reproducible);
+  * **(2)** the D1-02 running-instance gate (refuses only when the live instance runs **from the
+    target directory**).
+  **What (1) actually achieves**: **rebuilding the same version is impossible; the only path is to
+  delete the directory by hand** — and "manually `rm -rf` a release directory a live instance is
+  running from" **is exactly the action that hollowed out 1.2.2 / 1.4.1**. In other words
+  **that guard was pushing users toward that action.** This upgrades C2's motive from *"prevent a
+  slip"* to **"dismantle a self-contradictory design"**.
+- **With C2 in force** (a live instance holds a read handle on its own exe from early startup to
+  process exit, failing open; measured `unlink` -> winerror 32 / `rmtree` -> 32 / parent `rename`
+  -> 5), **guard (1) can safely be downgraded into guard (2)**: "directory already exists" goes from
+  **ERROR to INFO/WARN** and merges into the same criterion (an instance running from it -> refuse;
+  otherwise the script clears and rebuilds by itself).
+- **Reserved semantics, written in as the one risky part of this relaxation** (helpers-dev's
+  addition, adopted verbatim): **what is relaxed is the *refusal condition*, not *cleanliness*.**
+  G1's "one version one directory, reproducible" must rest on **"always rebuild from scratch and
+  reuse no file from the old directory"**, **not** on "existence -> refuse".
+- **Precondition, all of it required**: C2's handle must be held **by the running instance** (taken
+  early, held to process exit, fails open); otherwise this relaxation turns *safe failure* back into
+  **silent hollowing**.
+- **Announcement wording, to be repeated whenever this relaxation is mentioned**: **"the refusal
+  condition was relaxed; the cleanliness requirement was not."**
+- Doc-only: nothing under `modules/**` changed, so no dispatched hash moved and no re-copy is due.
+  The `build.bat` edits themselves belong to the next dispatch wave (each tool's own file).
+
 ## 2026-09-19 (C-41: the "link unavailable" fallback must not reuse the saved checkbox)
 
 - **C-41 (FAIL, tool channel + template channel).** The lead corrected two tools on the source
