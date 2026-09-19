@@ -47,7 +47,9 @@
 import argparse
 import hashlib
 import re
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 try:  # Windows 控制台默认 GBK，中文判定标签会变乱码
@@ -243,6 +245,57 @@ def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
 BLUEPRINTS = load_blueprints()
 
 
+def selftest() -> int:
+    """回归样本（`--selftest`，可重复执行）：用合成样本锁死 .md 判定语义。
+
+      A 带 TEMPLATE 头的 .md            → 必须 [DIFF]（旧归一化会误判 [ok]，§4.1.10a）
+      B 逐字节相同的 .md                → 必须 [ok]
+      C 同模块 .py 带 OVERRIDE、README 不同 → 必须 [decl]
+
+    为什么固化成开关而不是跑一次：一次性命令会随会话消失，判据下次被改坏时无人察觉
+    ——"已知样本反向验证"必须是可重跑的资产。
+    """
+    tpl = TEMPLATE_DIR / "modules" / "paths" / "README.md"
+    if not tpl.exists():
+        print("[selftest] FAIL: 模板 modules/paths/README.md 不存在")
+        return 1
+    tpl_bytes = tpl.read_bytes()
+    rel = "modules/paths/README.md"
+    base = Path(tempfile.mkdtemp(prefix="sync_check_selftest_"))
+    try:
+        cases = []
+        a = base / "a" / "src" / "modules" / "paths"
+        a.mkdir(parents=True)
+        (a / "README.md").write_bytes(
+            b"# TEMPLATE-FROM: my-diy-tool-template/modules/paths/README.md\n" + tpl_bytes)
+        cases.append(("A header-bearing .md", a / "README.md", False, "diff"))
+
+        b = base / "b" / "src" / "modules" / "paths"
+        b.mkdir(parents=True)
+        (b / "README.md").write_bytes(tpl_bytes)
+        cases.append(("B byte-identical .md", b / "README.md", False, "ok"))
+
+        c = base / "c" / "src" / "modules" / "paths"
+        c.mkdir(parents=True)
+        (c / "README.md").write_bytes(b"# overridden shape\n" + tpl_bytes)
+        (c / "paths.py").write_text(
+            "# TEMPLATE-FROM: my-diy-tool-template/modules/paths/paths.py | TEMPLATE-VER: 1.1.3\n"
+            "# TEMPLATE-LOCAL-OVERRIDE: selftest - module intentionally diverged\n"
+            "X = 1\n", encoding="utf-8")
+        cases.append(("C module-level OVERRIDE .md", c / "README.md", True, "decl"))
+
+        failed = 0
+        for label, cand, declared, want in cases:
+            got = compare(cand, rel, False, declared, "", False)[0]
+            ok = got == want
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: got {got}, want {want}")
+        print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
+        return 1 if failed else 0
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
 def default_roots() -> list:
     """默认只扫**家族工具**：有 src/ 且有门禁 build.bat——避免把同目录下的
     无关项目（cc-haha-src 等）当成"整模块缺失"刷屏。显式 --roots 不受此限。"""
@@ -260,7 +313,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="template drift check")
     parser.add_argument("--roots", nargs="*", default=default_roots(),
                         help="tool dirs under my_diy_tools (default: family tools only)")
+    parser.add_argument("--selftest", action="store_true",
+                        help="用合成样本回归 .md 判定语义（A[DIF]/B[ok]/C[decl]）后退出")
     args = parser.parse_args()
+    if args.selftest:
+        return selftest()
 
     tpl_modules = template_modules()
     drift, declared, missing, params, lags, nohdr, miss_mod, miss_file, diffs = (
@@ -280,7 +337,8 @@ def main() -> int:
         elif kind == "nohdr":
             nohdr.append((name, tool_file, rel))
             print(f"[NOHDR] {name}/{leaf} != {TEMPLATE_DIR.name}/{rel}{note}"
-                  f" —— 该文件缺 TEMPLATE 头，补头后纳入版本/申报机制")
+                  f" —— 该 .py 缺 TEMPLATE-FROM/MODULE 头，补头后纳入版本/申报机制"
+                  f"（README 等 .md 不走头机制、**不得补头**）")
         elif kind == "lag":
             dec = "，已申报 override 但未跟到新版" if is_declared else ""
             lags.append((name, tool_file, rel, tool_ver, tpl_ver))

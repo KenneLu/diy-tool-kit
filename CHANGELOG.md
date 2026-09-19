@@ -48,7 +48,15 @@ Follow-up in the same round (two corrections):
 
 Self-proof (three samples, reproducible): (A) header-bearing `.md` → `[DIFF]`;
 (B) byte-identical `.md` → `[ok]`; (C) module with `TEMPLATE-LOCAL-OVERRIDE` and a
-differing README → `[decl]`. All three keep the exit code at 0.
+differing README → `[decl]`.
+
+The self-proof is now a **repeatable regression switch**, not a one-off command:
+`python sync_check.py --selftest` builds the three synthetic samples in a temp dir,
+asserts the classification, and exits non-zero if any of them regresses. A one-off
+command disappears with the session; a judgement that silently breaks later is exactly
+what a regression sample exists to catch. The `[NOHDR]` message is also now explicitly
+`.py`-scoped and states that READMEs must **not** be given headers — the old wording
+("add a header") was correct for code and actively wrong for docs.
 
 ## 2026-09-19 (template freeze: sync_check 1.3.0 + three module fixes)
 

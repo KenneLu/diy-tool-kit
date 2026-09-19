@@ -36,8 +36,10 @@ CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__
 > 整模块属有意分叉，其 README 不可能一致 → 记 `[decl]`（已申报），不记 `[DIFF]`
 > （实例：reme 重形态 `i18n/`）。`[NOHDR]` **仅保留给 `.py`**。
 >
-> **反向自证（三样本，可复跑）**：A 带头 `.md` → `[DIFF]`；B 逐字节相同 → `[ok]`；
-> C 模块 `.py` 带 OVERRIDE 且 README 不同 → `[decl]`。三者退出码均为 0。
+> **反向自证（已固化为可重复执行的回归样本）**：`python my-diy-tool-template/sync_check.py --selftest`
+> —— A 带头 `.md` → `[DIFF]`；B 逐字节相同 → `[ok]`；C 模块 `.py` 带 OVERRIDE 且 README 不同
+> → `[decl]`。三条全 PASS 则退出码 0，任一条不符则 1。**不写成一次性命令**：判据若被改坏，
+> 回归样本要能自动喊出来。
 
 | 状态 | 含义 | sync_check 标签 | 阻断退出码 |
 |---|---|---|---|
