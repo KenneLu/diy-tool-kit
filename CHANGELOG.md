@@ -2,6 +2,38 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (tray_kit 2.1.0 — the smoke probe; D3.3; C-10 now tells "covered" from "bypassed")
+
+`--smoke` must cover the single-instance guard, but "run the real guard in smoke" is not an
+option: with the user's tray running, the guard takes the duplicate path and pops a **modal**
+box, which hangs unattended builds. dsh/ocx had no guard coverage in `smoke()` at all, and a
+recent "move `--smoke` before the guard" fix traded coverage away to dodge the hang. The
+answer is to **change the form, not the position**.
+
+- **`modules/tray_kit/` 2.0.2 → 2.1.0**: new public
+  **`mutex_name_is_valid(app_id, mutex_name=None)`** — the probe l-s2t had inlined. It asks
+  "does the kernel accept this name", **does not hold the lock and shows no dialog**;
+  `ERROR_ALREADY_EXISTS` counts as valid (the name being taken *proves* the kernel accepts
+  it), so unlike `single_instance_free()` it is unaffected by a running instance — which is
+  exactly why the latter cannot be used as a smoke assertion (false red).
+  `__init__.py` VER follows; README interface table gains the probe (and documents
+  `single_instance_free`, which had been missing from the table).
+- **STANDARDS §D3.3** (new): the correct shape for smoke guard coverage is a **probe**, not
+  the real guard; "moving `--smoke` earlier" is explicitly **not** coverage. Records that
+  this modal-box shape has now been hit twice in this family (l-s2t `test_startup_path.py`,
+  ocx `--smoke`) and that any modal dialog on an unattended path degrades "turns red" into
+  "hangs forever".
+- **`conformance_check.py` 1.2.0 — C-10 judgement rewritten** so it separates the three
+  cases instead of matching a substring: probe + result checked → ok; probe called but
+  result ignored → FAIL ("coverage ≠ call"); **real guard** in smoke → FAIL (modal box);
+  nothing → FAIL. `single_instance_free` deliberately does not count as a probe. Four
+  selftest samples pin the four shapes.
+  Real tree: **l-s2t ok; dsh — no coverage; ocx — real guard in smoke (the modal hazard);
+  reme — no coverage.**
+- **Cascade: all four tools must re-copy `modules/tray_kit/`** (`tray_kit.py`,
+  `__init__.py`, `README.md`). Adoption for dsh/ocx/reme is "add the probe to `smoke()` and
+  make it fail the build", which is also what closes C-10 family-wide.
+
 ## 2026-09-19 (state rule into STANDARDS D6; update_helper 1.4.0; reme reference re-audit)
 
 reme-dev published `reme-helper/UPDATE-CHAIN-REFERENCE.md` (`10c76df`) as the comparison

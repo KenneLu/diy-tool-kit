@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.1.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.2.0
+# 1.2.0：C-10 判据重写——旧判据只要 smoke() 里出现 `mutex|single_instance` **任意子串**就算过，
+#   太松（"把 --smoke 提前分派 + 留一句注释"就能骗过），**区分不了"覆盖了"与"绕过了"**。
+#   现判据（D3.3）：smoke() 内必须有**探针** `mutex_name_is_valid(...)` 且**判了结果**；
+#   真跑守卫（acquire_single_instance）判 FAIL 并说明会弹模态框挂死构建；
+#   `single_instance_free` 不算探针（用户实例在跑时返回 False → 假红）。四种形态各一条 selftest。
 # 1.1.0：新增 C-23（模块级状态被 global 重绑 = 脆形态）与 C-24（菜单读的容器状态未进签名 /
 #   有菜单无签名机制），补 STANDARDS §D6 的机械阶梯 C-21 → C-23 → C-24；两条都有 --selftest
 #   正反样本。C-22 号被"bat/cmd 字节卫生"占用，故本组从 C-23 起编号。
@@ -324,18 +329,52 @@ def c09(c: Ctx):
     return True, "失败方向为打开"
 
 
-@check("C-10", "FAIL", "诊断参数不绕过正常启动路径（SINGLE-04/D3.1）")
+# 探针 = "验名字合法性，不占锁不弹窗"。**不能**认 single_instance_free：用户常驻实例
+# 在跑时它返回 False，拿它当冒烟断言会假红（D3.3 的两条禁忌之一）。
+_SMOKE_PROBE = re.compile(r"mutex_name_is_valid")
+# 真跑守卫的证据：出现即说明冒烟可能弹模态框把构建挂死——但仅在探针缺失时才拿来作提示。
+_SMOKE_GUARD = re.compile(r"acquire_single_instance|single_instance_free|warn_duplicate_instance")
+
+
+def _smoke_body(text: str) -> str:
+    m = re.search(r"def\s+smoke\b[\s\S]*?(?=\ndef |\Z)", text)
+    return m.group(0) if m else ""
+
+
+@check("C-10", "FAIL", "诊断参数不绕过正常启动路径：smoke 须有守卫**探针**并判结果（D3.1/D3.3）")
 def c10(c: Ctx):
+    """判据要能区分"**覆盖了**"和"**绕过了**"——这是本条两轮修正的核心。
+
+    * 旧判据（2.0.x）：`smoke()` 里出现 `mutex|single_instance` **任意子串**就算过。
+      太松：把 `--smoke` 提前分派、函数体里留一句注释提到 mutex 都能骗过它。
+    * 现判据（D3.3）：`smoke()` 内必须有**探针调用** `mutex_name_is_valid(...)`，
+      **且对结果有判断**（`if not …` / `assert`）。只调用不判断 = 没有覆盖。
+    * 反例（不许当解）：`acquire_single_instance()` **真跑** —— 用户常驻实例在跑时会弹
+      **模态**重复启动框，把无人值守的构建挂死（本家族已踩两次）。
+    """
     if c.entry is None:
         return True, "无入口文件"
     text = c.read(c.entry)
     if "--smoke" not in text:
         return True, "无 --smoke"
-    m = re.search(r"def\s+smoke\b[\s\S]*?(?=\ndef |\Z)", text)
-    body = m.group(0) if m else ""
-    covered = bool(re.search(r"single_instance|mutex|MUTEX", body, re.I))
-    return covered, ("smoke() 未覆盖单实例守卫（--smoke 绕过守卫，测不到真实启动路径）"
-                     if not covered else "smoke 覆盖了守卫")
+    body = _smoke_body(text)
+    if not body:
+        return False, "有 --smoke 但没有 smoke() 函数体可查（请让冒烟逻辑落在具名函数里）"
+    if _SMOKE_PROBE.search(body):
+        lines = body.splitlines()
+        i = next(i for i, ln in enumerate(lines) if _SMOKE_PROBE.search(ln))
+        window = "\n".join(lines[i:i + 3])
+        if re.search(r"\bif\b|\bassert\b", window) and \
+                re.search(r"\braise\b|\breturn\b|\bsys\.exit\b", window):
+            return True, "smoke 用探针覆盖了守卫名字合法性并判了结果"
+        return False, ("smoke 调了 mutex_name_is_valid 但**没判结果**（覆盖 ≠ 调用："
+                       "要么 if not … 中止，要么 assert）")
+    if _SMOKE_GUARD.search(body):
+        return False, ("smoke 里是**真跑守卫**（acquire_single_instance/…）：用户常驻实例在跑时"
+                       "会弹模态重复启动框，把构建挂死。改用探针 tray_kit.mutex_name_is_valid()")
+    return False, ("smoke() 没有守卫覆盖（SINGLE-04/D3.1）。把 --smoke 提到守卫之前"
+                   "**不算**覆盖——那是把守卫从被测路径里删掉；正确形态是探针："
+                   "`if not tray_kit.mutex_name_is_valid(APP_ID): raise RuntimeError(...)`")
 
 
 @check("C-11", "FAIL", "运行检测匹配串能命中当前 exe 名（SINGLE-05/D1-02）")
@@ -784,6 +823,32 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-24 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail))
+
+        # C-10：判据要能区分"覆盖了"与"绕过了"——四种形态各一个样本
+        c10_head = "import sys\nif '--smoke' in sys.argv:\n    pass\n\n\n"
+        c10_cases = (
+            ("pos_probe_guarded",
+             "def smoke():\n"
+             "    if not tray_kit.mutex_name_is_valid(APP_ID):\n"
+             "        raise RuntimeError('bad mutex name')\n"
+             "    return 0\n", True),
+            ("neg_no_guard",
+             "def smoke():\n    return 0\n", False),
+            ("neg_real_guard_modalfree",
+             "def smoke():\n    if not tray_kit.acquire_single_instance(APP_ID):\n"
+             "        return 1\n", False),
+            ("neg_probe_unchecked",
+             "def smoke():\n    tray_kit.mutex_name_is_valid(APP_ID)\n    return 0\n", False),
+        )
+        for name, body, want in c10_cases:
+            d = base / ("c10_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(c10_head + body, encoding="utf-8")
+            ok, detail = c10(Ctx(name, base / ("c10_" + name)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-10 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
 
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
