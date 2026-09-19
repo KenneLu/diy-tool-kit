@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.17
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.18
+# 1.9.18：l-s2t 孤儿登记补「键名口径 = APP_NAME 非 APP_ID」+ 采集时点（§4.1.53）；纯登记文案，无判据行为变更。
 # 1.9.17：C-46 的「过期」WARN 消息内联声明**本轮不重建 ⇒ 预期读数**（防下一个人去追它 / 去构建）；纯文案，无行为变更。
 # 1.9.16：**C-40 选键改为「路径优先、键名兜底」**（§4.1.53/§4.1.54）= 家族 Run 键名无单一契约（模板 autostart 用 APP_NAME / reme 内联用 APP_ID），只认键名必漏一半；路径腿枚举全表、命中「值路径落在本工具仓库根或稳定安装位之下」，键名腿兜底 dev 态，且**打印实际走的哪条腿**。自证 5 条腿（两条正样本 + 外来项反向格）。
 # 1.9.15：**修 C-40 键名假绿**（§4.1.53）= Run 键名从「按 `APP_ID` 单查」改为「取全表 + 按 `APP_NAME`→`APP_ID` 双候选选键并打印命中」——l-s2t 的 `APP_ID=local-speak2text` ≠ `APP_NAME=LocalSpeak2Text`，旧实现读不到 ⇒ 强断言从未执行；附大小写变体键提示（§4.1.51）。自证 4 条腿。
@@ -2804,7 +2805,7 @@ ORPHAN_VERSIONS = {
                "（smoke.log 是 22:15 取证时新写的，非原目录内容）。"
                "曾出现：2026-09-19 20:40:04 一次重建的「改名保留」——避免 robocopy /E "
                "在目标目录留下陈旧 _internal。未收敛：未被引用，但按红线不得删 release/，"
-               "且它是当前唯一的回滚路径（HANDOFF §1.6 精神），留待 GUI 验证出结论后由属主定夺。",
+               "且它是当前唯一的回滚路径（HANDOFF §1.6 精神），留待 GUI 验证出结论后由属主定夺。（**键名口径**：该 Run 键是 **`APP_NAME=LocalSpeak2Text`**，**不是** `APP_ID=local-speak2text`——用 APP_ID 去 grep 会误判成「无 Run 项」，这正是 §4.1.53 修的坑；值 = 2026-09-19 22:34 判据同源枚举实测，见 §4.1.53。）",
         "reverify": "l-s2t 的 Run 键值或 release/ 目录集合变化时；或用户授权清理该 stale 目录时。",
     },
 }
