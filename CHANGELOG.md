@@ -2,6 +2,33 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (the criterion's fingerprint ended up in the product prose)
+
+- **A real instance of "reword the product text so the criterion stops biting", located to a commit.**
+  `modules/update_helper/update_helper.py`'s module docstring used to say, naturally:
+  *"wait ticks no longer use `ping`: `ping -n 2 127.0.0.1` looks like 'sleep 1 second'…"* — that sits
+  in a **docstring** (a string), while `_code_only_text` filtered only `#` and `rem`, so **C-33 read
+  prose about code as code**. The chosen fix was **not** to the criterion: the sentence was rewritten
+  to *"…no longer use `ping` (that is 'send ICMP and wait for replies', not sleeping): `-n 2` +
+  loopback address"* — **splitting `ping` from `-n`** with a parenthetical and a separately quoted
+  `-n 2`. Located in commit **`2afebbc`** (#40a, the dispatchable batch; diff lines 72/77) —
+  **not** the batch that fixed C-33, which touched only `conformance_check.py` and three docs.
+- **Why this is worse than the defect itself** (the lead's argument, and it is the decisive one):
+  ① **the criterion's fingerprint is now in the product text** — the next reader cannot tell why the
+  sentence is written that way; ② editing the text costs **four recopies every time**, while editing
+  the criterion is **one change that turns all four green at once**.
+- **Verified safe to revert the wording**: a probe putting the natural sentence back still comes out
+  **GREEN** (`check_ping_tick`), because the criterion now removes **AST bare-string expressions**
+  (§4.1.37). **Not done unilaterally**: restoring it touches `modules/**`, i.e. a **re-copy event**,
+  so per §4.1.39 it goes through the dispatch flow (change → freeze → declare → re-copy) — recommended
+  to ride the next wave's single recopy as TEMPLATE-VER 1.4.4 → 1.4.5.
+- **Identity line: both hash dialects now have a measured discriminating instance** — appending a
+  single `# TEMPLATE-…` line moves `raw 8213f62be793 → f6b5d7711a26` while `norm` stays
+  `0179f3bfda82`. ⚠️ The instance the lead quoted for this ("`sync_check` 1.8.2→1.8.3: sha256 changed,
+  norm did not") **does not hold**: both dialects changed across those two revisions, and no adjacent
+  pair in either tool's history shows one changing without the other. **The mechanism is real; that
+  particular example was not** — so the docstring carries my measured synthetic one instead.
+
 ## 2026-09-19 (before calling a fix "criteria-only": does it touch `modules/**`?)
 
 - **New rule, from a case where nobody predicted it.** When the lead learned that C-33's reds were
