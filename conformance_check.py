@@ -1,5 +1,37 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.6.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.8.0
+# 1.8.0：新增 **C-30**：测试里对 **mkdtemp 根目录**的清理必须可验证——禁 `ignore_errors` 吞掉。
+#   根因（实测）：四工具在 %TEMP% 积了 **133~138 个**自家前缀目录，每个里恰好一个文件
+#   `<app>/log/<app>.log`——**`log_kit` 的 FileHandler 句柄还开着**（Windows 拒删在用文件），
+#   而 `rmtree(..., ignore_errors=True)` 把失败静默吞掉 → 每跑一次泄漏一个，**门禁全绿**。
+#   **判据刻意收窄**防误伤 best-effort 清理：只报"**mkdtemp 根目录**"被 ignore_errors 删；
+#   删子目录 / 固定路径 / 用有返回值的助手一律放行。四条样本，含 `neg_ignore_errors_on_scratch_subdir`。
+#   **首跑真实树即发现自身**一处**漏报**并修掉：reme 写的是 `root = Path(tempfile.mkdtemp(...))`，
+#   只认裸调用会让最该检查的文件报"本条不适用"——现在按"赋值右侧含 mkdtemp"判定（l-s2t 的
+#   `scratch_dir(...)` 包装形态也一并认了，根目录计数由 4→9）。真实树现值：四工具 0 FAIL。
+# 1.7.2：C-11 补收 **`.Path` + 目录精确比较**这一族（不带 `-Name` 的写法，如
+#   `Get-Process | Where-Object {$_.Path -eq ...}`）——它比 `tasklist | findstr` 的**子串匹配
+#   更强**（无子串歧义，直接比"运行实例所在目录 == 本次构建目标"），此前会掉进"认不出形态"
+#   的 WARN 里，等于**对着更强的实现报"判不了"**。样本按 lead 点名的名字对齐：
+#   `pos_ps_getprocess` / `pos_tasklist_findstr` / `neg_no_detection`(WARN)，
+#   另加 `pos_ps_path_compare`、`neg_substring_only`(FAIL)、`neg_no_c_literal`(WARN)。
+# 1.7.1：设计纪律 ④ 升级——**"不认识形态" ≠ "检出违规"**（lead 裁定，本轮最强的一条判据要求）。
+#   ① C-10 的两处兜底（既无探针也无守卫调用节点 / 有 --smoke 但无 `def smoke`）改报 **WARN**：
+#     判据看不出"绕过"（那取决于 `--smoke` 与守卫在 main() 里的先后），只能说"不认识这个形态"。
+#   ② C-11 拆成三档：`tasklist|findstr` 取得出字面量且对得上 → ok；**对不上 → FAIL（确证）**；
+#     看得到 `tasklist|findstr` 但取不出 `/c:"字面量"` → **WARN（形态不认识）**。
+#   ③ 保留 FAIL 的两处（C-10 的 AST 真跑守卫节点、C-11 的错误字面量）**其余措辞改成"确证"**，
+#     让消息与检出物一致（纪律 ④a）。
+#   ④ C-11 补三条样本：`pos_tasklist_findstr`（此前**正中靶心的分支反而没有样本**）、
+#     `neg_substring_only`（带版本号字面量 = D1-02 真实违规 ⇒ FAIL）、`neg_no_c_literal`（⇒ WARN）。
+#     C-10 的两条 WARN 样本也补上 sev 断言（原先只断言 ok，severity 变了没人知道）。
+# 1.7.0：新增 **C-29**：交给模板件的日志函数必须接受可变参数（print 形态）。
+#   根因是 `update_helper`（7 处多参调用）与 `log_kit` 1.0.2（单参闭包）**说不同的话**，
+#   而 dsh/ocx/l-s2t 各写了一份互不相同的本地 log 包装把冲突分别盖住/藏住。
+#   首跑真实树即报出 **l-s2t**（`src/main.py:80 def log(message)` + 231/998/1043 三处
+#   `log=log`），并附实测证据：模板件 L257/L390 的两个位置参数直接 TypeError。
+#   三条样本：varargs_log_ok / single_arg_wired_flagged / single_arg_unused_ok。
+#   同时 **log_kit 1.0.3 把 log 统一为 print 形态**（这是判据能成立的前提）。
 # 1.6.0：① **修 C-11 假红灯**（dsh/ocx）：它们用 PowerShell `Get-Process -Name <APPNAME>`
 #   做运行检测，旧实现只认 `tasklist | findstr` → 报"未找到运行检测"（一句与事实相反的诊断）。
 #   现在两种形态都认；**两者都没有时按 WARN 报**——框架支持检查按分支返回级别（3 元组）。
@@ -33,8 +65,15 @@
 
 设计纪律（来自 2026-09-19 首轮审计的教训）：
   ① 只写**能给出证据**的检查；判不了的宁可 WARN，不硬判 FAIL——误判会让人不再信任工具；
-  ④ 判据的"不通过消息"**必须与它实际检出的东西一致**：检不出就说检不出，不许拿不相干的
-     模式去解释失败（C-10 曾把"消费形态不认识"说成"真跑守卫"，误导出错误修法）；
+  ④ **"不认识形态"与"检出违规"必须分开**（2026-09-19 由 lead 升级，合并原有两条口径）：
+     (a) 判据的"不通过消息"**必须与它实际检出的东西一致**——检不出就说检不出，不许拿不相干
+         的模式去解释失败（C-10 曾把"消费形态不认识"说成"真跑守卫"，误导出错误修法）；
+     (b) 遇到**判据自己不认识的形态**时，一律 **WARN + "形态不认识，需人工确认"**，并在消息里
+         写明"期望什么形态 / 实际看到什么"。**不认识 ≠ 违规**；**FAIL 只能用在确实检出违规
+         证据的时候**（AST 调用节点、行号 + 实际值这类）。
+     * 为什么升级：同一元缺陷一天内出现**三次**——C-10 的 `check()` 形态、C-10 的正则读注释、
+       C-11 的 PowerShell 形态；每次都是"判据只认自己那一款，别款一律报违规"。误判一次，
+       人就再也不信这个工具（纪律 ①）。
   ② 每条检查的输出必须带 `文件:行号` 或实际值，否则等于没说；
   ③ FAIL = 硬违规（默认让退出码非 0）；WARN = 需要人判断，只提示。
 
@@ -420,8 +459,10 @@ def c10(c: Ctx):
     smokes = [n for n in ast.walk(tree)
               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "smoke"]
     if not smokes:
-        return False, ("有 --smoke 但没有 `def smoke` 可查（AST 判据要求冒烟逻辑落在具名函数里，"
-                       "这样才判得了'覆盖'与'绕过'）")
+        return False, ("**判不了（形态不认识）**：入口里有 `--smoke`，但没有名为 `smoke` 的函数可查"
+                       "——本判据要求冒烟逻辑落在具名函数里，才判得了'覆盖'与'绕过'。"
+                       "这**可能**是形态不认识（冒烟代码写在别处），而非没有覆盖。"
+                       "期望形态：`def smoke(): ...`；实际看到：入口文件里没有该函数定义。"), "WARN"
     guarded = plain = 0
     for fn in smokes:
         g, p = _guarded_probe_calls(fn)
@@ -435,12 +476,20 @@ def c10(c: Ctx):
     # 只能按 **AST 调用节点**判定守卫——**绝不能对函数体做文本匹配**：守卫名出现在
     # 注释里（如"别用它 single_instance_free()"这种说明）会把诊断带偏，报出一句与事实
     # 相反的话（reme 2026-09-19 实例：它既有注释又有正确的探针，却被报成"真跑守卫"）。
-    if any(_calls(fn, _GUARD_NAMES) for fn in smokes):
-        return False, ("smoke 里是**真跑守卫**（acquire_single_instance/…）：用户常驻实例在跑时"
-                       "会弹模态重复启动框，把构建挂死。改用探针 tray_kit.mutex_name_is_valid()")
-    return False, ("smoke() 没有守卫覆盖（SINGLE-04/D3.1）。把 --smoke 提到守卫之前"
-                   "**不算**覆盖——那是把守卫从被测路径里删掉；正确形态是探针："
-                   "`if not tray_kit.mutex_name_is_valid(APP_ID): raise RuntimeError(...)`")
+    hit = sorted({n for fn in smokes for n in _GUARD_NAMES if _calls(fn, {n})})
+    if hit:
+        return False, ("**确证**（AST 直接调用节点，不是文本猜测）：smoke() 里调用了 %s —— 真跑守卫。"
+                       "用户常驻实例在跑时会弹模态重复启动框，把构建挂死。"
+                       "改用探针 tray_kit.mutex_name_is_valid()" % "/".join(hit))
+    # 既没检出探针、也没检出真跑守卫 —— 这是**未检出**，不是**确证违规**（设计纪律 ④）。
+    # 判据只认识"已知形态"；工具完全可能把覆盖包在别的助手函数里。所以报 WARN 并写明
+    # 期望形态与实际所见，把判断交回人——**不认识 ≠ 违规**。
+    return False, ("**判不了（形态不认识）**：smoke() 里既没有探针 `mutex_name_is_valid(...)` 的"
+                   "调用节点，也没有真跑守卫的调用节点。**若你确实绕过了守卫，那才是 SINGLE-04/"
+                   "D3.1 违规**——但本判据看不出'绕过'（那取决于 `--smoke` 与守卫在 main() 里的"
+                   "先后），所以只报 WARN，请人工确认。期望形态：`if not "
+                   "tray_kit.mutex_name_is_valid(APP_ID): raise RuntimeError(...)`；"
+                   "实际看到：smoke() 里没有任何已知守卫符号的调用节点。"), "WARN"
 
 
 @check("C-11", "FAIL", "运行检测匹配串能命中当前 exe 名（SINGLE-05/D1-02）")
@@ -458,6 +507,7 @@ def c11(c: Ctx):
     appname = re.search(r'set\s+APPNAME=(\S+)', text)
     app = appname.group(1) if appname else c.app_id
     exe = app + ".exe"
+    saw_tasklist_without_literal = False
     for line in text.splitlines():
         if "tasklist" in line and "findstr" in line:
             mm = re.search(r'/c:"([^"]+)"', line)
@@ -465,17 +515,33 @@ def c11(c: Ctx):
                 probe = mm.group(1).replace("%APPNAME%", app)
                 if probe and probe in exe:
                     return True, "tasklist 匹配串 %r 能命中 %s" % (probe, exe)
-                return False, ("tasklist 匹配串 %r 匹配不到 %s —— 只有旧版带版本号的 exe 会被"
-                               "命中，当前实例在跑也拦不住构建" % (probe, exe))
+                return False, ("**确证**：`%s` 的匹配串 %r 与当前 exe 名 %s 对照不上——只有旧版"
+                               "带版本号的 exe 会被命中，当前实例在跑也拦不住构建"
+                               % (line.strip()[:70], probe, exe))
+            saw_tasklist_without_literal = True
         if "Get-Process" in line:
             mm = re.search(r"-Name\s+'?\"?([\w.%\[\]]+)", line)
             if mm:
                 probe = mm.group(1).replace("%APPNAME%", app)
                 if probe and probe in exe:
                     return True, "PowerShell 匹配名 %r 能命中 %s" % (probe, exe)
-                return False, ("PowerShell 匹配名 %r 匹配不到 %s" % (probe, exe))
-    # 判不了就不硬判（设计纪律 ①）：认不出形态 ⇒ **WARN**，并给出补形态的指引。
-    return False, ("认不出运行检测形态（既无 `tasklist | findstr` 也无 `Get-Process`）——"
+                return False, ("**确证**：PowerShell 匹配名 %r 与当前 exe 名 %s 对照不上"
+                               % (probe, exe))
+        # **`.Path` + 目录精确比较**这一族（dsh/ocx 的形态）：它比 `tasklist | findstr`
+        # 的**子串匹配更强**——没有子串歧义，且直接比"运行实例所在目录是不是本次构建目标"。
+        # 不带 `-Name` 时（如 `Get-Process | Where-Object {$_.Path -eq ...}`）此前会掉进
+        # "认不出形态"的 WARN 里，那是对着更强的实现报"判不了"。认得就明确放行。
+        if "Get-Process" in line and ".Path" in line:
+            return True, ("PowerShell `Get-Process` 取 `.Path` 做**目录精确比较**（SINGLE-05 的"
+                          "强化形态：无子串歧义）")
+    if saw_tasklist_without_literal:
+        return False, ("**判不了（形态不认识）**：看到 `tasklist | findstr`，但取不出 `/c:\"...\"` "
+                       "字面量来与 exe 名对照——它可能用别的方式写匹配串。期望形态："
+                       "`tasklist ... | findstr /i /c:\"%APPNAME%.exe\"`；"
+                       "实际看到：该行没有 `/c:\"...\"`。"), "WARN"
+    # 判不了就不硬判（设计纪律 ①④）：认不出形态 ⇒ **WARN**，并给出补形态的指引。
+    return False, ("**判不了（形态不认识）**：既无 `tasklist | findstr` 也无 `Get-Process`，"
+                   "本判据不认识该工具的运行检测形态——**不认识 ≠ 违规**，请人工确认。"
                    "若该工具确有自有实现，请把它的形态补进本检查"), "WARN"
 
 
@@ -1089,8 +1155,171 @@ def c28(c: Ctx):
     return (not bad), ("；".join(bad) if bad else "手写文档无 TAB")
 
 
+# ---------------------------------------------------------------- C-29
+_LOG_DEF = re.compile(r"^[ \t]*def\s+(log|_log)\s*\(([^)]*)\)", re.M)
+_LOG_WIRED = re.compile(r"\blog\s*=\s*([A-Za-z_]\w*)")
+
+
+@check("C-29", "FAIL", "交给模板件的日志函数必须接受可变参数（print 形态）")
+def c29(c: Ctx):
+    """**"替身比真实实现更宽容"会盖住契约冲突**——本条是它的机械落地。
+
+    根因（2026-09-19 定）：`update_helper` 全文 7 处按 print 形态调用
+    （`log("downloading", stem)`、`log("update staged:", staged, "->", target, "(bat %s)" % s)`），
+    而 `log_kit.make_logger` 1.0.2 给的是**单参闭包** `log(message)`。
+
+    **为什么一直没炸**：dsh / ocx 各自在工具侧写了 `def log(*parts)` 把它兜住（两处都留了
+    "模板 log_kit 待统一"的注释），l-s2t 写了单参包装却照样 `log=log` 传给
+    `tray_kit` / `update_helper` —— **冲突被三份互不相同的本地包装分别盖住或藏住**，
+    模板层面于是长期保持"两个派发件说不同的话"。
+
+    判据：工具代码里出现 `log=<name>`（把函数交给模板件），而该 `<name>` 在**工具代码内**
+    的定义是单参、没有 `*args`/`*parts` → 报，并点名定义处与第一处传参点。
+
+    **✅ 合规正例（写在最前，防后人误伤）**：**工具侧自建 `def log(*parts)` 包装是正确做法，
+    不是要消灭的偏差**——dsh `src/main.py:120` 与 ocx `src/main.py:80`（`def _log(*parts)`）
+    就是这么写的，C-29 对它们判 `[ok]`（首跑只报 l-s2t 是对的）。判据说要消灭的是
+    **"只收一个参数"**的包装，不是"自己写包装"这件事本身。
+    `✶` 为什么要把这句写进判据说明：**判据的措辞会塑造后人的行为**——若这里只写"传给模板件的
+    log 必须收可变参数"，读者很容易把它读成"凡自建包装皆偏差"，从而去"统一"掉 dsh/ocx 那种
+    **本来就正确**的写法。样本 `pos_tool_side_vararg_wrapper` 专门钉住这一形态。
+
+    不做的事（避免假红灯）：`log=` 后面的名字**不是工具内的函数定义**时**不下判**——
+    例如 reme 的 `log=HELPER_UPDATE_LOG` 是**日志文件路径**（交给 bat 模板的），
+    不是日志函数；拿它开火就是一句与事实相反的诊断（本文件的设计纪律 ④）。
+    """
+    code = [p for p in c.py_files()
+            if "modules" not in p.relative_to(c.src).parts[:1] and p.name != "__init__.py"]
+    if not code:
+        return True, "无工具代码"
+    wired = {}
+    for p in code:
+        rel = p.relative_to(c.dir).as_posix()
+        for i, line in enumerate(c.read(p).splitlines(), 1):
+            for m in _LOG_WIRED.finditer(line):
+                wired.setdefault(m.group(1), []).append("%s:%d" % (rel, i))
+    if not wired:
+        return True, "没有把日志函数交给模板件（log= 零命中）"
+    defs = {}
+    for p in code:
+        text = c.read(p)
+        for m in _LOG_DEF.finditer(text):
+            name = m.group(1)
+            if name in wired and name not in defs:
+                defs[name] = (p.relative_to(c.dir).as_posix(),
+                              text[:m.start()].count("\n") + 1, m.group(2).strip())
+    if not defs:
+        return True, ("log= 命中的 %d 处都不是工具内的函数定义（如日志路径常量），本条判不了"
+                      % sum(len(v) for v in wired.values()))
+    bad = []
+    for name, (rel, lineno, params) in sorted(defs.items()):
+        if "*" in params:
+            continue
+        bad.append("%s:%d `def %s(%s)` 只收一个参数，却由 %s 交给模板件——"
+                   "模板件按 print 形态调用时（如 `log(\"downloading\", stem)`）直接 TypeError"
+                   % (rel, lineno, name, params, wired[name][0]))
+    if bad:
+        return False, "；".join(bad)
+    return True, "%d 个交给模板件的日志函数都是 print 形态（%s）" % (
+        len(defs), ", ".join(sorted(defs)))
+
+
+# ---------------------------------------------------------------- C-30
+_RMTREE_CALL = re.compile(r"(?:shutil\.)?rmtree\s*\(\s*([A-Za-z_]\w*)")
+_ASSIGN_LINE = re.compile(r"^\s*([A-Za-z_]\w*)\s*=")
+_DEF_HEAD = re.compile(r"^\s*def\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*:", re.M)
+
+
+def _mkdtemp_producers(texts) -> set:
+    """哪些**函数名**会产生 mkdtemp 根目录：`mkdtemp` 本身 + 工具自己的包装。
+
+    l-s2t 的测试写的是 `_TMP = scratch_dir("l-s2t-startup-")`，而 `scratch_dir` 是
+    `tests/_cleanup.py` 里包了 `mkdtemp` 的助手。只认 `mkdtemp` 字面量会**漏掉真实形态**
+    （判据会对着真正泄漏的地方报绿灯），所以把"函数体里出现 `mkdtemp(`"的本地函数也算生产者。
+    """
+    producers = {"mkdtemp"}
+    for text in texts:
+        for m in _DEF_HEAD.finditer(text):
+            if "mkdtemp(" in text[m.end():m.end() + 800]:
+                producers.add(m.group(1))
+    return producers
+
+
+def _mkdtemp_roots(text, producers) -> set:
+    """本文件里哪些**变量**是 mkdtemp 根目录。
+
+    必须按"赋值语句右侧含不含 mkdtemp"判定，而不是只认 `X = mkdtemp(...)` 这一种写法：
+    reme 的测试是 `root = Path(tempfile.mkdtemp(prefix="reme-update-bat-"))`——
+    外面套了 `Path(...)`。**只认裸调用会让最需要检查的文件报"本条不适用"**
+    （2026-09-19 真实树首跑实测：reme 就是这样被漏掉的）。
+    """
+    lines = text.splitlines()
+    roots = set()
+    for i, line in enumerate(lines):
+        m = _ASSIGN_LINE.match(line)
+        if not m:
+            continue
+        # 右侧可能续行：把本行 + 后两行拼起来看
+        rhs = " ".join(lines[i:i + 3])
+        if "mkdtemp(" in rhs or any(p + "(" in rhs for p in producers if p != "mkdtemp"):
+            roots.add(m.group(1))
+    return roots
+
+
+@check("C-30", "FAIL", "测试里对 mkdtemp 根目录的清理必须可验证（禁 ignore_errors 吞掉）")
+def c30(c: Ctx):
+    """**"删不掉"必须变成红，而不是被 `ignore_errors=True` 吞掉**（2026-09-19 实测）。
+
+    背景：四个工具在 `%TEMP%` 积了 **133~138 个**自家前缀目录，每个里面**恰好一个文件**
+    `<app>/log/<app>.log`。根因不是窗口 cwd，而是 **`log_kit` 的 FileHandler 句柄还开着**
+    （Windows 拒绝删除在用文件），而 `rmtree(..., ignore_errors=True)` 把失败**静默吞掉** →
+    每跑一次泄漏一个目录，**而所有门禁照旧全绿**。
+
+    **判据刻意收窄**（避免误伤真正的 best-effort 清理——那是本条最容易做错的地方）：
+      * 只盯**由 `mkdtemp` 产生的根目录**（含工具自己的包装函数，如 `scratch_dir`）；
+      * 只有那个**根目录**被 `rmtree(..., ignore_errors=True)` 删时才报；
+      * 删**子目录**、删固定路径、用 `_rmtree_retry` 之类**有返回值**的助手 → **不报**。
+
+    正确形态：删前释放日志句柄（`logging.shutdown()` / 关 FileHandler）→ 删 → **回读确认不存在**
+    → 不存在才算成功，失败即红。本条只否掉"吞掉失败"这一种写法，不规定必须用哪个助手。
+
+    **本条不猜命名**（STANDARDS §D7 硬要求 8）：mkdtemp 根目录是**从源码枚举**出来的
+    （赋值语句右侧是否调用 `mkdtemp(`，含 `Path(...)` / `scratch_dir(...)` 等包装形态），
+    **不做 `prefix="xxx"` 的字符串匹配**——前缀怎么改、新增几个，判据自动跟着变。
+    """
+    tests = c.dir / "tests"
+    if not tests.is_dir():
+        return True, "无 tests/"
+    files = [p for p in sorted(tests.rglob("*.py")) if "__pycache__" not in p.parts]
+    if not files:
+        return True, "tests/ 下无 .py"
+    texts = [c.read(p) for p in files]
+    producers = _mkdtemp_producers(texts)
+    roots_total, bad = 0, []
+    for p, text in zip(files, texts):
+        roots = _mkdtemp_roots(text, producers)
+        roots_total += len(roots)
+        if not roots:
+            continue
+        rel = p.relative_to(c.dir).as_posix()
+        for m in _RMTREE_CALL.finditer(text):
+            if m.group(1) not in roots:
+                continue
+            # ignore_errors 可能写在续行上——看调用点之后 160 字符，而不是只看同一行
+            if "ignore_errors" not in text[m.end():m.end() + 160]:
+                continue
+            bad.append("%s:%d `rmtree(%s, ignore_errors=True)` —— %s 是 mkdtemp 根目录"
+                       % (rel, text[:m.start()].count("\n") + 1, m.group(1), m.group(1)))
+    if bad:
+        return False, ("；".join(bad) + "。【正确形态】删前释放日志句柄（logging.shutdown()）、"
+                       "删后**回读确认目录已不存在**，失败即红")
+    if not roots_total:
+        return True, "测试里没有 mkdtemp 根目录（本条不适用）"
+    return True, "%d 个 mkdtemp 根目录都用可验证的清理（无 ignore_errors）" % roots_total
+
+
 def selftest() -> int:
-    """C-21..C-28 反向自证：合成样本，正例须点名、反例须放行。"""
+    """C-21..C-29 反向自证：合成样本，正例须点名，反例须放行。"""
     import shutil
     import tempfile
     base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
@@ -1156,8 +1385,9 @@ def selftest() -> int:
              "    if not tray_kit.mutex_name_is_valid(APP_ID):\n"
              "        raise RuntimeError('bad mutex name')\n"
              "    return 0\n", True),
+            # 未检出（不是确证违规）⇒ WARN
             ("neg_no_guard",
-             "def smoke():\n    return 0\n", False),
+             "def smoke():\n    return 0\n", False, "WARN"),
             ("neg_real_guard_modalfree",
              "def smoke():\n    if not tray_kit.acquire_single_instance(APP_ID):\n"
              "        return 1\n", False),
@@ -1166,7 +1396,7 @@ def selftest() -> int:
             # 子串判据会**误收**这一条（名字只出现在注释里）；AST 不会。这就是升级判据的理由。
             ("neg_comment_only",
              "def smoke():\n    # TODO: should call mutex_name_is_valid(APP_ID) here\n"
-             "    return 0\n", False),
+             "    return 0\n", False, "WARN"),
             # reme 的真实形态：探针**作为参数交给 check() 助手**——值被消费了，必须放行。
             # 旧判据只认 if/while/assert 的 test，这里 guarded=0/plain=0 → 假红灯。
             ("pos_probe_passed_to_check_helper",
@@ -1182,15 +1412,21 @@ def selftest() -> int:
             ("neg_real_guard_ast",
              "def smoke():\n    tray_kit.acquire_single_instance(APP_ID)\n", False),
         )
-        for name, body, want in c10_cases:
+        for case in c10_cases:
+            name, body, want = case[:3]
+            want_sev = case[3] if len(case) > 3 else None
             d = base / ("c10_" + name) / "src"
             d.mkdir(parents=True)
             (d / "main.py").write_text(c10_head + body, encoding="utf-8")
-            ok, detail = c10(Ctx(name, base / ("c10_" + name)))
-            good = ok == want
+            res = c10(Ctx(name, base / ("c10_" + name)))
+            ok, detail = res[0], res[1]
+            sev = res[2] if len(res) == 3 else "FAIL"
+            # 设计纪律 ④：**未检出 ≠ 确证违规**。这两种形态（既无探针也无守卫调用节点）
+            # 必须是 **WARN**——判据说不出"绕过了"，只能说"不认识这个形态"。
+            good = (ok == want) and (want_sev is None or sev == want_sev)
             failed += 0 if good else 1
-            print("[selftest] %s  C-10 %s: ok=%s want=%s | %s"
-                  % ("PASS" if good else "FAIL", name, ok, want, detail))
+            print("[selftest] %s  C-10 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:80]))
 
         # C-22：字节卫生——三种损坏各一条样本（都会让**某一行**静默失效），合规的必须放行
         c22_cases = (
@@ -1291,7 +1527,7 @@ def selftest() -> int:
         ok, detail, sev = c11(Ctx("c11_none", _e))
         good = (ok is False and sev == "WARN")
         failed += 0 if good else 1
-        print("[selftest] %s  C-11 neg_unrecognized_is_WARN: ok=%s sev=%s | %s"
+        print("[selftest] %s  C-11 neg_no_detection: ok=%s sev=%s | %s"
               % ("PASS" if good else "FAIL", ok, sev, detail[:60]))
         _p = base / "c11_ps"
         _p.mkdir(parents=True)
@@ -1301,8 +1537,111 @@ def selftest() -> int:
             + b" -ErrorAction SilentlyContinue).Path\"" + _crlf)
         ok, detail = c11(Ctx("c11_ps", _p))
         good = ok is True
-        print("[selftest] %s  C-11 pos_powershell_form: ok=%s | %s"
-              % ("PASS" if good else "FAIL", ok, detail[:60]))
+        failed += 0 if good else 1
+        print("[selftest] %s  C-11 pos_ps_getprocess: ok=%s | %s"
+              % ("PASS" if good else "FAIL", ok, detail[:70]))
+
+        # C-11 补齐三条（2026-09-19 lead 点名）：此前**只有** PowerShell 形态与"认不出"两条样本，
+        # `tasklist | findstr` 这条**正中靶心**的分支反而没有任何样本兜着——判据改了没人知道。
+        _c11 = (
+            # ① tasklist 形态的**合规**样本（l-s2t build.bat:86 的真实写法）
+            ("pos_tasklist_findstr", b"tasklist /fo csv 2>nul | findstr /i /c:\"%APPNAME%.exe\" >nul",
+             True, None),
+            # ② **确证违规**：匹配串写成**带版本号**的字面量——只有旧版 exe 会被命中，
+            #    当前（无版本号）实例在跑也拦不住构建（D1-02 的真实形态）⇒ FAIL
+            ("neg_substring_only", b"tasklist | findstr /i /c:\"%APPNAME%-1.0.exe\"", False, "FAIL"),
+            # ③ 看到 tasklist|findstr 但取不出 `/c:"字面量"` ⇒ **形态不认识**，不是违规 ⇒ WARN
+            ("neg_no_c_literal", b"tasklist /fo csv | findstr /i \"%APPNAME%\"", False, "WARN"),
+            # ④ `.Path` + 目录精确比较（**不带 `-Name`** 的那一族）：比子串匹配更强，
+            #    必须放行而不是掉进"认不出形态"的 WARN（对着更强的实现报"判不了"）
+            ("pos_ps_path_compare",
+             b"powershell -NoProfile -Command \"(Get-Process | Where-Object "
+             b"{$_.Path -eq '%CD%\\release\\x\\my-helper.exe'}).Count\"", True, None),
+        )
+        for name, cmdline, want, want_sev in _c11:
+            _d = base / ("c11_" + name)
+            _d.mkdir(parents=True)
+            (_d / "build.bat").write_bytes(
+                b"@echo off" + _crlf + b"set APPNAME=my-helper" + _crlf + cmdline + _crlf)
+            res = c11(Ctx(name, _d))
+            ok, detail = res[0], res[1]
+            sev = res[2] if len(res) == 3 else "FAIL"
+            good = (ok == want) and (want_sev is None or sev == want_sev)
+            failed += 0 if good else 1
+            print("[selftest] %s  C-11 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:80]))
+
+        # C-29：交给模板件的 log 必须是 print 形态。
+        # 命名按"该不该报"写清楚：本文件的样本命名在两代检查里刚好相反
+        # （C-25/26 的 pos = 该报、C-11 的 pos = 合规），所以这里不用 pos/neg，
+        # 直接用 `_ok` / `_flagged` / `_unused` 三个词，读的人不必猜。
+        c29_cases = (
+            ("varargs_log_ok",
+             "def log(*parts):\n    pass\n\n\nupdate_helper.download_and_prepare(log=log)\n", True),
+            # dsh `main.py:120` / ocx `main.py:80` 的**真实形态**：工具侧自建包装，把
+            # 任意个位置参数拼成一行再转交 log_kit。**这是正解，不是偏差**——判据的措辞
+            # 若让人以为"自建包装"该被消灭，这份样本就是挡它的那道闸。
+            ("pos_tool_side_vararg_wrapper",
+             "from modules import log_kit\n\n"
+             "_LOG_HANDLE = log_kit.make_logger(LOG_DIR)\n\n\n"
+             "def log(*parts):\n"
+             '    """模板件的日志契约是 print 形态（log("a", b)），这里按契约收参再拼接。"""\n'
+             '    _LOG_HANDLE[0](" ".join(str(p) for p in parts))\n'
+             "\n\n"
+             "def check_update_menu(_icon=None, _item=None):\n"
+             "    update_helper.download_and_prepare(latest, APP_DIR, UPDATE_DIR, log=log)\n", True),
+            ("single_arg_wired_flagged",
+             "def log(message):\n    pass\n\n\ntray_kit.acquire_single_instance(log=log)\n", False),
+            ("single_arg_unused_ok",
+             "def log(message):\n    pass\n\n\nx = 1\n", True),
+        )
+        for name, main_src, want in c29_cases:
+            d = base / ("c29_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(main_src, encoding="utf-8")
+            ok, detail = c29(Ctx(name, base / ("c29_" + name)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-29 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-30：只有"mkdtemp 根目录被 ignore_errors 吞掉"才报；子目录/固定路径要放行。
+        # 命名按该不该报写清楚（与 C-29 同一约定），不靠 pos/neg 猜。
+        _cleanup_ok = ("import shutil, logging, tempfile\n"
+                       "TMP = tempfile.mkdtemp(prefix='t-')\n"
+                       "logging.shutdown()\n"
+                       "shutil.rmtree(TMP)\n"
+                       "assert not TMP.exists()\n")
+        _cleanup_bad = ("import shutil, tempfile\n"
+                        "TMP = tempfile.mkdtemp(prefix='t-')\n"
+                        "shutil.rmtree(TMP, ignore_errors=True)\n")
+        # 包装函数（l-s2t 真实形态）：scratch_dir 内部调 mkdtemp
+        _cleanup_wrapper = ("import shutil, tempfile\n"
+                            "def scratch_dir(prefix):\n"
+                            "    return tempfile.mkdtemp(prefix=prefix)\n"
+                            "TMP = scratch_dir('t-')\n"
+                            "shutil.rmtree(TMP, ignore_errors=True)\n")
+        # 非 mkdtemp 根：目录是 mkdir 出来的，删它吞错不算泄漏
+        _cleanup_subdir = ("import shutil, tempfile\n"
+                           "TMP = tempfile.mkdtemp(prefix='t-')\n"
+                           "sub = TMP / 'sub'\n"
+                           "shutil.rmtree(sub, ignore_errors=True)\n"
+                           "shutil.rmtree(TMP)\n")
+        c30_cases = (
+            ("verified_cleanup_ok", _cleanup_ok, True),
+            ("ignore_errors_on_mkdtemp_root_flagged", _cleanup_bad, False),
+            ("ignore_errors_through_wrapper_flagged", _cleanup_wrapper, False),
+            ("ignore_errors_on_scratch_subdir_ok", _cleanup_subdir, True),
+        )
+        for name, body, want in c30_cases:
+            d = base / ("c30_" + name) / "tests"
+            d.mkdir(parents=True)
+            (d / "test_x.py").write_text(body, encoding="utf-8")
+            ok, detail = c30(Ctx(name, base / ("c30_" + name)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-30 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         return 1 if failed else 0

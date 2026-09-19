@@ -2,6 +2,36 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (log contract: two shipped modules disagreed; `log_kit` 1.0.3; new C-29)
+
+Two dispatched modules said different things, and **three tools each hid it in their own way**.
+
+- **The conflict**: `update_helper` calls `log` in print form — 7 call sites, up to 5 positional
+  arguments (`log("downloading", stem)`, `log("update staged:", staged, "->", target, "(bat %s)" % s)`).
+  `log_kit.make_logger` handed out `def log(message)`: one argument. Wire the second into the
+  first and it dies with `TypeError` on the lines you cannot avoid — every download (L407),
+  every successful hand-off of the replace script (L257), every stale failure marker (L390).
+- **Why it stayed invisible**: dsh wrote `def log(*parts)` and ocx wrote `def _log(*parts)` —
+  both absorbed the mismatch, and dsh's docstring even says "模板 log_kit 待统一". l-s2t wrote a
+  **narrower** `def log(message)` yet still passed `log=log` to template modules. Three local
+  wrappers, three private accommodations: at the template level, nobody could ever see that two
+  shipped modules contradicted each other. Same shape as the "majority is a false judge" rule in
+  B4 — three accommodations look like consensus and are just three workarounds.
+- **Fixed**: `log_kit` 1.0.3 makes `log(*parts)` (space-joined `str(part)`), matching its callers.
+  The `log=` contract is now written into the `log_kit` / `update_helper` / `tray_kit` README
+  interface tables (a dispatched file, so the four tool copies need a re-copy).
+- **New C-29** makes it mechanical: a `log=<name>` handed to a template module must resolve to a
+  tool-code definition that takes varargs. First run on the real tree flagged **l-s2t**
+  (`src/main.py:80` plus `log=log` at `231`/`998`/`1043`). The defect was then **measured**, not
+  inferred: a one-argument `log` passed to `launch_pending_cmd` / `pop_failed_update_note` raises
+  `TypeError` on template lines L257 / L390, while a print-form `log` runs clean.
+  Deliberately *not* judged: names that are not tool-code function definitions — reme's
+  `log=HELPER_UPDATE_LOG` is a **log file path** handed to the bat template, and firing on it
+  would be a diagnosis that contradicts the facts.
+- Three samples (`varargs_log_ok` / `single_arg_wired_flagged` / `single_arg_unused_ok`); selftest
+  is ALL PASS. STANDARDS §J gains "a more permissive stand-in hides contract conflicts — copy the
+  production signature, err on the strict side".
+
 ## 2026-09-19 (C-11 false red fixed: recognize the PowerShell form, and WARN when unrecognized)
 
 Same class as the C-10 false red, found the same way: dsh/ocx do their running-instance check
@@ -14,7 +44,7 @@ with **PowerShell `Get-Process -Name <APPNAME>`**, while C-11 only looked for
   (`(ok, detail, "WARN")`), so "can't judge" no longer gets reported as a hard violation
   (design rule ①). The WARN message tells the reader to add their form to the check.
 - Two samples: `neg_unrecognized_is_WARN` and `pos_powershell_form`. Real tree: **four tools ok**.
-- **A fifth bite from the same J-坑**: writing these samples, `
+- **A fifth bite from the same J-坑**: writing these samples, `
 ` inside heredocs turned into
   real bytes twice more (broken comment, split literals). Both are now built with explicit byte
   values (`bytes([13, 10])`); the harness rules in §D7 cover the family of causes, and this is
@@ -42,10 +72,10 @@ halves of the analysis were right.
   node still fails). Real tree: **all four tools ok**, reme included.
 - **C-28 (WARN)**: `.md` files must not contain 0x09. The lead's ruling: do **not** widen it to
   every text file (`.py` indentation, `.json` escapes are legitimate), but a hand-written CJK
-  doc with a TAB is always an accident — which is exactly the incident I hit when a `	` inside
+  doc with a TAB is always an accident — which is exactly the incident I hit when a `\t` inside
   a Python string landed in CHANGELOG.md as a real TAB. Positive/negative samples included.
 - **That J-坑 recurred twice more while writing this very entry**: the heredoc turned my
-  `	`/`
+  `\t`/`
 
 ` into real bytes twice (once inside the C-28 sample itself, once in a comment
   about it). Both were caught by reading the bytes back and are now written with **explicit byte
