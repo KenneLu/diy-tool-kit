@@ -2,6 +2,40 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-25/26/27: three clauses for the day's defects; update_helper 1.4.2)
+
+Four defects surfaced today that **none of the 76 existing clauses could catch**, so three of
+them are now mechanical checks (C-22, the byte one, shipped earlier).
+
+- **C-25 门禁步骤必须"既存在又能被执行"** — an invocation whose path is missing is a FAIL
+  (reme's `build.bat:201` was `tests<TAB>est_update_bat.py`: the whole gate never ran, and with
+  D1-01 ahead of it, it never even got the chance to fail). A call sitting after a **top-level**
+  unconditional `exit /b` / `goto :eof` is also reported as dead code; `exit /b` inside an
+  `if (...)` block is *conditional* and does not count — the first version flagged every tool's
+  normal gates, which is exactly the false red the discipline warns about.
+- **C-26 `start` 前必须存在性守卫** — `robocopy` returning rc 0 means **"nothing copied, no
+  error"**, so "only exclude >=8" calls an empty stage a success and the following `start`
+  points at a missing exe: a GUI-subsystem modal box that `DETACHED_PROCESS` cannot suppress.
+  Every `start "" "<path>"` needs an existence guard. It scans **`.py` templates too** —
+  the update bats are rendered, so scanning only `.bat` files found nothing (first version
+  reported "no start calls" for all four tools).
+- **C-27 采纳 = 拷贝 + 接线** — a module README declares `<!-- MUST-WIRE: symbol -->`; the
+  checker looks for the symbol **in tool code** (`src/**/*.py`, excluding the copied module
+  and `__init__.py` re-exports). `sync_check` saying `[ok]` only proves the files were copied:
+  dsh/ocx had `sweep_stale_update_dirs` / `pop_failed_update_note` **only in the README they
+  copied**, with zero code references. Declarations are read from the **template** copy so the
+  requirement takes effect immediately instead of waiting for a re-copy. It now fails dsh/ocx on
+  `launch_pending_cmd` only — which is exactly pending tasks #27/#28.
+- **`update_helper` 1.4.1 → 1.4.2**: the reviewer found the **third** unguarded `start`
+  (`:install_failed`, after the restore). rc<8 means "the restore did not error", not "the exe
+  is there" — a snapshot can be missing it. Every branch reaching a `start` must verify on its
+  own; a guard elsewhere does not prove this one. (C-26 as written still accepts a guard
+  *somewhere* on the flow — path-specific reachability needs control-flow analysis; the runtime
+  E-group sample covers the empty-stage path end to end.)
+- **The E group caught my own violation**: the first version of that new comment block was
+  written **in Chinese inside the ASCII-only bat template** — `E ASCII-only` failed. The rule
+  I spent the day enforcing is enforced by the asset, on me.
+
 ## 2026-09-19 (update_helper 1.4.0 → 1.4.1: the failure paths now preserve the scene alike)
 
 The lead's task text asked for "不启动 + 写 marker + **保留现场**". Re-reading my own

@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.4.1
+# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.4.2
 """T4｜在线更新三段式：查（GitHub Releases）→ 下（zip + sha256）→ 换（退出后铺目录并重启）。
 
 **基准**：本件按用户仲裁规则（STANDARDS B4）以 reme-helper 的**已验证更新链**为准
 （`reme-helper/src/main.py` 7098-7345；语义清单见 `reme-helper/UPDATE-CHAIN-REFERENCE.md`），
 不以"用的人多"为准。
+
+1.4.2（2026-09-19）：补**第三处** `start` 的守卫（`:install_failed` 回铺之后）。前三轮只盯了
+"暂存包为空"与"拷完缺 exe"两条路，而**回铺成功（rc<8）也可能没铺出 exe**（快照本身就缺）——
+`start` 于是指向不存在的文件 ⇒ 同一个模态框卡死。**每一条通往 `start` 的分支都要自己验一次**，
+别处有守卫不构成这条分支的证明。
 
 1.4.1（2026-09-19）：`:stage_invalid`（暂存包里没有 exe）改为走 **`:cleanup_keep`**——
 与 `:install_failed` 同一条规则：**失败要保留现场**。此前它走 `:cleanup`，把可疑的暂存整包删掉了，
@@ -179,6 +184,11 @@ rem previous version from the snapshot so the tool comes back, and leave a marke
 echo [{stamp}] INSTALL FAILED rc=%RC% - restoring from snapshot >> "%LOG%"
 robocopy "%SNAPSHOT%" "%TARGET%" /e /purge /njh /njs /nfl /ndl >> "%LOG%" 2>&1
 if errorlevel 8 goto install_dead
+rem rc<8 means "the restore did not error", NOT "the exe is now there" - the snapshot
+rem itself can be missing it. EVERY path that reaches a start must verify on its own:
+rem a guard elsewhere does not prove this branch. Without this line this is a third
+rem "start on a missing exe -> modal box -> hang" entry point (reviewer, 2026-09-19).
+if not exist "{newexe}" goto install_dead
 echo [{stamp}] restored - starting previous version >> "%LOG%"
 start "" "{newexe}"
 goto cleanup_keep

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.3.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.4.0
+# 1.4.0：新增三条「当天缺陷没有现役条款能拦」的机械判据（各带正负样本）：
+#   C-25 门禁步骤必须**既存在又能被执行**（reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
+#   C-26 `start` 前必须存在性守卫——外部程序"成功"不能只靠排除失败码（robocopy rc=0 ≠ 成功）
+#   C-27 模块采纳 = 拷贝 + 接线（README `<!-- MUST-WIRE: sym -->` 声明的符号须在**工具代码**里被引用）
 # 1.3.0：新增 **C-22 bat/cmd 字节卫生**（CRLF + 无 0x09 + 纯 ASCII，逐文件逐行报位置）。
 #   把"bat 必须 CRLF + 纯 ASCII"从口头纪律升级成可执行判据；五条 selftest 样本（TAB / LF-only /
 #   非 ASCII / 混合 / 合规）。构建产物与脚手架目录（release/out/dist/_internal/.cache/.verify-scratch）
@@ -883,8 +887,159 @@ def c24(c: Ctx):
                             else "签名覆盖菜单容器状态（受检文件 %d）" % checked)
 
 
+# ---------------------------------------------------------------- C-25..C-27
+# 三条都来自 2026-09-19 当天暴露的缺陷，**现役 76 条款一条都拦不住**：
+#   C-25 门禁步骤"可执行 + 可被执行"   （reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
+#   C-26 外部程序"成功"必须含正向要求   （robocopy rc=0 = 没复制也没出错 ⇒ 空 STAGE 被判成功）
+#   C-27 采纳 = 拷贝 + 接线             （dsh/ocx 拷了 update_helper，README 承诺的调用零引用）
+_PATHISH = re.compile(r"[A-Za-z0-9_%~.\\/-]+\.(?:py|bat|cmd)\b")
+
+
+def _bat_invocations(path: Path):
+    """返回 [(行号, 相对路径)]：bat 里**以脚本文件为参数**的调用（注释行不算）。
+
+    只认不含 `%` 的路径字面量——带变量的（例如以 `%RELEASE_DIR%` 开头的）解析不了，不硬判。
+    """
+    out = []
+    for i, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+        s = line.strip()
+        if not s or s.lower().startswith(("rem ", "rem\t", "::")):
+            continue
+        for tok in _PATHISH.findall(s):
+            if "%" in tok or "~" in tok or tok.startswith(("-", "/", "\\")):
+                continue
+            # 只认**看起来是路径**的（带分隔符）：`dsh.cmd` / `appconfig.py` 这类裸文件名
+            # 是当参数或当命令用的，是否存在由 PATH/调用方决定，不硬判（首版实测的误报）。
+            if "\\" not in tok and "/" not in tok:
+                continue
+            out.append((i, tok.strip('"\'')))
+    return out
+
+
+@check("C-25", "FAIL", "门禁步骤必须既存在又能被执行（D1-05/J 坑）")
+def c25(c: Ctx):
+    """两步都要过：**(a) 被调用的路径在磁盘存在**；**(b) 该步不在死代码里**。
+
+    反面教材（2026-09-19）：`reme/scripts/build.bat:201` 被写成
+    `"%PY%" tests<TAB>est_update_bat.py` —— 转义把文件名撕开，**整行测试门禁从未执行过**；
+    又因 D1-01 排在它前面，即使不修也永远不暴露。**"写了"不等于"跑了"**。
+    """
+    files = [p for p in _bat_files(c.dir)
+             if p.name.lower() in ("build.bat", "release.bat", "run.bat", "clean.bat")]
+    if not files:
+        return True, "无 build/release bat"
+    missing, dead = [], []
+    for p in files:
+        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+        # 死代码判定：**顶层无条件**的 `exit /b` / `goto :eof` 之后、下一个标签之前的调用。
+        # ⚠️ 括号块内（`if errorlevel 1 ( ... exit /b 1 )`）与 `if ... exit /b` 都是**条件**出口，
+        # 成功路径根本不走——把它们当无条件会把每个工具的正常门禁全误报成"死代码"（首版实测）。
+        terminated, depth = False, 0
+        for i, line in enumerate(lines, 1):
+            s = line.strip()
+            if s.startswith(":"):
+                terminated = False
+            elif depth == 0 and not s.lower().startswith("if ") \
+                    and re.match(r"^(exit\s+/b|goto\s+:eof)", s, re.I):
+                terminated = True
+            elif terminated and s and not s.lower().startswith(("rem", "::", ")")):
+                for tok in _PATHISH.findall(s):
+                    if "%" not in tok:
+                        dead.append("%s:%d %s（前有顶层 exit/goto :eof，永不执行）"
+                                    % (p.relative_to(c.dir).as_posix(), i, tok))
+            depth = max(0, depth + s.count("(") - s.count(")"))
+        for lineno, rel in _bat_invocations(p):
+            if Path(rel).is_absolute():
+                continue
+            # 家族约定：模板库与工具**同级**，跨仓引用（`..\my-diy-tool-template\x.py`）
+            # 要按"工具的父目录"再找一遍——首版只找工具内，把正常的 sync 门禁误报成缺失。
+            cands = [p.parent / rel, c.dir / rel, c.dir.parent / rel]
+            if not any(x.exists() for x in cands):
+                missing.append("%s:%d %s" % (p.relative_to(c.dir).as_posix(), lineno, rel))
+    bad = missing + dead
+    return (not bad), ("；".join(bad[:6]) if bad
+                       else "%d 个 bat 的步骤调用都在磁盘上且不在死代码里" % len(files))
+
+
+_START_WITH_PATH = re.compile(r'^\s*start\s+"[^"]*"\s+"(?P<path>[^"]+)"', re.I | re.M)
+
+
+@check("C-26", "FAIL", "start 前必须存在性守卫：外部程序的\"成功\"不能只靠排除失败码（J 坑）")
+def c26(c: Ctx):
+    """`robocopy` 的 `rc=0` 意为**没有任何文件被复制、也没出错**——所以"只排除 >=8"会把
+    **空/损坏的暂存包判成成功**，随后 `start` 指向不存在的 exe ⇒ Windows"找不到文件"
+    **模态框**（`DETACHED_PROCESS` 挡不住，GUI 子系统）⇒ 脚本永久阻塞。
+
+    判据：每一条 `start "" "<路径>"` 都必须有存在性守卫——同行 `if exist "<路径>"`
+    或更早的 `if not exist "<路径>" goto …`。**负向排除 ≠ 成功，必须额外校验目标产物存在。**
+
+    ⚠️ **同时扫 `.py`**：更新链的 bat 是**渲染生成**的，模板本体是 Python 里的字符串
+    （模板 `update_helper._APPLY_BAT`、l-s2t `updater.py` 的 apply 模板）——只扫 `.bat`
+    等于把真正的现场漏掉（首版实测：四个工具全报"无 start 调用"）。
+    """
+    bad, checked = [], 0
+    sources = list(_bat_files(c.dir)) + [p for p in c.py_files()]
+    for p in sources:
+        text = p.read_text(encoding="utf-8", errors="replace")
+        for m in _START_WITH_PATH.finditer(text):
+            target = m.group("path")
+            if "%" in target:
+                continue
+            checked += 1
+            lineno = text[:m.start()].count("\n") + 1
+            line = text.splitlines()[lineno - 1]
+            earlier = "\n".join(text.splitlines()[:lineno - 1])
+            inline = re.search(r'if\s+exist\s+"%s"' % re.escape(target), line, re.I)
+            before = re.search(r'if\s+not\s+exist\s+"%s"' % re.escape(target), earlier, re.I)
+            if not (inline or before):
+                bad.append("%s:%d start 指向 %s，但**没有任何存在性守卫**"
+                           % (p.relative_to(c.dir).as_posix(), lineno, target))
+    return (not bad), ("；".join(bad) if bad
+                       else "%d 处 start 都有存在性守卫" % checked if checked
+                       else "无 start 调用")
+
+
+_MUST_WIRE = re.compile(r"<!--\s*MUST-WIRE:\s*([A-Za-z_][A-Za-z0-9_]*)\s*-->")
+
+
+@check("C-27", "FAIL", "模块采纳 = 拷贝 + 接线：README 声明的必接符号须在代码里被引用（B4/D14）")
+def c27(c: Ctx):
+    """**`sync_check` 的模块 `[ok]` 只证明"拷全了"，不证明"接上了"**。
+
+    反面教材（2026-09-19）：dsh/ocx 把 `update_helper` 三件拷到位（哈希全绿），但
+    `sweep_stale_update_dirs` / `pop_failed_update_note` 在 `src/` 下**只出现在被拷进去的
+    README 里，代码零引用** —— README 承诺的两件事一件都没发生（失败通知永不触发、%TEMP%
+    残留越积越多），而所有机械检查都是绿的。**SAME ≠ 在役。**
+
+    机制：模块 README 用 `<!-- MUST-WIRE: symbol -->` 声明"启动/退出时必须调用"的入口；
+    检查器在**工具代码**（`src/**/*.py`，排除 `src/modules/**` 的拷贝本体与 `__init__.py`
+    的转发导出）里找引用；找不到即报。
+    """
+    mods = c.src / "modules"
+    if not mods.is_dir():
+        return True, "无 src/modules/"
+    code = [p for p in c.py_files()
+            if "modules" not in p.relative_to(c.src).parts[:1]
+            and p.name != "__init__.py"]
+    bad, declared = [], 0
+    for d in sorted(x for x in mods.iterdir() if x.is_dir()):
+        # 声明取**模板正本**（`TEMPLATE_DIR/modules/<m>/README.md`）优先：要求是模块的属性，
+        # 不该等工具把带锚点的 README 拷过去之后才生效——否则锚点加上当天所有工具都"无声明"，
+        # 检查空转（首版实测）。工具侧 README 也读，兼容工具自己追加的声明。
+        readmes = [p for p in (TEMPLATE_DIR / "modules" / d.name / "README.md",
+                               d / "README.md") if p.exists()]
+        syms = sorted({s for r in readmes for s in _MUST_WIRE.findall(c.read(r))})
+        for sym in syms:
+            declared += 1
+            if not any(re.search(r"\b%s\b" % re.escape(sym), c.read(p)) for p in code):
+                bad.append("%s 声明必接 %s，但工具代码里零引用" % (d.name, sym))
+    if not declared:
+        return True, "无 MUST-WIRE 声明"
+    return (not bad), ("；".join(bad) if bad else "%d 个必接符号都已接线" % declared)
+
+
 def selftest() -> int:
-    """C-21/C-23/C-24 反向自证（`--selftest`，可重复执行）：合成样本，正例须点名、反例须放行。"""
+    """C-21/C-22/C-23/C-24/C-25/C-26/C-27 反向自证：合成样本，正例须点名、反例须放行。"""
     import shutil
     import tempfile
     base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
@@ -989,6 +1144,56 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-22 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
+
+        # C-25：路径不存在 → 报；顶层 exit 之后的调用（死代码）→ 报；合规 → 放行
+        def _mk_tool(name, bat, extra=()):
+            d = base / name
+            (d / "tests").mkdir(parents=True, exist_ok=True)
+            for rel in extra:
+                (d / rel).write_text("x = 1\n", encoding="utf-8")
+            (d / "build.bat").write_bytes(bat)
+            return d
+
+        c25_cases = (
+            ("pos_missing_path", b'@echo off\r\n"%PY%" tests\\gone.py\r\n', (), False),
+            ("pos_dead_code", b'@echo off\r\n"%PY%" tests\\t.py\r\nexit /b 1\r\n"%PY%" tests\\t.py\r\n',
+             ("tests/t.py",), False),
+            ("neg_conditional_exit", b'@echo off\r\nif errorlevel 1 (\r\n  exit /b 1\r\n)\r\n'
+                                     b'"%PY%" tests\\t.py\r\n', ("tests/t.py",), True),
+        )
+        for name, blob, extra, want in c25_cases:
+            ok, detail = c25(Ctx(name, _mk_tool("c25_" + name, blob, extra)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-25 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
+
+        # C-26：无守卫 start → 报；同行 if exist → 放行；前置 if not exist → 放行
+        c26_cases = (
+            ("pos_unguarded", b'@echo off\r\nstart "" "C:\\t\\a.exe"\r\n', False),
+            ("neg_inline_guard", b'@echo off\r\nif exist "C:\\t\\a.exe" start "" "C:\\t\\a.exe"\r\n', True),
+            ("neg_prior_guard", b'@echo off\r\nif not exist "C:\\t\\a.exe" goto dead\r\n'
+                                b'start "" "C:\\t\\a.exe"\r\n:dead\r\n', True),
+        )
+        for name, blob, want in c26_cases:
+            ok, detail = c26(Ctx(name, _mk_tool("c26_" + name, blob)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-26 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
+
+        # C-27：README 的 MUST-WIRE 符号在工具代码里查引用
+        for name, main_src, want in (("pos_unwired", "x = 1\n", False),
+                                     ("neg_wired", "def f():\n    sweep_stale()\n", True)):
+            d = base / ("c27_" + name) / "src" / "modules" / "demo"
+            d.mkdir(parents=True)
+            (d / "README.md").write_text("<!-- MUST-WIRE: sweep_stale -->\n", encoding="utf-8")
+            (base / ("c27_" + name) / "src" / "main.py").write_text(main_src, encoding="utf-8")
+            ok, detail = c27(Ctx(name, base / ("c27_" + name)))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-27 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         return 1 if failed else 0
