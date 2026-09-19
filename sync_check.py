@@ -404,15 +404,45 @@ def _i18n_state_cases():
     return out
 
 
+_TOK = re.compile(r'"[^"]*"|\S+')
+
+
+def _split_cmd(line):
+    """把一行拆成 (命令名, 参数 token 列表)，**命令名与拼写无关**。
+
+    归一：首 token → 剥引号 → 取最后一段路径 → 去 `.exe` → 小写。
+    于是 `find` / `%SystemRoot%\\System32\\find.exe` / `FIND.EXE` 得到同一个名字；
+    而 `findstr` 得到 `findstr`，**不会被当成 `find`**——旧的 `startswith("find")` 会吃掉它。
+
+    参数 token 原样保留（含引号与 `%VAR%`），因为**顺序与变量名正是要判的东西**。
+    """
+    parts = line.strip().split(None, 1)
+    if not parts:
+        return "", []
+    head = parts[0].strip('"').replace("/", "\\")
+    head = head.rsplit("\\", 1)[-1]
+    if head.lower().endswith(".exe"):
+        head = head[:-4]
+    return head.lower(), (_TOK.findall(parts[1]) if len(parts) > 1 else [])
+
+
 def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, failed, limit):
     """检查一份更新 .bat 是否具备 reme 已验证的语义要点，返回 [(label, ok)]。
 
-    ⚠️ 两条实测教训（1.2.0/1.3.0 自证 harness 都踩过）：
+    ⚠️ 四条实测教训（各来自一次真实误判）：
       * 脚本正文里出现的是 **cmd 变量**（`%SNAPSHOT%` / `%WORK%` / `%FAILED%`），**不是**
         Python 侧展开后的路径——拿展开路径去 grep 正文必然找不到。路径值只能从
         `set "X=..."` 行解析后单独断言（"备份在 target 之外"就是这么判的）。
       * 刻意**按命令行判定**（只取非 `rem` 行），不做全文子串匹配：脚本注释里写着
         `"tasklist | find" NEVER RETURNS` 这句**反例说明**，全文 grep 会把解释文字当成真管道。
+      * **判据必须锚"语义"，不锚"拼写"。** 旧实现按 `ln.startswith("find")` 分类、按
+        `'robocopy "%TARGET%" "%SNAPSHOT%"'` 字面量定位，于是把命令改成绝对路径
+        （`%SystemRoot%\\System32\\find.exe`，**语义完全等价、而且是修一个真缺陷**）就会
+        打出 6 条**假红**。现在命令名走 `_split_cmd()` 归一、次序锚点走 `idx_cmd()` 按
+        **位置参数**比——大小写与路径前缀都不参与匹配。
+      * **未命中不许返回 -1。** `-1` 会流进 `>` 比较（`x > -1` 恒真）⇒ 判据空转成
+        **假绿**（实测：删掉安装那一行，"检查 rc" 仍然报绿），也会流进切片
+        （`cmds[-1:]` 取到最后一个元素）。现在返回 `None`，误用会立刻抛 `TypeError`。
     """
     lines = [ln.strip() for ln in text.splitlines()]
     cmds = [ln for ln in lines if ln and not ln.lower().startswith("rem")]
@@ -421,10 +451,29 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         return any(frag in ln for ln in cmds)
 
     def idx(frag):
+        """按**字面量**定位（用于标签/if 行）。未命中返回 None，绝不返回 -1。"""
         for i, ln in enumerate(cmds):
             if frag in ln:
                 return i
-        return -1
+        return None
+
+    def idx_cmd(cmd, *args):
+        """按**命令名 + 位置参数**定位，不按拼写。
+
+        参数按**位置**逐位比（忽略大小写），因为顺序本身就是要判的东西：
+        `"%TARGET%" "%SNAPSHOT%"`（快照）与 `"%SNAPSHOT%" "%TARGET%"`（回铺）是两条不同的行。
+        """
+        for i, ln in enumerate(cmds):
+            c, a = _split_cmd(ln)
+            if c != cmd or len(a) < len(args):
+                continue
+            if all(a[j].lower() == s.lower() for j, s in enumerate(args)):
+                return i
+        return None
+
+    def before(a, b):
+        """a 严格在 b 之前。**任一侧未命中即 False**——次序判据必须显式依赖两侧都存在。"""
+        return a is not None and b is not None and a < b
 
     def outside(path, tgt):
         p, t = Path(path).resolve(), Path(tgt).resolve()
@@ -436,15 +485,21 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         if ln.startswith('set "') and "=" in ln:
             k, _, v = ln[5:].partition("=")
             vars_[k.upper()] = v.rstrip('"')
-    tl = [ln for ln in cmds if ln.startswith("tasklist")]
-    fl = [ln for ln in cmds if ln.startswith("find")]
-    snap_i = idx('robocopy "%TARGET%" "%SNAPSHOT%"')
-    copy_i = idx('robocopy "%STAGE%" "%TARGET%"')
+    tl = [ln for ln in cmds if _split_cmd(ln)[0] == "tasklist"]
+    fl = [ln for ln in cmds if _split_cmd(ln)[0] == "find"]
+    snap_i = idx_cmd("robocopy", '"%TARGET%"', '"%SNAPSHOT%"')
+    copy_i = idx_cmd("robocopy", '"%STAGE%"', '"%TARGET%"')
+    restore_i = idx_cmd("robocopy", '"%SNAPSHOT%"', '"%TARGET%"')
     rc_i = idx("if %RC% geq 8 goto install_failed")
     rot_i = idx('move /y "%SNAPSHOT%" "%BACKUP%"')
     delbak_i = idx('rmdir /s /q "%BACKUP%"')
     dead_i = idx(":install_dead")
     keep_i = idx(":cleanup_keep")
+    stage_i = idx('if not exist "%%STAGE%%\\%s" goto stage_invalid' % exe)
+    guard_i = idx('if not exist "%s" goto install_failed' % newexe)
+    deadguard_i = idx('if not exist "%s" goto install_dead' % newexe)
+    tail = cmds[dead_i:keep_i if (keep_i is not None and dead_i is not None
+                                  and keep_i > dead_i) else len(cmds)] if dead_i is not None else []
     return [
         # 节拍必须是**不依赖网络配置**的睡眠：`ping` 在丢 loopback ICMP 的机器上一拍 9.0s
         # （实测），名义 120s 变 ~18 分钟。见 C-33 / CONFORMANCE §4.1.20。
@@ -458,23 +513,21 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
          and vars_.get("WORK") == work and vars_.get("BACKUP") == backup
          and vars_.get("SNAPSHOT") == snapshot and vars_.get("FAILED") == failed),
         ("备份在 target 之外", outside(vars_.get("BACKUP", backup), target)),
-        ("替换前先快照", snap_i >= 0 and copy_i > snap_i),
-        ("空暂存包前置拦截（不碰安装目录）",
-         idx('if not exist "%%STAGE%%\\%s" goto stage_invalid' % exe) >= 0
-         and 0 <= idx('if not exist "%%STAGE%%\\%s" goto stage_invalid' % exe) < snap_i),
+        ("替换前先快照", before(snap_i, copy_i)),
+        ("空暂存包前置拦截（不碰安装目录）", stage_i is not None and before(stage_i, snap_i)),
         ("start 前有存在性守卫（缺 exe 不弹模态框）",
-         idx('if not exist "{newexe}" goto install_failed'.replace("{newexe}", newexe)) > copy_i
+         before(copy_i, guard_i)
          and 'if exist "%s" start "" "%s"' % (newexe, newexe) in text),
-        ("检查 rc，失败不启动新 exe", rc_i > copy_i),
-        ("成功后才轮转备份（失败时旧备份还在）", rot_i > rc_i and delbak_i > rc_i),
-        ("失败回铺快照", idx('robocopy "%SNAPSHOT%" "%TARGET%"') > rc_i),
-        ("回铺也失败则不启动", dead_i > rc_i and not any(
-            ln.startswith("start") for ln in cmds[dead_i:keep_i if keep_i > dead_i else len(cmds)])),
+        ("检查 rc，失败不启动新 exe", before(copy_i, rc_i)),
+        ("成功后才轮转备份（失败时旧备份还在）", before(rc_i, rot_i) and before(rc_i, delbak_i)),
+        ("失败回铺快照", before(rc_i, restore_i)),
+        ("回铺也失败则不启动", before(rc_i, dead_i)
+         and not any(ln.startswith("start") for ln in tail)),
         ("stage_invalid 保留现场（goto cleanup_keep）",
-         idx(":stage_invalid") >= 0 and ":cleanup_keep" in text
+         idx(":stage_invalid") is not None and ":cleanup_keep" in text
          and text.split(":stage_invalid")[1].split(":install_failed")[0].find("goto cleanup_keep") >= 0),
         ("回铺后 start 前也验 exe（否则回铺源为空时又是一条死路）",
-         idx('if not exist "%s" goto install_dead' % newexe) > idx(":install_failed") >= 0),
+         before(idx(":install_failed"), deadguard_i)),
         ("失败 marker", has('> "%FAILED%" echo')),
         ("cleanup 删暂存", has('if exist "%WORK%" rmdir /s /q "%WORK%"')),
         ("脚本自删", has('del "%~f0"')),
@@ -549,6 +602,140 @@ def _update_helper_cases():
         if added and need in sys.path:
             sys.path.remove(need)
         sys.modules.pop("_tpl_update_helper_selftest", None)
+    return out
+
+
+def _apply_bat_mutation_cases():
+    """E-mut 组：**变异矩阵**——每条判据"还能不能失败"。返回 [(label, ok, detail)]。
+
+    为什么必须要有它：判据**通过**的那一侧，"正常工作"与"已经停止工作"是**完全同形**的。
+    实测（2026-09-19）：删掉真正执行安装的那一行 robocopy，21 条判据只有 1 条变红——
+    「检查 rc，失败不启动新 exe」因为 `rc_i > copy_i` 在 `copy_i == -1` 时**恒真**而悄悄哑掉。
+    原来那条聚合反向样本（"旧合成形态 ≥6 缺项"）看不见这种事：它报了 6 条红，
+    **谁也看不出其中一条已经不会失败了**。
+
+    两条设计约束（都是踩过的）：
+      * **变异必须真的改变文本**（否则"没变红"会被读成"判据很健康"）；
+      * **"应该死"的集合要按判据自己声称的语义写**：它守护的那一行没了，它就该红。
+        守护不到 ⇒ **空真**（判据已不会失败），单独报出来，不与"未覆盖"混为一谈。
+
+    已知**覆盖缺口**（登记，不假装有判据）：删掉 `if errorlevel 1 goto gone` 之后
+    没有任何判据变红——"等待循环能退出"这件事今天没有判据覆盖。
+    """
+    import importlib.util
+    out = []
+    path = TEMPLATE_DIR / "modules" / "update_helper" / "update_helper.py"
+    if not path.exists():
+        return [("E-mut 变异矩阵", False, "模板 update_helper.py 不存在")]
+    spec = importlib.util.spec_from_file_location("_tpl_uh_mut", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_tpl_uh_mut"] = mod
+    need = str(TEMPLATE_DIR)
+    added = need not in sys.path
+    if added:
+        sys.path.insert(0, need)
+    try:
+        spec.loader.exec_module(mod)
+        tgt, stage, work = r"C:\t\target", r"C:\t\upd\stage", r"C:\t\upd"
+        snap, bak, failed = r"C:\t\_backup.pre", r"C:\t\_backup", r"C:\t\update.failed"
+        limit = mod.UPDATE_WAIT_LIMIT
+        text = mod.build_apply_script(tgt, stage, work, bak, r"C:\t\update.log", limit=limit)
+
+        def verdict(t):
+            return dict(_apply_bat_keypoints(t, mod.EXE_NAME, tgt, stage, snap, bak,
+                                             work, failed, limit))
+
+        base = verdict(text)
+        red_base = sorted(k for k, v in base.items() if not v)
+        out.append(("E-mut 控制组：原样 bat 必须 0 红", not red_base,
+                    "红: " + "、".join(red_base) if red_base else "0 红"))
+
+        # ---- 绿侧控制：语义等价改写的拼写，不得改变任何结论 ----
+        # 基底由**当前那份渲染文本**来决定：先把四条命令的首 token 一律归到**裸名**，
+        # 再从裸名派生各个形态。这样无论模板正文此刻是裸名还是绝对路径，绿侧都成立。
+        BARE = {"tasklist": "tasklist", "find": "find",
+                "robocopy": "robocopy", "powershell": "powershell"}
+        ABS = {"tasklist": "tasklist.exe", "find": "find.exe",
+               "robocopy": "Robocopy.exe",
+               "powershell": "WindowsPowerShell\\v1.0\\powershell.exe"}
+        ABS_PREFIX = "%SystemRoot%\\System32\\"
+
+        def _set_tokens(t, names, prefix):
+            """把 names 里那些命令的**首 token**换成 prefix + 可执行名。"""
+            out_lines = []
+            for ln in t.splitlines():
+                c, _a = _split_cmd(ln)
+                stripped = ln.lstrip()
+                if c in names and stripped:
+                    parts = stripped.split(None, 1)
+                    tail = (" " + parts[1]) if len(parts) > 1 else ""
+                    out_lines.append(ln[:len(ln) - len(stripped)] + prefix + names[c] + tail)
+                else:
+                    out_lines.append(ln)
+            return "\n".join(out_lines)
+
+        bare = _set_tokens(text, BARE, "")
+        green_forms = [
+            ("裸名基底（归一后的对照）", bare),
+            ("四条命令绝对路径化（跟 reme 蓝图）", _set_tokens(bare, ABS, ABS_PREFIX)),
+            ("只把 robocopy 改成 reme 的大小写拼写",
+             _set_tokens(bare, {"robocopy": "Robocopy.exe"}, ABS_PREFIX)),
+        ]
+        seen = {text}
+        for label, mutated in green_forms:
+            if mutated in seen:
+                out.append(("E-mut 绿侧 %s：变异必须真的改变文本" % label, False, "文本未变"))
+                continue
+            seen.add(mutated)
+            r = sorted(k for k, v in verdict(mutated).items() if not v)
+            out.append(("E-mut 绿侧 %s 必须仍 0 红" % label, not r,
+                        "红: " + "、".join(r) if r else "0 红"))
+
+        # ---- 红侧：删掉某一行，它守护的判据必须变红 ----
+        MUTATIONS = [
+            ("删安装复制行（robocopy STAGE→TARGET）",
+             lambda l: _split_cmd(l)[0] == "robocopy" and '"%STAGE%"' in l and '"%TARGET%"' in l,
+             ("检查 rc，失败不启动新 exe", "替换前先快照",
+              "start 前有存在性守卫（缺 exe 不弹模态框）")),
+            ("删快照行（robocopy TARGET→SNAPSHOT）",
+             lambda l: _split_cmd(l)[0] == "robocopy" and '"%TARGET%"' in l and '"%SNAPSHOT%"' in l,
+             ("替换前先快照", "空暂存包前置拦截（不碰安装目录）")),
+            ("删 rc 判定行",
+             lambda l: l.startswith("if %RC% geq 8 goto install_failed"),
+             ("检查 rc，失败不启动新 exe", "成功后才轮转备份（失败时旧备份还在）",
+              "失败回铺快照", "回铺也失败则不启动")),
+            ("删回铺行（robocopy SNAPSHOT→TARGET）",
+             lambda l: _split_cmd(l)[0] == "robocopy" and '"%SNAPSHOT%"' in l and '"%TARGET%"' in l,
+             ("失败回铺快照",)),
+            ("删轮转行（move SNAPSHOT→BACKUP）",
+             lambda l: l.startswith("move /y") and "%SNAPSHOT%" in l,
+             ("成功后才轮转备份（失败时旧备份还在）",)),
+            ("删 :install_dead 标签",
+             lambda l: l.strip() == ":install_dead",
+             ("回铺也失败则不启动",)),
+        ]
+        empty_truth = []
+        for label, match, should_die in MUTATIONS:
+            lines = text.splitlines(keepends=True)
+            keep = [l for l in lines if not match(l.strip())]
+            mutated = "".join(keep)
+            if mutated == text:
+                out.append(("E-mut %s：变异必须真的改变文本" % label, False, "没有任何行被删"))
+                continue
+            after = verdict(mutated)
+            survived = [s for s in should_die if after.get(s, False)]
+            if survived:
+                empty_truth.extend((label, s) for s in survived)
+            out.append(("E-mut %s ⇒ 应死判据全部变红" % label, not survived,
+                        "空真: " + "、".join(survived) if survived else "已死 " + str(len(should_die))))
+        out.append(("E-mut **空真集合为空**（没有判据停止工作）", not empty_truth,
+                    "空真 %d 处" % len(empty_truth) if empty_truth else "0 处"))
+    except Exception as exc:
+        out.append(("E-mut 变异矩阵", False, "异常: %r" % (exc,)))
+    finally:
+        if added and need in sys.path:
+            sys.path.remove(need)
+        sys.modules.pop("_tpl_uh_mut", None)
     return out
 
 
@@ -714,8 +901,12 @@ def _apply_bat_runtime_cases():
                                        snapshot_dir=str(snap2))
         # ⚠️ 正文里是 **cmd 变量**（`%STAGE%`/`%TARGET%`），不是展开后的路径——拿 str(stage2)
         # 去匹配永远找不到（E 组 harness 第二次踩这个坑）。按变量名选那一条。
+        # 按**命令名**选那一条，不按拼写：`l.strip().startswith("robocopy")` 在脚本改成
+        # 绝对路径（`%SystemRoot%\System32\Robocopy.exe`）之后就一条都选不到，`[0]` 直接
+        # IndexError。这是"锚拼写"同一个病的第五处——前四处是 21 条判据里的三处分类器锚点
+        # 与两处次序锚点。
         copy_line = [l for l in text2.splitlines()
-                     if l.strip().startswith("robocopy")
+                     if _split_cmd(l.strip())[0] == "robocopy"
                      and "%STAGE%" in l and "%TARGET%" in l][0]
         text2 = text2.replace(copy_line, "goto install_failed")
         bat2 = base / "apply2.bat"
@@ -813,6 +1004,10 @@ def selftest() -> int:
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
         for label, ok, detail in _update_helper_cases():
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
+        for label, ok, detail in _apply_bat_mutation_cases():
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
