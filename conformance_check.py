@@ -533,6 +533,94 @@ def c20(c: Ctx):
                        if bad else "未发现词表外中文（AST 级）")
 
 
+# ---------------------------------------------------------------- C-21
+def _star_copied_state(mod_dir: Path, read) -> tuple:
+    """返回 (module_name, [被静态拷贝的状态名])；无风险时 module_name 为空。
+
+    形状（已出现两例：`i18n.LANG`、`update_helper.PENDING_CMD`，**两次都静默失效**）：
+      ① `__init__.py` 用 `from .<m> import *` → 包命名空间拿到一份**值拷贝**；
+      ② 子模块里存在**模块级公有名**且被函数内 `global` **重绑** → 真值只改子模块那份；
+      ③ 外部读 `包.名字` → 永远是导入时定格的旧值。
+    """
+    init = mod_dir / "__init__.py"
+    py = mod_dir / f"{mod_dir.name}.py"
+    if not (init.exists() and py.exists()):
+        return "", []
+    m = re.search(r"^\s*from\s+\.(\w+)\s+import\s+\*", read(init), re.M)
+    if not m:
+        return "", []
+    try:
+        tree = ast.parse(read(py))
+    except SyntaxError:
+        return "", []
+    top = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for tg in node.targets:
+                if isinstance(tg, ast.Name) and not tg.id.startswith("_"):
+                    top.add(tg.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) \
+                and not node.target.id.startswith("_"):
+            top.add(node.target.id)
+    rebound = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Global):
+            rebound.update(n for n in node.names if not n.startswith("_"))
+    return m.group(1), sorted(top & rebound)
+
+
+@check("C-21", "FAIL", "包 import * 不得复制可变状态（外部读会拿到过期值）")
+def c21(c: Ctx):
+    """机械化"状态副本"这一形状——它已静默失效两次（i18n.LANG / update_helper.PENDING_CMD）。
+
+    命中即说明：包门面用 `import *` 拷了状态，而子模块会用 `global` 重绑它 →
+    外部读包拿到永久旧值（i18n 表现为菜单不刷新；update_helper 表现为 apply.cmd 永不拉起）。
+    修法：门面只绑函数 + PEP 562 `__getattr__` 委派子模块（见两模块 2.1.1 / 1.1.0）。
+    """
+    mods = c.src / "modules"
+    if not mods.is_dir():
+        return True, "无 src/modules/"
+    bad = []
+    for d in sorted(p for p in mods.iterdir() if p.is_dir()):
+        mod, names = _star_copied_state(d, c.read)
+        if names:
+            bad.append("%s: %s" % ((d / "__init__.py").relative_to(c.dir).as_posix(),
+                                   ",".join(names)))
+    return (not bad), ("会被 import * 静态拷贝的状态（外部读恒旧值）: " + "; ".join(bad)
+                       if bad else "无 import * 状态复制")
+
+
+def selftest() -> int:
+    """C-21 反向自证（`--selftest`，可重复执行）：合成样本，正例必须被点名、反例必须放行。"""
+    import shutil
+    import tempfile
+    base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
+    try:
+        cases = []
+        for name, init_src, want in (
+            ("pos", "from .demo import *  # noqa: F401,F403\n", False),   # 复制 → 应报
+            ("neg", "from .demo import set_state\n", True),               # 显式导入 → 放行
+        ):
+            d = base / name / "src" / "modules" / "demo"
+            d.mkdir(parents=True)
+            (d / "demo.py").write_text(
+                "STATE = None\n\n\ndef set_state():\n    global STATE\n    STATE = 1\n",
+                encoding="utf-8")
+            (d / "__init__.py").write_text(init_src, encoding="utf-8")
+            cases.append((name, base / name, want))
+        failed = 0
+        for name, tool_dir, want in cases:
+            ok, detail = c21(Ctx(name, tool_dir))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-21 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail))
+        print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
+        return 1 if failed else 0
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
 # ---------------------------------------------------------------- 主流程
 def run_tool(name: str, only=None) -> tuple:
     c = Ctx(name, ROOT / name)
@@ -553,7 +641,11 @@ def main() -> int:
     ap.add_argument("--roots", nargs="*", default=None)
     ap.add_argument("--strict", action="store_true", help="WARN 也计入退出码")
     ap.add_argument("--only", nargs="*", default=None, help="只跑指定检查 ID")
+    ap.add_argument("--selftest", action="store_true",
+                    help="用合成样本反向自证 C-21（状态副本检测器）后退出")
     args = ap.parse_args()
+    if args.selftest:
+        return selftest()
 
     def is_family_tool(d: Path) -> bool:
         """家族工具 = src\\ + 构建脚本（避免把同目录下的无关项目也拉进来）。"""

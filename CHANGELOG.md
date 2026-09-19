@@ -2,6 +2,35 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (update_helper 1.1.0 — same state-copy bug, second instance)
+
+The conformance auditor found the i18n defect again, in `update_helper`, and this time
+it killed a whole feature silently: dsh/ocx automatic updates were dead.
+
+- **`modules/update_helper/__init__.py` no longer copies state** (same fix as i18n
+  2.1.1): only the functions are bound; `UPDATE_READY` / `PENDING_CMD` / `REPO` / … are
+  delegated to the submodule through a PEP 562 `__getattr__`. The old
+  `from .update_helper import *` copied `PENDING_CMD` into the package, while
+  `download_and_prepare`'s `global PENDING_CMD` rebound the submodule's copy — so the
+  tool read a permanent `None` from the package and **`apply.cmd` was never launched**:
+  the update downloaded and never installed, with no error anywhere.
+- **`UPDATE_READY` now actually gets assigned.** It was defined, documented in the
+  README and read by the dsh/ocx menus (`enabled=lambda: update_helper.UPDATE_READY is
+  not None`), but no code ever set it — the "download and update" item was grey forever,
+  and `download_update_menu` would have built a `.../vNone/...-None-...zip` URL.
+  `check_update()` now publishes the result via `_publish()`: a real newer version sets
+  it, "not newer" clears it, and a network failure leaves the last known value alone.
+- **Accessors added**: `update_ready()` / `pending_cmd()` are the recommended readers
+  (the i18n 2.1.1 rule: state is read through an accessor, never as a mutable global).
+  The globals stay for compatibility and now read live through the delegation.
+- **New conformance check C-21** (in `conformance_check.py`, with a `--selftest` that
+  reverse-proves it on synthetic samples): for every `src/modules/<m>/`, if
+  `__init__.py` does `from .<m> import *` **and** `<m>.py` has a public module-level name
+  rebound via `global`, it is reported as "state that gets statically copied — external
+  reads get a stale value". This shape has now appeared twice and both times failed
+  silently; C-21 makes a third instance mechanical to catch. On the current tree it
+  names exactly `dsh-helper` and `opencodex-helper` (`src/modules/update_helper/__init__.py: PENDING_CMD`).
+
 ## 2026-09-19 (i18n 2.1.1 — the package no longer copies mutable state)
 
 A real user-visible bug, root cause in the template: `modules/i18n/__init__.py` did

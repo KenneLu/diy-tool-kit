@@ -1,11 +1,21 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.0.1
+# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.1.0
 """T4｜在线更新三段式：查（GitHub Releases）→ 下（zip + sha256）→ 换（退出后铺目录并重启）。
 
 换目录为什么必须"独立脚本"：Windows 上运行中的 exe 换不掉。退出托盘时拉起
 apply.cmd：等本进程消失 → robocopy /MIR 铺到目标目录 → 重启新 exe → 脚本自删。
 有稳定安装位（paths.INSTALL_DIR）的工具以稳定位为 TARGET；没有的工具以运行目录
 为 TARGET（local-speak2text / dsh-helper / opencodex-helper 三种实例都有）。
+
+1.1.0（2026-09-19）：修两处**静默失效**——
+
+① `UPDATE_READY` 此前只有定义、**从不赋值**，而 dsh/ocx 的菜单拿它控制"下载并更新"
+   可用性 → 恒灰；README 却承诺了它的用途（文档承诺 + 菜单依赖 + 从不赋值三方矛盾）。
+   现由 `check_update()` 在"确有新版"时**真正赋值**（失败/无新版不误清新值）。
+② 状态**经访问器读取**：新增 `update_ready()` / `pending_cmd()`（推荐读法）。
+   原因同 i18n 2.1.1：包门面若 `from .update_helper import *`，会把 `UPDATE_READY`
+   /`PENDING_CMD` 拷成**静态副本**，函数内 `global` 重绑的是子模块那份，外部读包
+   永远拿到旧值（恒 None）→ `apply.cmd` 永不拉起、更新装了等于没装，且无任何报错。
 """
 import hashlib
 import json
@@ -37,13 +47,41 @@ def _version_is_newer(latest, current):
         return False
 
 
+def update_ready():
+    """有新版时的版本号，否则 None（**推荐读法**；1.1.0 新增）。
+
+    状态经访问器暴露，外部不要直接读可变全局——包门面若 `import *`，那份是静态副本。
+    """
+    return UPDATE_READY
+
+
+def pending_cmd():
+    """已就绪的一次性安装脚本路径，否则 None（**推荐读法**；1.1.0 新增）。"""
+    return PENDING_CMD
+
+
+def _publish(latest, current_version):
+    """把一次成功的检查结果发布到模块状态，返回 newer。
+
+    只在**成功取到 latest** 时调用：网络失败不误清已发现的新版。
+    无新版（或 latest 为空）时置回 None——"下载并更新"据此保持灰态。
+    """
+    global UPDATE_READY
+    newer = bool(latest) and _version_is_newer(latest, current_version)
+    UPDATE_READY = latest if newer else None
+    return newer
+
+
 def check_update(current_version, force=False):
-    """节流检查。返回 dict(latest/current/newer/error)；网络失败写进 error。"""
+    """节流检查。返回 dict(latest/current/newer/error)；网络失败写进 error。
+
+    成功路径会顺带更新 `UPDATE_READY`（新版号，或 None）——菜单可用性据此变化。
+    """
     if (not force and _STATE.get("checked_for") == current_version
             and time.time() - _STATE.get("at", 0) < CHECK_INTERVAL):
         latest = _STATE["latest"]
         return {"latest": latest, "current": current_version,
-                "newer": _version_is_newer(latest, current_version), "error": ""}
+                "newer": _publish(latest, current_version), "error": ""}
     try:
         req = urllib.request.Request(
             f"https://api.github.com/repos/{REPO}/releases/latest",
@@ -56,7 +94,7 @@ def check_update(current_version, force=False):
             raise ValueError("release has no tag_name")
         _STATE.update(checked_for=current_version, latest=latest, at=time.time())
         return {"latest": latest, "current": current_version,
-                "newer": _version_is_newer(latest, current_version), "error": ""}
+                "newer": _publish(latest, current_version), "error": ""}
     except Exception as exc:
         return {"latest": "", "current": current_version, "newer": False, "error": str(exc)}
 
