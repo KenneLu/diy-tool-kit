@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.5.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.6.0
+# 1.6.0：① **修 C-11 假红灯**（dsh/ocx）：它们用 PowerShell `Get-Process -Name <APPNAME>`
+#   做运行检测，旧实现只认 `tasklist | findstr` → 报"未找到运行检测"（一句与事实相反的诊断）。
+#   现在两种形态都认；**两者都没有时按 WARN 报**——框架支持检查按分支返回级别（3 元组）。
 # 1.5.0：① **修 C-10 假红灯**（reme）："结果被消费"≠"必须写成 if"——探针**作为参数交给
 #   check() 助手**也算消费；兜底分支改按 **AST 调用节点**找真跑守卫（原来对函数体做文本匹配，
 #   把注释里的 single_instance_free() 当成了真调用 → 打印与事实相反的诊断）。新增两条样本：
@@ -442,25 +445,38 @@ def c10(c: Ctx):
 
 @check("C-11", "FAIL", "运行检测匹配串能命中当前 exe 名（SINGLE-05/D1-02）")
 def c11(c: Ctx):
+    """三种形态，**认不出时只报 WARN**（2026-09-19 修假红灯，与 C-10 同类）。
+
+    dsh/ocx 用 **PowerShell `Get-Process -Name <APPNAME>`** 做运行检测，旧实现只认
+    `tasklist | findstr`，于是对它们报"未找到运行检测"——**假红灯 + 误导诊断**（人家明明有）。
+    现在：① `tasklist | findstr /c:"..."`；② `Get-Process ... -Name <名>`；③ 两者都没有 ⇒
+    **WARN**（判不了就不硬判，见设计纪律 ①）。
+    """
     text = c.build_blob
     if not text:
         return True, "无 build.bat"
     appname = re.search(r'set\s+APPNAME=(\S+)', text)
-    exe = (appname.group(1) if appname else c.app_id) + ".exe"
-    literal = None
+    app = appname.group(1) if appname else c.app_id
+    exe = app + ".exe"
     for line in text.splitlines():
         if "tasklist" in line and "findstr" in line:
             mm = re.search(r'/c:"([^"]+)"', line)
             if mm:
-                literal = mm.group(1)
-                break
-    if literal is None:
-        return False, "未找到运行检测（tasklist | findstr）的匹配串"
-    probe = literal.replace("%APPNAME%", appname.group(1) if appname else c.app_id)
-    if probe and probe in exe:
-        return True, "匹配串 %r 能命中 %s" % (probe, exe)
-    return False, ("匹配串 %r 匹配不到 %s —— 只有旧版带版本号的 exe 会被命中，"
-                   "当前实例在跑也拦不住构建" % (probe, exe))
+                probe = mm.group(1).replace("%APPNAME%", app)
+                if probe and probe in exe:
+                    return True, "tasklist 匹配串 %r 能命中 %s" % (probe, exe)
+                return False, ("tasklist 匹配串 %r 匹配不到 %s —— 只有旧版带版本号的 exe 会被"
+                               "命中，当前实例在跑也拦不住构建" % (probe, exe))
+        if "Get-Process" in line:
+            mm = re.search(r"-Name\s+'?\"?([\w.%\[\]]+)", line)
+            if mm:
+                probe = mm.group(1).replace("%APPNAME%", app)
+                if probe and probe in exe:
+                    return True, "PowerShell 匹配名 %r 能命中 %s" % (probe, exe)
+                return False, ("PowerShell 匹配名 %r 匹配不到 %s" % (probe, exe))
+    # 判不了就不硬判（设计纪律 ①）：认不出形态 ⇒ **WARN**，并给出补形态的指引。
+    return False, ("认不出运行检测形态（既无 `tasklist | findstr` 也无 `Get-Process`）——"
+                   "若该工具确有自有实现，请把它的形态补进本检查"), "WARN"
 
 
 # ---------------------------------------------------------------- C-12..C-15
@@ -1265,6 +1281,29 @@ def selftest() -> int:
         print("[selftest] %s  C-28 neg_clean_md: ok=%s want=True | %s"
               % ("PASS" if good else "FAIL", ok, detail[:70]))
 
+        # C-11：认形状（tasklist / PowerShell 两种），认不出只 WARN。
+        # 用显式字节值构造样本（CRLF 转义在多个 heredoc 里被解释成真字节——本日第 4 次）。
+
+        _crlf = bytes([13, 10])
+        _e = base / "c11_none"
+        _e.mkdir(parents=True)
+        (_e / "build.bat").write_bytes(b"@echo off" + _crlf + b"set APPNAME=my-helper" + _crlf)
+        ok, detail, sev = c11(Ctx("c11_none", _e))
+        good = (ok is False and sev == "WARN")
+        failed += 0 if good else 1
+        print("[selftest] %s  C-11 neg_unrecognized_is_WARN: ok=%s sev=%s | %s"
+              % ("PASS" if good else "FAIL", ok, sev, detail[:60]))
+        _p = base / "c11_ps"
+        _p.mkdir(parents=True)
+        (_p / "build.bat").write_bytes(
+            b"@echo off" + _crlf + b"set APPNAME=my-helper" + _crlf
+            + b"powershell -NoProfile -Command \"(Get-Process -Name %APPNAME%"
+            + b" -ErrorAction SilentlyContinue).Path\"" + _crlf)
+        ok, detail = c11(Ctx("c11_ps", _p))
+        good = ok is True
+        print("[selftest] %s  C-11 pos_powershell_form: ok=%s | %s"
+              % ("PASS" if good else "FAIL", ok, detail[:60]))
+
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         return 1 if failed else 0
     finally:
@@ -1279,7 +1318,13 @@ def run_tool(name: str, only=None) -> tuple:
         if only and cid not in only:
             continue
         try:
-            ok, detail = fn(c)
+            res = fn(c)
+            # 允许检查**按分支**返回级别：`(ok, detail, "WARN")`——"判不了"不该按 FAIL 算
+            # （设计纪律 ①：判不了的宁可 WARN；C-11 的"认不出形态"就是这一档）。
+            if isinstance(res, tuple) and len(res) == 3:
+                ok, detail, severity = res
+            else:
+                ok, detail = res
         except Exception as exc:  # 检查自身出错不应让整轮崩
             ok, detail = False, "检查异常: %r" % (exc,)
         rows.append((cid, severity, title, ok, detail))

@@ -2,6 +2,24 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-11 false red fixed: recognize the PowerShell form, and WARN when unrecognized)
+
+Same class as the C-10 false red, found the same way: dsh/ocx do their running-instance check
+with **PowerShell `Get-Process -Name <APPNAME>`**, while C-11 only looked for
+`tasklist | findstr` — so it reported "未找到运行检测" about tools that plainly have one.
+
+- **Two forms recognized now**: `tasklist | findstr /c:"..."` and `Get-Process -Name <name>`;
+  the match string is validated against `<APPNAME>.exe` either way.
+- **Unrecognized ⇒ WARN, not FAIL** — and the framework now supports per-branch severity
+  (`(ok, detail, "WARN")`), so "can't judge" no longer gets reported as a hard violation
+  (design rule ①). The WARN message tells the reader to add their form to the check.
+- Two samples: `neg_unrecognized_is_WARN` and `pos_powershell_form`. Real tree: **four tools ok**.
+- **A fifth bite from the same J-坑**: writing these samples, `
+` inside heredocs turned into
+  real bytes twice more (broken comment, split literals). Both are now built with explicit byte
+  values (`bytes([13, 10])`); the harness rules in §D7 cover the family of causes, and this is
+  now the fourth distinct occasion in one day.
+
 ## 2026-09-19 (C-10 false red fixed on reme; C-28 .md TAB probe)
 
 The lead found C-10 reporting a **false red with an inverted diagnosis** on reme, and both
