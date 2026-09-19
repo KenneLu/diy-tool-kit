@@ -409,26 +409,37 @@ def c15(c: Ctx):
 # ---------------------------------------------------------------- C-16..C-20
 @check("C-16", "FAIL", "实例隔离：_CONFIG 与 _DATA_DIR 两个 env 都要有（B3-04/B4-04）")
 def c16(c: Ctx):
-    """不按命名规则推导（`local-speak2text` → 连字符转不转下划线各工具不同），
-    直接找**实际读取点**：`environ[...]` / `environ.get(...)` 里带后缀的那个键。"""
-    read = re.compile(r'environ(?:\.get\(\s*|\[\s*)["\']([A-Z0-9_]+)["\']')
-    keys = set()
-    where = {}
-    for p in c.py_files():
-        for i, line in enumerate(c.read(p).splitlines(), 1):
-            for k in read.findall(line):
-                keys.add(k)
-                where.setdefault(k, "%s:%d" % (p.relative_to(c.dir).as_posix(), i))
-    want = {"_CONFIG": [], "_DATA_DIR": []}
-    for suffix in want:
-        want[suffix] = sorted(k for k in keys if k.endswith(suffix))
-    missing = [s for s, hits in want.items() if not hits]
+    """找**实际读取点**，两种写法都要认：
+        os.environ.get("LOCALSPEAK2TEXT_DATA_DIR")          # 字面量
+        os.environ.get(_ENV_PREFIX + "_DATA_DIR")           # 常量拼接（l-s2t 收敛后用这种）
+    2026-09-19 修：原实现只认字面量，l-s2t 改成拼接式后被误报成"两个 env 都没有"。
+    """
+    # 判据：同一行里既有 `environ` 又有该后缀。三种写法都能覆盖：
+    #   environ.get("APP_DATA_DIR") / environ.get(_PREFIX + "_DATA_DIR") / environ.get(f"{X}_DATA_DIR")
+    # （2026-09-19 修：先前用"紧贴引号的完整键名"正则，把 f-string / 拼接式全判成缺失，
+    #   造成 dsh/ocx 的 `_DATA_DIR` 与 l-s2t 的两个 env 都被误报。）
+    # 只认 environ 的**取参表达式**，避免把 `DEFAULT_CONFIG` 这类含 `_CONFIG` 的标识符误判
+    # （2026-09-19 第二轮修正：先用"整键名"，漏了拼接/f-string；改用"同行含子串"，又误收 DEFAULT_CONFIG）。
+    env_arg = re.compile(r"environ(?:\.get\(\s*|\[\s*)([^)\]\n]{0,160})")
+    want, missing = {}, []
+    for suffix in ("_CONFIG", "_DATA_DIR"):
+        hits = []
+        for p in c.py_files():
+            rel = p.relative_to(c.dir).as_posix()
+            for i, line in enumerate(c.read(p).splitlines(), 1):
+                for arg in env_arg.findall(line):
+                    # 后缀之后不能紧跟标识符字符，否则 NPM_CONFIG_PREFIX 会被当成 `_CONFIG`
+                    # （2026-09-19 第三轮修正：dsh/ocx 的 NPM_CONFIG_PREFIX 曾骗过本检查）
+                    if re.search(re.escape(suffix) + r"(?![A-Za-z0-9_])", arg):
+                        hits.append("%s:%d" % (rel, i))
+                        break
+        want[suffix] = hits
+        if not hits:
+            missing.append(suffix)
     if missing:
-        return False, ("缺 %s 环境变量读取点（测试/自检无法钉住配置或隔离数据根；"
-                       "现有 env 键: %s）"
-                       % ("、".join(missing), ", ".join(sorted(keys)) or "无"))
-    detail = "; ".join("%s=%s" % (s, ",".join(h)) for s, h in want.items())
-    return True, detail
+        return False, ("缺 %s 环境变量读取点（测试/自检无法钉住配置或隔离数据根）"
+                       % "、".join(missing))
+    return True, "; ".join("%s@%s" % (s, ",".join(h[:2])) for s, h in want.items())
 
 
 @check("C-17", "FAIL", "测试不触碰用户真实注册表/数据区（B4-04/D3-03）")
