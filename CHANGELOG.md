@@ -31,7 +31,7 @@ line into a requirement, so it is now a mechanical check rather than a sentence.
   cleanup delete fail silently, leaving an empty shell directory — today's user report).
   ⚠️ **This very CHANGELOG entry reproduced that J 坑**: it was written from a Python string
   where `\t` was interpreted, so the first version contained a literal TAB (found by re-reading
-  the bytes; fixed in `a6a0d59`). The lesson is not "be careful" — it is **verify the bytes of
+  the bytes; fixed in `cbad9b0`). The lesson is not "be careful" — it is **verify the bytes of
   what you just wrote**, which is exactly what C-22 automates for bat files.
 
 ## 2026-09-19 (ALIGNMENT: icons closed as [decl]; the second update path assessed)
