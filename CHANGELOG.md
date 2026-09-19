@@ -2,6 +2,22 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (before calling a fix "criteria-only": does it touch `modules/**`?)
+
+- **New rule, from a case where nobody predicted it.** When the lead learned that C-33's reds were
+  false reds, he thought "the criterion must change" — **not "changing it might touch a dispatched
+  file"**. Changing anything under `modules/**` is a **re-copy event**: the four copies drift
+  instantly, **already-declared dispatchable hashes are invalidated**, and every recipient re-copies
+  for nothing. Registered as §4.1.39, with the mechanical form in two clauses that use existing
+  machinery: ① **the increment declaration must list the `git diff --name-only` paths and state
+  whether any of them is dispatched** (a commit id alone is not enough — this is exactly the cell
+  that catches the accident); ② **if a criterion fix really would have to change `modules/**`, the
+  default disposition is to redesign the criterion** (that is what C-33's fix did: **not one line
+  under `modules/` needed to change**); if that is truly impossible, it must go through the dispatch
+  flow (change → freeze → declare → re-copy) and **never ride an already-announced batch**.
+- Same family as §4.1.36: **a fix that looks local widens its blast radius into places it cannot
+  see** — there the blind spot moved out of the scan surface, here the drift moves into four copies.
+
 ## 2026-09-19 (whitelists become switches with two mandatory fields; C-33 measured at zero)
 
 - **Every whitelist / registry entry now needs two mandatory fields: `why` (why it is not a leak —
