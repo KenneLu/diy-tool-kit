@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.20
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.21
+# 1.9.21：**新增 C-49（FAIL）**= 破坏性动作的守卫探测，**探测自身失败不得判为「不健康」**
+#   （任务 #45 / §D3.2；§4.1.31 立的通用纪律的机械形态）。形态：**四条件同时满足才报** ——
+#   ① 函数有 `except` 且不重新抛出；② 该分支的失败结果是 `False`（分支内 `return False`，
+#   或分支不 return 而函数末尾是 `return False`）；③ 函数名出现在 `if not f(` 守卫里，
+#   且守卫体内含破坏性动词；④ **函数本身必须是纯探测** —— 体内不得直接执行破坏性动作
+#   （否则就是"动作本身"，`False` 是它的**正确语义**，如 reme `_rmtree_verified`）。
+#   **ocx `probe_target` 修前正是这个形态**（返回值决定 `kill_target_procs` = 杀用户隧道）。
+#   自证 4 腿（红格 + 三条反向格：失败放行 / 良性动作 / **动作执行者**）。
 # 1.9.20：**新增 C-48（FAIL）**= 自建 Tk 控件不得用**中文字面量**做文案（R1 §3 T3 的守卫）。
 #   由来：reme 的退出确认框 6 处硬编码中文，**英文模式下整框中文**，而当时三层判据全绿 ——
 #   C-20（"词表外中文"）对**重形态** i18n 直接跳过（rem 是「中文即键」，中文不算"词表外"）。
@@ -1051,6 +1059,89 @@ def c48(c: Ctx):
                 problems.append("%s:%d %s() 的 title() 用裸 APP_NAME（不随语言变）"
                                 % (rel, node.lineno, node.name))
     return (not problems), ("；".join(problems) if problems else "自建 Tk 框的中文字面量均有本地化通道")
+
+
+_DESTRUCTIVE_KW = ("kill", "terminate", "stop_", "stop(", "rmtree", "unlink", "remove", "delete")
+
+
+@check("C-49", "FAIL", "破坏性动作的守卫探测：探测自身失败不得判为「不健康」（#45/§D3.2）")
+def c49(c: Ctx):
+    """#45：ocx `probe_target` 的 `except Exception: pass` + 末尾无条件 `return False`，
+    而它的返回值被用来决定 `kill_target_procs`（**杀用户正在用的那条隧道**）。
+    ⇒ 探测**自身**出毛病（ssh 缺失 / 超时）＝"拆用户的东西"，与 §D3.2
+    （守卫自身失败要**放行**）正好相反。§4.1.31 立的通用纪律，本条是它的机械形态。
+
+    **三条件同时满足才报**（缺一条都会噪声化）：
+      ① 函数里有 `except` 分支，且该分支**不重新抛出**；
+      ② 该分支的"失败结果"是 `False` —— 分支内直接 `return False`，或分支不 return
+         而函数**末尾**是 `return False`（失败被折叠成"假"）；
+      ③ 函数名出现在 `if not <name>(` / `if <name>(…) is False` 的**守卫位置**，
+         且该守卫体内含**破坏性动词**（kill/terminate/rmtree/unlink/remove/delete…）。
+
+    ⇒ 修法只有两种：**失败侧返回 True（放行）**，或**失败侧不触发该动作**。
+    判别样本见自证腿：`except: return True` ⇒ 不报；动作改成只记一行日志 ⇒ 不报。
+    """
+    problems = []
+    for p in c.py_files():
+        src = c.read(p)
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        rel = p.relative_to(c.dir).as_posix()
+        lines = src.splitlines()
+        guarded = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If):
+                continue
+            seg = (ast.get_source_segment(src, node) or "").lower()
+            if not any(k in seg for k in _DESTRUCTIVE_KW):
+                continue
+            test = node.test
+            call = None
+            if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                if isinstance(test.operand, ast.Call):
+                    call = test.operand
+            elif isinstance(test, ast.Compare) and isinstance(test.left, ast.Call):
+                call = test.left
+            if call is not None and isinstance(call.func, ast.Name):
+                guarded.add(call.func.id)
+        if not guarded:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name not in guarded:
+                continue
+            handlers = [h for h in ast.walk(node) if isinstance(h, ast.ExceptHandler)]
+            if not handlers:
+                continue
+            # ④ 函数本身必须是**纯探测**：体内不得直接执行破坏性动作。
+            #    反例（假阳性来源）：reme `_rmtree_verified` —— 它**就是那个动作**，
+            #    返回值是"删除成功了吗"，`False` 是正确语义，不是"探测失败被折叠"。
+            #    与 §4.1.33「别用一条会命中正常代码的规则冒充守卫」同族。
+            body_seg = "\n".join(
+                lines[node.lineno - 1:(getattr(node, "end_lineno", None) or node.lineno)]).lower()
+            if any(k in body_seg for k in ("rmtree", "unlink", "os.remove", "shutil.move",
+                                           "terminate(", "kill(")):
+                continue
+            tail_start = max((getattr(h, "end_lineno", 0) or 0) for h in handlers)
+            tail = "\n".join(lines[tail_start:])
+            tail_false = bool(re.search(r"^\s*return False\s*$", tail, re.M))
+            folded = False
+            for h in handlers:
+                if any(isinstance(x, ast.Raise) for x in ast.walk(h)):
+                    continue                       # 重新抛出 ⇒ 失败没被折叠
+                rets = [x for x in ast.walk(h) if isinstance(x, ast.Return)]
+                if rets:
+                    if any(isinstance(x.value, ast.Constant) and x.value.value is False for x in rets):
+                        folded = True              # 分支内直接 return False
+                elif tail_false:
+                    folded = True                  # 分支不 return，落到末尾的 return False
+            if folded:
+                problems.append("%s:%d %s() 被用作破坏性动作的守卫，但探测自身失败被折叠成 False"
+                                % (rel, node.lineno, node.name))
+    return (not problems), ("；".join(problems) if problems else "破坏性守卫的探测失败方向均为放行")
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -4912,6 +5003,39 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-48 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-49（#45 的机械形态）：破坏性守卫的探测失败被折叠成 False ⇒ 必须红。
+        # 红格 = 判别力自证（= ocx 修前的真身：except 吞掉 + 末尾 return False + kill 守卫）；
+        # 反向格 1 = 失败侧 return True（放行）⇒ 不报；反向格 2 = 动作只记日志 ⇒ 不报。
+        c49_cases = (
+            ("pos_folded_to_false",
+             "import os\n\n\ndef probe(p):\n    try:\n        os.path.exists(p)\n"
+             "    except Exception:\n        pass\n    return False\n\n\n"
+             "def go(p):\n    if not probe(p):\n        os.remove(p)\n", False),
+            ("neg_fail_open_true",
+             "import os\n\n\ndef probe(p):\n    try:\n        os.path.exists(p)\n"
+             "    except Exception:\n        return True\n    return False\n\n\n"
+             "def go(p):\n    if not probe(p):\n        os.remove(p)\n", True),
+            ("neg_benign_action",
+             "import os\n\n\ndef probe(p):\n    try:\n        os.path.exists(p)\n"
+             "    except Exception:\n        pass\n    return False\n\n\n"
+             "def go(p):\n    if not probe(p):\n        print(\"offline\")\n", True),
+            # 反向格 3：**函数本身是动作执行者**（= reme `_rmtree_verified` 的真身）⇒ 不报。
+            # 它的返回值是"删除成功了吗"，False 是正确语义，不是"探测失败被折叠"。
+            ("neg_actor_not_a_probe",
+             "import os\nimport shutil\n\n\ndef do_rm(p):\n    try:\n        shutil.rmtree(p)\n"
+             "    except Exception:\n        pass\n    return False\n\n\n"
+             "def go(p):\n    if not do_rm(p):\n        os.remove(p)\n", True),
+        )
+        for name, body, want in c49_cases:
+            d = base / ("c49_" + name)
+            (d / "src").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "main.py").write_text(body, encoding="utf-8")
+            ok, detail = c49(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-49 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
