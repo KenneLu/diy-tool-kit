@@ -26,9 +26,13 @@ line into a requirement, so it is now a mechanical check rather than a sentence.
   obligation** ("after every added/edited bat line, run C-22") and the reason the corruptions
   are invisible: they never error, they only make *one line* silently stop working — and if an
   earlier gate stops the build first, that line is never reached. **J 坑 gained two entries**:
-  the escaping/`	`→TAB one, and the console-subsystem fake-exe one (a modal console window
-  pops on the user's desktop, and its cwd makes the cleanup delete fail silently, leaving an
-  empty shell directory — today's user report).
+  the escaping one (`"\t"` written into a file becomes a real TAB), and the console-subsystem
+  fake-exe one (a modal console window pops on the user's desktop, and its cwd makes the
+  cleanup delete fail silently, leaving an empty shell directory — today's user report).
+  ⚠️ **This very CHANGELOG entry reproduced that J 坑**: it was written from a Python string
+  where `\t` was interpreted, so the first version contained a literal TAB (found by re-reading
+  the bytes; fixed in `a6a0d59`). The lesson is not "be careful" — it is **verify the bytes of
+  what you just wrote**, which is exactly what C-22 automates for bat files.
 
 ## 2026-09-19 (ALIGNMENT: icons closed as [decl]; the second update path assessed)
 
