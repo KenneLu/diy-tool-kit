@@ -2,6 +2,43 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-30 leg B widened a second time; [BROKEN] tier; two of my own readings corrected)
+
+Three corrections, all from the lead relaying the reviewer's measurements — and **two of them are
+against me**.
+
+- **C-30 leg B, second widening (1.9.2).** The previous signature still demanded `config.json`
+  within depth ≤1 and looked for `*.log` **files**. The reviewer's real residue
+  `tmp.6FcrxXYxmM\d\local-speak2text` (depth 3, **only `log/`**, no `config.json`) defeats both.
+  The new rule was chosen **by measurement, not by argument**, on one scan (95 top dirs /
+  647 entries): V0 old = **7** hits; V1 "`*.log` file at any depth" = **13** — and the 6 extra are
+  **other programs' logs** (WebView cache `EBWebView/…/000003.log`, `vmware-Administrator`,
+  `virtual_camera`, `kzip_sogou`, `ai/rp/task_outputs/…/output.log`) ⇒ **too wide, manufactures
+  false reds**, rejected; V2 "a directory named `log` at any depth" = **8** ⇒ **adopted**
+  (B3 says logs live in `<data root>/log/`, so "has a `log` dir" is the invariant). Residual FP =
+  a foreign program's own `log/` (1 on the spot).
+- **Declared locations are not leaks** (`TMP_DECLARED_PATHS`): `reme-helper-builddata` is a fixed
+  path **written down** in reme `scripts/build.bat:22` (`REME_HELPER_DATA_DIR=%TEMP%\…`, no cleanup
+  anywhere), and it was **permanently red**. The reviewer's control experiment gives the hard
+  conclusion: **the shape leg can recognise a "data root", but cannot tell "belongs in %TEMP%" from
+  "belongs on disk"** — so the leak verdict must come from **location + declaration**, not shape
+  alone.
+- **[BROKEN] is its own tier** (lead approved). A check that **raises** is instrument failure, not
+  a detected violation: it now gets its own tag, **its own count** in the summary and **its own
+  exit code** (otherwise it degrades into "a scary-looking WARN" that callers swallow). Origin:
+  `check_md_tabs` kept a `@check` decorator on a helper that takes `Path` ⇒ four tools each
+  reported an "exception", **looking like four broken tools**, and a whole round of investigation
+  went the wrong way. §J records it as「幽灵判据」.
+- **Two of my own readings, kept on the record**: (a) I reported the scan surface as "**643** top
+  directories" — it was **entries** (dirs + files; **101 dirs / 634 entries**), and the surface is
+  precisely the number two people must be able to compare, so `--temp-leak`'s RESULT line now
+  prints **both, each labelled**; (b) the 20-name regression set is **self-calibrated** (the rule
+  was calibrated on those names, then used to hit them) — that is **circular** and **not
+  independent verification**, so "zero false positives" is withdrawn; the reviewer's independent
+  re-implementation gives **14**. §J gains both as rows.
+- Also in this batch: this file's own `selftest` now **consumes** `_rmtree_strict`'s return value
+  (it called it and ignored the result — the very shape C-30 exists to catch).
+
 ## 2026-09-19 (C-36: assert the operator's *property*, not a frozen hash)
 
 The lead's proposal, implemented as a check: **a property assertion is the mechanical form of

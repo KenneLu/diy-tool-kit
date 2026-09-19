@@ -1,5 +1,30 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.1
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.2
+# 1.9.2：**腿 B 按复核员的实测再放宽一次 + 扫描面口径修正**（lead 转达复核员取证后裁定）：
+#   ① **不再要求 `config.json`、不设深度上限**：旧签名（config 在 ≤1 层 + 顶层下存在 `*.log`）
+#      抓不到 `tmp.6FcrxXYxmM\d\local-speak2text`（3 层、只有 `log/`）这类真实残留。
+#      新签名 = **任意深度存在名为 `log` 的目录**（B3 规定日志落 `<数据根>/log/`）。
+#      **候选口径实测后才选**（同一次扫描，顶层目录 95 / 条目 647）：
+#        V0 旧签名 7 命中 / V1「任意深度存在 `*.log` 文件」13 命中（多出的 5 个是他程序日志：
+#        WebView 缓存、vmware、virtual_camera、kzip_sogou… ⇒ **太宽、制造假红**，否掉）/
+#        V2「任意深度存在 `log` 目录」8 命中 ⇒ **采用 V2**；残余 FP 风险（外来程序的 `log/`）在案。
+#   ② **已声明位置白名单** `TMP_DECLARED_PATHS`：`reme-helper-builddata` 是 reme
+#      `scripts/build.bat:22` **明写的稳定构建数据位**，不是漏扫残留——它此前**永久红**，
+#      且"形态能认出数据根"≠"它是泄漏"（复核员对照实验：同规则扫 %LOCALAPPDATA% 命中的
+#      恰好是那 4 个真实数据根）⇒ **判"是不是泄漏"必须靠位置 + 声明**。白名单只豁免报告
+#      与增量判定，不改判据。
+#   ③ **扫描面报"目录数"**：lead 曾把顶层**条目数**（目录+文件，634）当成目录数（101）报出，
+#      两张扫描面因此不可比。现在两个数**各带标签**一起打印。
+#   ④ **回归集措辞更正**：那 20 个是**自标定集**（规则拿它标定、再用规则命中它 = 循环），
+#      **不构成独立验证**，不得声称"零误报"；独立复算由复核员给出 = **14**（16:55，他重实现）。
+#      `reme-helper-builddata` 已从回归集移除（它不是残留）。
+#   ⑤ **[BROKEN] 档**（lead 批准）：判据**自身抛异常**不再混进"检出违规"——独立成档、
+#      进汇总计数、**独立进退出码**（不计 FAIL、也不被 WARN 咽掉）。由来：`check_md_tabs`
+#      是收 `Path` 的助手却在重构后**留着 `@check` 装饰器**，四个工具各报一条"检查异常"，
+#      **看起来像工具坏了**，整整一轮排查方向是错的（STANDARDS §J"幽灵判据"）。
+#      自检样本：一条故意抛异常的判据必须得到 `(0 FAIL, 0 WARN, 1 BROKEN)`。
+#      **同批还补**：本文件自己的 selftest 收尾**必须消费 `_rmtree_strict` 的返回值**
+#      （原来只调用不看返回，等于"加了重试但不看结果"——正是 C-30 要治的形状）。
 # 1.9.1：**身份行**（lead 批准）：每次运行的第一行打印
 #   `# conformance_check <VER>  sha256:<raw>  norm:<归一化>`
 #   —— `raw` = 文件逐字节 sha256，`norm` = sync_check 口径（剔 `# TEMPLATE-*` 行后哈希）。
@@ -21,20 +46,28 @@
 #      `src/main.py:7405` 的 `prefix=f"{APP_ID}-update-"` 未登记）**，其余三工具 ok。
 #   ③ 运行期取证改成**两条腿**（task #43，lead 裁定）：腿 A 生成器派生（前缀枚举 + 登记表；
 #      裸 `mkdtemp()` → 系统默认前缀 `tmp`，列为**弱前缀**并单独 WARN，因为它会撞上无关目录）、
-#      腿 B **形态派生**（`_SHAPE_RULE`：**顶层或其一层子目录**内有 `config.json` + 顶层下
-#      至少存在一个 `*.log`，**不看名字、不要求 log 非空**）。**必须打印扫描面**——
+#      腿 B **形态派生**（`_SHAPE_RULE`：**任意深度存在名为 `log` 的目录**——B3 规定日志一律落
+#      `<数据根>/log/`，故"有 log 目录"就是数据根的不变量；**不看名字、不要求 config.json、
+#      不设深度上限、log 里的文件是 0 字节甚至没有文件都算**）。**必须打印扫描面**——
 #      实测：112 个顶层目录上腿 A = **0**、腿 B = **20**，20 个全在腿 A 命中之外；若把签名
 #      写成"log 非空"则只覆盖 11/20。那 20 个的名字（`icon-probe-*`/`smoke-proof-*`/
 #      `reme-gate-2.2.0`/`tmp*`）**在四个工具源码里一个字都搜不到**（裸 mkdtemp 的默认前缀、
 #      或扫描范围之外的探针脚本）——"前缀法 0 命中"与"真没泄漏"在输出上完全同形，这就是
-#      "判据可以自己假绿"。20 个已登记为负样本回归集 `_TEMP_REGRESSION_20260919`。
-#      ⚠️ **2026-09-19 放宽**（lead 报固定名 scratch 目录漏检后，用合成形状实测发现）：
-#      旧签名多写了一条"**恰好一个子目录**"，而那是**形状的偶然特征、不是不变量**——
-#      任何多一个子目录（如 `ui-icons/`）的数据根都会隐身。合成形状实测：`log/{config.json,
-#      app.log}` HIT、**加一个 `ui-icons/` → MISS**、**config 摆在顶层 → MISS**（后两者都是真实形态）。
-#      放宽后当日 93 个顶层目录实测：旧 4 命中 / 新 7 命中，**新增的 3 个是 `marker-e2e-*`**
-#      （此前完全不可见的残留，不是误报）；FP 的残余风险 = 任何"带 config.json 与 log"的
-#      外来程序临时目录（`tmp*` 是 Python `mkdtemp()` 的默认前缀，故弱前缀仍单独 WARN）。
+#      "判据可以自己假绿"。20 个已登记为负样本回归集 `_TEMP_REGRESSION_20260919`，
+#      ⚠️ 但它是**自标定集**（规则拿它标定，再用规则命中它 = 循环），**不构成独立验证**，
+#      不得据此声称"零误报"；独立复算由复核员给出 = **14**（16:55，他重实现）。
+#      ⚠️ **2026-09-19 两次放宽，两次都是先实测再改签名**：
+#      ① 旧签名多写了一条"**恰好一个子目录**"，那是**形状的偶然特征、不是不变量**——任何多一个
+#      子目录（如 `ui-icons/`）的数据根都会隐身。合成形状实测：`log/{config.json,app.log}` HIT、
+#      **加一个 `ui-icons/` → MISS**、**config 摆在顶层 → MISS**（后两者都是真实形态）。
+#      放宽后当日 93 个顶层目录实测：旧 4 命中 / 新 7 命中，**新增的 3 个是 `marker-e2e-*`**。
+#      ② 再放宽（复核员报真实残留 `tmp.6FcrxXYxmM\d\local-speak2text`：**3 层、只有 `log/`、
+#      没有 config.json`**）：旧签名两种写法全抓不到。候选口径在同一次扫描上实测对照——
+#      「任意深度存在 `*.log` **文件**」= 13 命中，**多出的 6 个里 5 个是他程序日志**
+#      （WebView 缓存、vmware、virtual_camera、kzip_sogou…）⇒ **太宽，制造假红**，否掉；
+#      采用「任意深度存在 `log` **目录**」= 8 命中（7 个自家数据根 + 1 个外来程序的 log/）。
+#      FP 残余风险在案；另有**已声明位置白名单** `TMP_DECLARED_PATHS`（构建脚本明写的固定数据位，
+#      不算泄漏）。
 #   ④ 新增运行期取证/验收（只读）：`--temp-leak`（列出 %TEMP% 命中，**永远 exit 0**——
 #      历史存量会让它恒红，那是取证不是判据）、`--temp-leak-save` / `--temp-leak-baseline`
 #      （**增量断言**：只对"跑测试期间新增"报红，残留免疫）。这才是 lead 定的验收口径
@@ -183,6 +216,7 @@ C-30 的运行期验收（**增量断言**，残留免疫；"清一遍"不算证
 import argparse
 import ast
 import itertools
+import os
 import re
 import subprocess
 import sys
@@ -1795,7 +1829,7 @@ def c30(c: Ctx):
 # "%TEMP% 里还剩几个"必须现场量。
 #
 # **为什么必须两条腿**（2026-09-19 实测，task #43）：光靠"从源码枚举前缀"有**结构性天花板**
-# ——它的覆盖上限 = 源码里出现过的 prefix 字面量。实测 20 个真残留里，`icon-probe-*`、
+# ——它的覆盖上限 = 源码里出现过的 prefix 字面量。当时标定的 20 个残留里（自标定集），`icon-probe-*`、
 # `smoke-proof-*`、`reme-gate-2.2.0`、`tmp0whlwvmi` 这些名字**在四个工具的源码里一个字都
 # 搜不到**（有的来自裸 `mkdtemp()` 的系统默认前缀 `tmp`，有的来自**扫描范围之外**的探针脚本），
 # 于是"前缀法 0 命中"与"真的没有泄漏"在输出上**完全同形**——这正是"判据可以自己假绿"。
@@ -1804,7 +1838,7 @@ def c30(c: Ctx):
 # 口径要求（lead 裁定）：**必须打印扫描面**（扫描目录数 / 前缀数 / 每腿命中数）——
 # "0 命中"与"没扫"必须可区分。
 _TEMP_REGRESSION_20260919 = {
-    "reme-helper": ["reme-helper-builddata", "tmp.pFZVIqwEaS", "tmp.sugjQLprlQ",
+    "reme-helper": ["tmp.pFZVIqwEaS", "tmp.sugjQLprlQ",
                     "tmp.18X8SOMwNn", "tmp0whlwvmi", "reme-sync-2.2.0-check",
                     "reme-gate-2.2.0", "reme-neg-ctl"],
     "dsh-helper": ["icon-probe-077hxtaw", "icon-probe-hjbanmd1", "icon-probe-tlqg0adv",
@@ -1813,47 +1847,77 @@ _TEMP_REGRESSION_20260919 = {
                          "smoke-proof-4ibz3s31", "smoke-proof-a15nu1_k", "tmpq_u7g0sl"],
     "local-speak2text": ["tmp.kFj54SLt7t"],
 }
-# 负样本回归集（2026-09-19 实测，20 个当时**全部仍在** %TEMP%）：
-#   * 腿 B 的**宽松**签名（要求 `*.log` **存在**而非非空）覆盖 **20/20**，且在当时
-#     112 个顶层目录里**零误报**；
-#   * 若把签名写成"`log/*.log` **非空**"则只覆盖 **11/20**——漏掉的全是 log 为 0 字节的
-#     那一批（dsh 3 + ocx 5 + tmp2k2z1nt2）。**空文件/空目录同样是残留**，
-#     这正是 C-30 从第一版起就坚持的口径（"清理跑过了 ≠ 清理成功了"）。
-_SHAPE_RULE = ("顶层目录**或其一层子目录**内有 `config.json`，且该顶层目录下**至少存在一个 `*.log`**"
-               "（不要求非空；**不要求「恰好一个子目录」**——那是形状的偶然特征，"
-               "2026-09-19 合成形状实测漏掉两种真实形状，见 `_shape_hits`）")
+# 负样本回归集（2026-09-19 实测；**它证明的是"不看名字也能命中"，不是"零误报"**）：
+#   * ⚠️ **这是自标定集**：规则就是拿这批名字标定出来的，再用同一条规则命中它们
+#     ⇒ **循环**，不构成独立验证。独立复算由复核员给出：他**重实现**后得 **14**（16:55），
+#     比当初的 20 少——差额来自时点不同（部分目录已被清掉）+ 他的日志腿口径。
+#     所以此处**不得**再写"20/20 零误报"，只写"与手工标定集一致（自标定，非同源独立验证）"。
+#   * `reme-helper-builddata` **已从本集移除**：它是 reme `scripts/build.bat:22` 明写的稳定
+#     构建数据位（见 `TMP_DECLARED_PATHS`），**不是泄漏**——把声明过的位置算进"残留"是我
+#     当时的误判（lead 转达复核员的取证后更正）。
+#   * 宽松口径（`*.log` **存在**而非非空）覆盖 **20/20**；若写成"`log/*.log` **非空**"则只覆盖
+#     **11/20**——漏掉的全是 log 为 0 字节的那一批（dsh 3 + ocx 5 + tmp2k2z1nt2）。**空文件/空目录
+#     同样是残留**，这正是 C-30 从第一版起就坚持的口径（"清理跑过了 ≠ 清理成功了"）。
+_SHAPE_RULE = ("**任意深度**存在名为 `log` 的**目录**（里面的 `*.log` 是 0 字节、甚至一个文件都没有，"
+               "同样算——空目录也是残留）。**不看名字、不要求 `config.json`、不设深度上限**")
+
+# 已声明的**稳定构建数据位**：构建脚本明写该路径、且明写不清理 ⇒ **不是漏扫残留**。
+# 判"是不是泄漏"必须**靠位置 + 声明**：形态腿能认出"数据根"，但分不出"该在 %TEMP% 临时"
+# 与"该按声明长期保留"（复核员对照实验：同规则扫 %LOCALAPPDATA% 命中的恰好是那 4 个**真实
+# 数据根**——所以形态本身不构成"泄漏"判定，位置与声明才构成）。
+# 白名单只豁免**报告与增量判定**，不改判据：这里不登记就永远红，登记了就永远有出处可查。
+TMP_DECLARED_PATHS = {
+    "reme-helper-builddata":
+        "reme-helper/scripts/build.bat:22 set \"REME_HELPER_DATA_DIR=%TEMP%\\reme-helper-builddata\""
+        "（固定名、全文无清理）",
+}
 
 
 def _shape_hits(T: Path):
-    """腿 B：按**结构签名**找残留（不看目录名，免疫命名猜测）。
+    """腿 B：按**结构签名**找残留（不看目录名，免疫命名猜测）。返回 `[(名字, 触发路径)]`。
 
-    签名 = "**隔离数据根**"的不变量：`config.json` 在**顶层或它的一层子目录**里，
-    且顶层下**至少存在一个 `*.log`**（不要求非空）。
+    签名 = "**隔离数据根**"的不变量 = **有一个 `log` 目录**（B3：日志一律落
+    `<数据根>/log/<工具名>.log`）。返回触发路径供人工判读——"命中了"与"命中了什么"必须同时可见。
 
-    2026-09-19 放宽（lead 报"固定名 scratch 目录被漏掉"后**用合成形状实测**）：
-    **旧签名要求"恰好一个子目录"——那是形状的偶然特征，不是不变量**。任何多写一个子目录的
-    数据根都会隐身。四种合成形状上的旧签名结果：
-      A `log/{config.json,app.log}`                     → HIT（当时标定用的基准形状）
-      B A + `ui-icons/a.png`（**两个子目录**）           → **MISS**
-      C `{config.json}` + `log/app.log`（config 在顶层）→ **MISS**
-      D `log/app.log`（无 config）                       → MISS（**正确**：不是数据根）
-    真实案例：lead 报的四个 reme 固定名残留里有两个带 `ui-icons\\*.png` ⇒ **旧签名抓不到**；
-    而"它们曾被写进回归集"**不等于**"腿 B 抓到了它们"（当时写的是两腿**并集**）。
+    2026-09-19 两次放宽，两次都是**先实测、再改签名**：
+      ① 旧签名要求"**恰好一个子目录**"——那是标定样本的**偶然特征，不是不变量**。合成形状实测：
+         `log/{config.json,app.log}` HIT；**加一个 `ui-icons/` → MISS**；**`config.json` 摆顶层 → MISS**。
+      ② 旧签名还要求"`config.json` 在顶层或一层内"，且靠 `rglob("*.log")` 找 `*.log` **文件**。
+         复核员报的真实残留 **`tmp.6FcrxXYxmM\\d\\local-speak2text`（3 层）只有 `log/`、没有
+         `config.json`**——两种旧写法全抓不到。于是改成"**`log` 目录，任意深度**"。
+    **候选口径实测（本次扫描面：顶层目录 95 个 / 条目 647）**：
+      V0 现行（config(≤1层) 且 存在 `*.log`）          7 命中
+      V1 「存在 `*.log` 文件（任意深度，不要 config）」  13 命中 —— 多出的 6 个里 5 个是**他程序的日志**：
+         `WinRAR.exe.WebView2/EBWebView/.../000003.log`、`vmware-Administrator`、`virtual_camera`、
+         `kzip_sogou`、`ai/rp/task_outputs/.../output.log` ⇒ **太宽，制造假红**，否掉
+      V2 「存在 `log` **目录**（任意深度）」              8 命中 —— 7 个是自家数据根 + 1 个外来程序（`kzip_sogou`）
+     ⇒ 采用 V2。**残余假阳性风险在案**：外来程序自己的 `log/` 目录会被算作命中。
     """
     hits = []
     for d in sorted(T.iterdir()):
-        if not d.is_dir():
+        if not d.is_dir() or d.name in TMP_DECLARED_PATHS:
             continue
         try:
-            if not (d / "config.json").is_file() and not any(
-                    (s / "config.json").is_file() for s in d.iterdir() if s.is_dir()):
-                continue
-            if not any(f.is_file() for f in d.rglob("*.log")):
-                continue
+            for root, dirs, _files in os.walk(d, onerror=lambda _e: None):
+                if "log" in dirs:
+                    rel = Path(root, "log").relative_to(d).as_posix()
+                    hits.append((d.name, rel))
+                    break
         except OSError:
             continue
-        hits.append(d.name)
     return hits
+
+
+def _declared_present(T: Path):
+    """白名单里**确实存在于 %TEMP%** 的那些（只报出来，不计入并集/增量）。"""
+    out = []
+    for name, why in sorted(TMP_DECLARED_PATHS.items()):
+        try:
+            if (T / name).is_dir():
+                out.append((name, why))
+        except OSError:
+            pass
+    return out
 
 
 def _temp_hits(prefixes, T):
@@ -1886,9 +1950,11 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
                            跑门禁前 save，跑完 baseline，新增必须为空。
 
     **两条腿都要，且必须打印扫描面**（task #43）：腿 A 的覆盖上限 = 源码里出现过的 prefix
-    字面量；实测 20 个真残留里有一大半**在四个工具源码里一个字都搜不到**（裸 `mkdtemp()`
+    字面量；标定的 20 个残留里有一大半**在四个工具源码里一个字都搜不到**（裸 `mkdtemp()`
     的默认前缀 `tmp`、以及扫描范围之外的探针脚本），此时"腿 A 0 命中"与"真的没泄漏"
     在输出上完全同形。腿 B 看结构不看名字，是那些情况的唯一判据。
+    **扫描面必须报"目录数"**：lead 那次把"顶层条目数"（目录+文件，634）当成了目录数
+    （101）报出来，两张扫描面因此不可比——所以本函数把两个数**各带标签**一起打印。
     """
     import tempfile
     per_tool, all_prefs, all_weak = [], [], []
@@ -1926,8 +1992,10 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
 
     hits_a = _temp_hits(all_prefs, T)
     names_a = sorted({d for _, d, _, _ in hits_a})
-    names_b = _shape_hits(T)
-    union = sorted(set(names_a) | set(names_b))
+    hits_b = _shape_hits(T)
+    why_b = dict(hits_b)
+    names_b = sorted(why_b)
+    union = sorted((set(names_a) | set(names_b)) - set(TMP_DECLARED_PATHS))
     print("== 腿 A：生成器派生（前缀）命中 %d ==" % len(names_a))
     by_pref = {}
     for pref, dname, ts, nfiles in hits_a:
@@ -1941,16 +2009,27 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
     print("== 腿 B：形态派生（不看名字）命中 %d ==" % len(names_b))
     only_b = [d for d in names_b if d not in names_a]
     for d in names_b[:12]:
-        print("        %-30s%s" % (d, "" if d in names_a else "   <- 腿 A 的盲区"))
+        print("        %-30s %-26s%s" % (d, why_b[d], "" if d in names_a else "  <- 腿 A 的盲区"))
     if len(names_b) > 12:
         print("        ... 还有 %d 个" % (len(names_b) - 12))
+    declared = _declared_present(T)
+    if TMP_DECLARED_PATHS:
+        print("== 已声明位置（**不算泄漏**，不计入并集与增量）现场命中 %d / 登记 %d =="
+              % (len(declared), len(TMP_DECLARED_PATHS)))
+        for n, why in declared:
+            print("        %-30s %s" % (n, why))
     reg = {n for v in _TEMP_REGRESSION_20260919.values() for n in v}
     print("== 并集 %d 个；其中 %d 个在腿 A 命中之外（腿 B 独有）；"
           "命中已登记回归集 %d/%d =="
           % (len(union), len(only_b), len(set(union) & reg), len(reg)))
-    print("RESULT: 扫描顶层目录 %d 个 / 腿 A 前缀 %d 个 / 命中 A=%d B=%d 并集=%d"
-          % (len([d for d in T.iterdir() if d.is_dir()]), len(all_prefs),
-             len(names_a), len(names_b), len(union)))
+    # 扫描面报**目录数**：lead 那次把"条目数"（目录+文件）当成了目录数（634 vs 101），
+    # 于是两个人贴出来的扫描面根本不可比。两个数**显式带标签**一起报。
+    n_dirs = len([d for d in T.iterdir() if d.is_dir()])
+    n_entries = len(list(T.iterdir()))
+    print("RESULT: 扫描顶层**目录** %d 个（顶层条目 %d = 目录+文件）"
+          " / 腿 A 前缀 %d 个 / 命中 A=%d B=%d 并集=%d / 已声明 %d"
+          % (n_dirs, n_entries, len(all_prefs), len(names_a), len(names_b), len(union),
+             len(TMP_DECLARED_PATHS)))
     if save:
         Path(save).write_text("\n".join(union) + "\n", encoding="utf-8")
         print("已写基线: %s（%d 条，并集）" % (save, len(union)))
@@ -2707,35 +2786,35 @@ def selftest() -> int:
 
         # C-30/腿 B：形态派生签名（不看名字）。样本**故意用回归集里的真实名字**
         # （`icon-probe-*` 在四个工具源码里搜不到）——它必须被找到，才证明"不看名字"成立。
+        # 每个样本都对应一次**真实的**误判历史，注释里写清"旧签名为什么会漏/会误"。
         fake_tmp = base / "c30_shape_tmp"
-        cases = (
-            # (路径, 内容) —— cfg=是否有 config.json, log=是否有 *.log, subs=子目录数
-            ("icon-probe-077hxtaw", True, True, 1),    # 回归集真名 → 必须命中
-            ("smoke-proof-nl6gj9kf", True, True, 1),   # log 为 0 字节也算（宽松口径）
-            ("plain-scratch", True, False, 1),         # 有 config.json 无 log → 不命中
-            # 2026-09-19 放宽后 `two-subs` **必须命中**：两个子目录的数据根（如多了
-            # `ui-icons/`）是 lead 报的真实形态，旧签名"恰好一个子目录"会把它漏掉。
-            ("two-subs", True, True, 2),               # 子目录不唯一 → **命中**（契约放宽）
-            ("no-config", False, True, 1),             # 无 config.json → 不命中
-        )
-        for dirname, cfg, log, nsubs in cases:
-            d = fake_tmp / dirname
-            for i in range(nsubs):
-                sub = d / ("app" if i == 0 else "other%d" % i)
-                (sub / "log").mkdir(parents=True)
-                if cfg:
-                    (sub / "config.json").write_text("{}", encoding="utf-8")
-                if log:
-                    (sub / "log" / "app.log").write_bytes(b"")   # 0 字节：仍算残留
-        # `config.json` 直接摆在顶层（另一种真实形状）→ 也必须命中。
-        _ct = fake_tmp / "config-at-top"
-        (_ct / "log").mkdir(parents=True)
-        (_ct / "config.json").write_text("{}", encoding="utf-8")
-        (_ct / "log" / "app.log").write_bytes(b"")
-        (fake_tmp / "just-a-file.txt").write_bytes(b"x")
-        got_shape = set(_shape_hits(fake_tmp))
+
+        def _mk_shape(rel, files=()):
+            d = fake_tmp / rel
+            d.mkdir(parents=True, exist_ok=True)
+            for f in files:
+                p = d / f
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"")          # 0 字节：按宽松口径**仍算残留**
+            return d
+
+        _mk_shape("icon-probe-077hxtaw", ["log/config.json", "log/app.log"])   # 回归集真名 → 命中
+        _mk_shape("smoke-proof-nl6gj9kf", ["log/config.json", "log/app.log"])  # 同上（0 字节）
+        # 两个子目录（多一个 `ui-icons/`）——旧签名要求"恰好一个子目录"时**漏掉**。
+        _mk_shape("two-subs", ["log/config.json", "log/app.log", "ui-icons/a.png"])
+        # `config.json` 摆在顶层——旧签名（config 必须在**子目录**里）时**漏掉**。
+        _mk_shape("config-at-top", ["config.json", "log/app.log"])
+        # 复核员报的真实形态：**3 层**、**只有 `log/`、没有 config.json`**。
+        # 旧签名（config 在 ≤1 层 且 顶层下存在 `*.log`）**两种写法都抓不到** ⇒ 这是本次放宽的判别样本。
+        _mk_shape("nested-no-config", ["dsh-helper/log/dsh-helper.log"])
+        # 反向样本：有 config.json 但**没有 log 目录** → 不是数据根，必须不命中。
+        _mk_shape("no-log-dir", ["config.json", "x.txt"])
+        # 白名单判别样本：名字与内容都命中形态，但**已声明** ⇒ 不得进命中集。
+        _mk_shape("reme-helper-builddata", ["log/x.log"])
+        (fake_tmp / "just-a-file.txt").write_bytes(b"x")   # 顶层文件不是目录 → 不命中
+        got_shape = {n for n, _why in _shape_hits(fake_tmp)}
         want_shape = {"icon-probe-077hxtaw", "smoke-proof-nl6gj9kf",
-                      "two-subs", "config-at-top"}
+                      "two-subs", "config-at-top", "nested-no-config"}
         good = got_shape == want_shape
         failed += 0 if good else 1
         print("[selftest] %s  C-30/shape %s: got=%s want=%s"
@@ -2854,10 +2933,29 @@ def selftest() -> int:
             print("[selftest] %s  C-31 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
+        # [BROKEN]：**检查自身出错**必须独立成一档——不计 FAIL、不被 WARN 咽掉、并进退出码。
+        # 用一条**故意抛异常**的判据作样本（历史实例：`check_md_tabs` 头上留着 `@check`，
+        # 四个工具各报一条"检查异常"，看起来像工具坏了 ⇒ 一整轮排查方向是错的）。
+        def _boom(_c):
+            raise RuntimeError("simulated instrument failure")
+
+        _brows = _run_checks(Ctx("broken-demo", base),
+                             [("X-99", "FAIL", "整条判据抛异常（仪器故障样本）", _boom)])
+        _bf, _bw, _bb = _print_rows(_brows, 0, 0, 0)
+        good = (_bf, _bw, _bb) == (0, 0, 1)
+        failed += 0 if good else 1
+        print("[selftest] %s  BROKEN 档 %s: (fails,warns,broken)=%s want=(0,0,1)"
+              % ("PASS" if good else "FAIL", "instrument_failure_is_its_own_tier",
+                 (_bf, _bw, _bb)))
+
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
-        return 1 if failed else 0
+        rc = 1 if failed else 0
     finally:
-        _rmtree_strict(base)   # 不吞错：删不掉就让 selftest 崩（C-30 作者守 C-30）
+        # C-30 的作者自己也得守 C-30，且**必须消费返回值**（"我加了重试 ≠ 失败可见"）：
+        # 删不掉就让退出码变红，而不是只在屏幕上飘一行 [FAIL]。
+        if not _rmtree_strict(base):
+            rc = 1
+    return rc
 
 
 # ---------------------------------------------------------------- 主流程
@@ -2874,8 +2972,15 @@ def _run_checks(c: Ctx, checks, only=None):
                 ok, detail, severity = res
             else:
                 ok, detail = res
-        except Exception as exc:  # 检查自身出错不应让整轮崩
-            ok, detail = False, "检查异常: %r" % (exc,)
+        except Exception as exc:
+            # **[BROKEN]：检查自身出错 ≠ 检出违规**（lead 2026-09-19 批准立档）。
+            # 两者在汇总里只差一个词（"检查异常" vs 一条违规），但处置方向**相反**：
+            # 一个要改被检对象，一个要改判据自己。历史实例：`check_md_tabs` 头上留着
+            # `@check` 装饰器（它是收 `Path` 的助手），于是四个工具各报一条"检查异常"，
+            # 看起来像工具坏了——整整一轮的排查方向是错的（见 STANDARDS §J）。
+            # 所以它必须**独立成档、进计数、进退出码**，否则会被当 WARN 咽掉。
+            rows.append((cid, "BROKEN", title, False, "检查异常（仪器故障，非检出违规）: %r" % (exc,)))
+            continue
         rows.append((cid, severity, title, ok, detail))
     return rows
 
@@ -2885,16 +2990,25 @@ def run_tool(name: str, only=None) -> tuple:
     return c, _run_checks(c, CHECKS, only)
 
 
-def _print_rows(rows, fails, warns):
+def _print_rows(rows, fails, warns, broken=0):
     for cid, severity, title, ok, detail in rows:
-        tag = "ok  " if ok else ("FAIL" if severity == "FAIL" else "WARN")
+        if ok:
+            tag = "ok  "
+        elif severity == "FAIL":
+            tag = "FAIL"
+        elif severity == "BROKEN":
+            tag = "BROKEN"
+        else:
+            tag = "WARN"
         if not ok:
             if severity == "FAIL":
                 fails += 1
+            elif severity == "BROKEN":
+                broken += 1
             else:
                 warns += 1
         print("  [%s] %-5s %-46s %s" % (tag, cid, title, detail))
-    return fails, warns
+    return fails, warns, broken
 
 
 def main() -> int:
@@ -2931,7 +3045,7 @@ def main() -> int:
 
     print(identity_line())   # 身份行：任何贴回来的输出自证"这是哪一版、哪个文件的产物"
 
-    fails = warns = 0
+    fails = warns = broken = 0
     only = set(args.only) if args.only else None
 
     # 模板正本跑一次（不按工具跑 N 次——它检查的东西与具体工具无关，重复输出只会淹信号）。
@@ -2941,7 +3055,7 @@ def main() -> int:
         print("%s  (模板正本, 只跑 TEMPLATE_CHECKS)" % TEMPLATE_DIR.name)
         print("  " + repo_identity(TEMPLATE_DIR))   # 被检仓库的修订与脏净（dirty=yes 一行暴露）
         print("=" * 78)
-        fails, warns = _print_rows(trows, fails, warns)
+        fails, warns, broken = _print_rows(trows, fails, warns, broken)
         print()
 
     for name in names:
@@ -2954,10 +3068,15 @@ def main() -> int:
         print("%s  (APP_ID=%s)" % (name, c.app_id))
         print("  " + repo_identity(tool_dir))   # 每个 --roots 仓库各一行：rev + dirty
         print("=" * 78)
-        fails, warns = _print_rows(rows, fails, warns)
+        fails, warns, broken = _print_rows(rows, fails, warns, broken)
         print()
 
-    print("summary: %d FAIL, %d WARN" % (fails, warns))
+    print("summary: %d FAIL, %d WARN, %d BROKEN（检查自身出错——该改的是判据，不是被检对象）"
+          % (fails, warns, broken))
+    if broken:
+        print("fix: [BROKEN] 是**判据自己**出错（仪器故障），先修 conformance_check.py；"
+              "它不计入 FAIL、也不被 WARN 咽掉，独立进退出码。")
+        return 1
     if fails:
         print("fix: 逐条见 my-diy-tool-template/CONFORMANCE.md 对应 ID。")
         return 1
