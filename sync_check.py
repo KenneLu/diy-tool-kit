@@ -1,6 +1,12 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.7.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
+# 1.8.0：`--selftest` E 组新增**真跑反例**（`_apply_bat_runtime_cases`）：把生成的 apply.bat
+#   放进 %TEMP% 沙箱、以**空暂存包**执行，断言"秒级退出（模态框会挂死）/ 写 update.failed
+#   marker / **安装目录没被动过**（/purge 没跑）/ 暂存被收尾删除 / 脚本自删"。
+#   为什么必须真跑：文本断言只能证明"守卫写在那儿"，证明不了"那条路真的被拦住"——而
+#   失效形态恰恰是**带 GUI 子系统的模态框**（DETACHED_PROCESS 挡不住），表现为永久挂起。
+#   安全性：沙箱内目标目录**没有 exe**，即使误走 start 分支也不会拉起任何进程。
 # 1.7.0：`--selftest` 新增 **F 组：tray_kit 探针语义**（`mutex_name_is_valid`，2.1.0/D3.3）。
 #   探针要被 `--smoke` 用来覆盖"名字合法"，必须同时满足：非法名判 False、**名字被占用仍判
 #   True**（否则用户实例在跑时冒烟假红）、**探测后不留句柄**（否则探针自己占锁）、内核不可用
@@ -516,6 +522,78 @@ def _tray_kit_probe_cases():
     return out
 
 
+def _apply_bat_runtime_cases():
+    """E 组（**真跑**）：把生成的 apply.bat 放进沙箱执行，验"空暂存包"这条路。
+
+    为什么必须真跑：模态框卡死在**文本断言里看不出来**——脚本里确实有 `start` 语句，
+    只是那条路不该被走到；只有跑一遍、看它**秒级退出** + marker 落地 + 安装目录没被动过，
+    才能证伪。文本断言（E 组另外几条）只能证明"守卫写在那儿"，不能证明"路真的被拦住"。
+
+    安全性：沙箱建在 %TEMP% 下，且**目标目录里没有 exe** ⇒ 即使脚本误走到 `start` 分支，
+    也不会有任何进程被拉起（这正是本用例要断言的语义），更不会弹模态框。
+
+    对照的故障链（lead 实测）：STAGE 空 ⇒ `robocopy /e /purge` 返回 0–7 被判成功
+    ⇒ **安装目录被清空** ⇒ `start "" <不存在的 exe>` 弹**模态框**永久阻塞。
+    """
+    import importlib.util
+    import subprocess
+    import time as _time
+    out = []
+    path = TEMPLATE_DIR / "modules" / "update_helper" / "update_helper.py"
+    if not path.exists():
+        return [("E-runtime apply.bat", False, "模板 update_helper.py 不存在")]
+    spec = importlib.util.spec_from_file_location("_tpl_uh_runtime", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_tpl_uh_runtime"] = mod
+    need = str(TEMPLATE_DIR)
+    added = need not in sys.path
+    if added:
+        sys.path.insert(0, need)
+    base = Path(tempfile.mkdtemp(prefix="apply_bat_runtime_"))
+    try:
+        spec.loader.exec_module(mod)
+        stage = base / "stage"; stage.mkdir()               # 空暂存包（rc=0 的陷阱源）
+        install = base / "install"; install.mkdir()
+        (install / "sentinel.txt").write_text("old install payload", encoding="utf-8")
+        work = base / "work"; work.mkdir()
+        log = base / "update.log"
+        text = mod.build_apply_script(str(install), str(stage), str(work),
+                                      str(base / "_backup"), str(log))
+        bat = base / "apply.bat"
+        try:
+            bat.write_text(text, encoding="mbcs", errors="replace")
+        except (LookupError, UnicodeError):
+            bat.write_text(text, encoding="utf-8")
+        t0 = _time.time()
+        hung = False
+        try:
+            subprocess.run(["cmd", "/c", str(bat)], capture_output=True, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except subprocess.TimeoutExpired:
+            hung = True
+        elapsed = _time.time() - t0
+        marker = base / "update.failed"
+        out.append(("E-runtime 空暂存包：正常退出不阻塞（模态框会挂死）",
+                    not hung and elapsed < 30, "%.1fs%s" % (elapsed, " 超时!" if hung else "")))
+        out.append(("E-runtime 空暂存包：写了 update.failed marker",
+                    marker.is_file(), "存在" if marker.is_file() else "缺失"))
+        out.append(("E-runtime 空暂存包：安装目录没被动过（/purge 没跑）",
+                    (install / "sentinel.txt").is_file(),
+                    "sentinel %s" % ("在" if (install / "sentinel.txt").is_file() else "被清掉了")))
+        out.append(("E-runtime 空暂存包：末了进 :cleanup（暂存已删）", not work.exists(),
+                    "work %s" % ("还在" if work.exists() else "已删")))
+        out.append(("E-runtime 脚本自删（收尾走到 cleanup_tail）", not bat.exists(),
+                    "bat %s" % ("还在" if bat.exists() else "已删")))
+    except Exception as exc:
+        out.append(("E-runtime apply.bat", False, "异常: %r" % (exc,)))
+    finally:
+        if added and need in sys.path:
+            sys.path.remove(need)
+        sys.modules.pop("_tpl_uh_runtime", None)
+        shutil.rmtree(base, ignore_errors=True)
+    return out
+
+
 def selftest() -> int:
     """回归样本（`--selftest`，可重复执行）：锁死本家族两条判据。
 
@@ -577,6 +655,10 @@ def selftest() -> int:
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
         for label, ok, detail in _tray_kit_probe_cases():
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
+        for label, ok, detail in _apply_bat_runtime_cases():
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 

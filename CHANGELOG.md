@@ -2,6 +2,31 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (update_helper: the empty-stage reverse proof now runs the bat for real)
+
+The lead's review asked for a runtime reverse sample for the two `start` sites (empty stage ⇒
+`robocopy` rc 0–7 ⇒ judged success ⇒ install dir wiped ⇒ `start` on a missing exe pops a
+**modal** box that `DETACHED_PROCESS` cannot suppress ⇒ the bat blocks forever).
+
+- **The guards themselves shipped in 1.4.0** (`7d0d000`) and are unchanged: the staged package
+  is validated **before** anything is touched (`goto :stage_invalid`), and the post-copy path
+  checks the exe again (`if not exist "{newexe}" goto install_failed`). No module change was
+  needed, so **`modules/update_helper/` stays at 1.4.0** — bumping the VER without changing the
+  bytes would make the declared version lie about the file.
+- **New runtime reverse sample** (`sync_check.py` 1.8.0, E group): the generated `apply.bat` is
+  written into a `%TEMP%` sandbox and **executed with an empty stage**, asserting five things:
+  the script exits in well under a second (a modal box would hang it), it writes
+  `update.failed`, **the install directory is untouched** (`/purge` never ran), the work dir is
+  removed (it reached `:cleanup`), and the script deletes itself. The sandbox's install dir has
+  **no exe**, so even a mistaken `start` launches nothing. Measured: `0.3s`, all five green.
+- Why this had to be a run, not an assertion on the text: the text assertions can only show the
+  guard is *written*; they cannot show the path is *blocked*. The failure mode is a GUI-subsystem
+  dialog, which no process flag can suppress — the only observable is "it never returns".
+- **Semantics note**: `:stage_invalid` does not touch the install dir, writes the marker, and
+  then **brings the previous version back if it exists** (same as `:install_failed`). "No start"
+  refers to the missing *new* exe; the old one is what the user gets back, so the tool is not
+  left dead. The second guard ends in `:install_dead` (no start at all) when the copy is bad.
+
 ## 2026-09-19 (C-22 bat byte hygiene; a generated-bat LF instance found by it)
 
 The lead's byte scan of the family's `.bat`/`.cmd` files turned the "bats are CRLF + ASCII"
