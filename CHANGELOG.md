@@ -2,6 +2,46 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (template freeze: sync_check 1.3.0 + three module fixes)
+
+This round closes the "one-of-five" blind spots the conformance audit found, then
+freezes the template so the four tools can re-copy in a controlled wave.
+
+- **`sync_check.py` 1.2.0 → 1.3.0** — three blind spots closed (CONFORMANCE §4.1.9):
+  1. **Blueprints are no longer skipped wholesale**; compared file-by-file, a lagging
+     blueprint now reports `[lag]` (yellow, non-blocking) with `copy VER -> template VER`.
+  2. **Layout channel**: any file under `src/modules/<module>/` that shares a name with
+     a template file is compared **even without a `TEMPLATE-FROM` header**; a header-less
+     mismatch is `[NOHDR]` (yellow). A whole module that was never adopted is
+     `[MISSING-MODULE]`, and a file missing from an adopted module is `[MISSING-FILE]`.
+  3. `__init__.py` is now compared too. `TEMPLATE-MODULE: <module>` resolution was fixed
+     to map `__init__.py` to the template's `__init__.py` (it used to be compared against
+     `<module>.py`, producing a false red).
+  Default scan is limited to family tools (`src/` + build gate `build.bat`). Yellow labels
+  never change the exit code; only undeclared `[DRIFT]` / `[MISS]` do.
+- **`modules/*/__init__.py` unified** — `# TEMPLATE-MODULE: <module> | TEMPLATE-VER: <ver>`
+  plus `from .<module> import *  # noqa: F401,F403` (CRLF, ASCII-only); each `__init__.py`
+  VER mirrors its module's VER. `modules/icons/__init__.py` added.
+- **`modules/appconfig/appconfig.py` 1.0.0 → 1.0.1** — removed a self-contradiction:
+  `icons.py` 2.0.0 calls `ICON_DRAW(256)` (single arg), but the template documented
+  `ICON_DRAW(ctx, size)` and never defined `ICON_ASSET`. Now `ICON_DRAW(size) -> PIL.Image`
+  and an explicit `ICON_ASSET = None` (asset wins when set).
+- **`modules/tray_kit/tray_kit.py` 2.0.1 → 2.0.2** — user-visible strings in
+  `confirm_quit_dialog` / `warn_duplicate_instance` are now injectable
+  (`title/body_text/confirm_text/cancel_text/message`) with Chinese defaults, so i18n
+  tools satisfy E4-02; an empty `checkbox_text` no longer renders a blank checkbox.
+  Backward compatible.
+- **`modules/paths/paths.py` 1.1.2 → 1.1.3** — `CONFIG_PATH` can be pinned via
+  `<APP_ID-derived>_CONFIG`, delivering what the module README had promised all along
+  (CONFORMANCE §4.1.5: the template had regressed against its own blueprint).
+- **NEW `ALIGNMENT.md`** — the "one-of-five" convergence table: template-file × four-tool
+  matrix, target state / exact location / change list / risk per non-SAME cell, the
+  do-not-align list with OVERRIDE wording, and an execution order.
+- Module READMEs (`appconfig`, `paths`, `tray_kit`) updated to match the code.
+
+**Cascade (intentional):** `paths` 1.1.3 and `tray_kit` 2.0.2 must be re-copied by the
+tools; at the freeze instant dsh/ocx go red by design. The sync wave follows this commit.
+
 ## 2026-09-19 (conformance layer added; docs corrected against disk)
 
 Trigger: local-speak2text 1.4.0 could not start at all since 1.2.0 — an illegal

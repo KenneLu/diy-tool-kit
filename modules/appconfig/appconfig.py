@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: appconfig | TEMPLATE-VER: 1.0.0
+# TEMPLATE-MODULE: appconfig | TEMPLATE-VER: 1.0.1
 """T1｜工具参数区：拷贝模板后**唯一允许（也需要）修改的文件**。
 
 工具差异只允许存在于一处（house 标准 D6 / D15）：
@@ -8,7 +8,12 @@
   VERSION       三段 semver（执行文档 D15：日常 +0.0.1，大功能 +0.1，方向性 +1）
   REPO_OWNER / REPO_NAME   GitHub 仓库（更新器用）
   EXE_NAME      打包产物 exe 文件名（更新器替换目标）
-  ICON_DRAW(ctx, size)     托盘图标绘制函数（画什么图形是工具唯一真正的"个性"）
+  ICON_DRAW(size) -> PIL.Image   托盘图标绘制函数（T6 icons.py 以 ICON_DRAW(256) 调用）
+  ICON_ASSET     png 路径或 None 手工资产（T6，与 ICON_DRAW 二选一，ICON_ASSET 优先）
+
+1.0.1：修正自相矛盾——原先注释写 `ICON_DRAW(ctx, size)` 且未定义 ICON_ASSET，
+而 icons.py 2.0.0 实际 `from modules.appconfig import APP_ID, ICON_DRAW, ICON_ASSET`
+并以 `ICON_DRAW(256)` **单参**调用。现与 icons.py 正本对齐（参数文件，无级联）。
 """
 APP_ID = "my-helper"
 APP_NAME = "My Helper"
@@ -18,7 +23,15 @@ REPO_OWNER = "your-github-id"
 REPO_NAME = "my-helper"
 EXE_NAME = "my-helper.exe"
 
+ICON_ASSET = None   # 手工 png（相对仓库根）；与 ICON_DRAW 二选一，非 None 时优先
 
-def ICON_DRAW(d, size):
-    """默认图标：圆形占位。工具应替换成自己的图形（参考 local-speak2text/icons.py）。"""
-    d.ellipse((4, 4, size - 4, size - 4), fill=(76, 175, 80, 255))
+
+def ICON_DRAW(size):
+    """默认图标：圆形占位，返回 PIL.Image。工具应替换成自己的图形。
+
+    与 T6 `icons.py` 的契约：单参 size → Image（参考 local-speak2text 的 draw_mic）。
+    """
+    from PIL import Image, ImageDraw
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse((4, 4, size - 4, size - 4), fill=(76, 175, 80, 255))
+    return img
