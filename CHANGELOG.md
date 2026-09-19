@@ -2,6 +2,24 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (E group: the second reachable path — empty snapshot — now runs for real)
+
+The lead traced a second route to the same modal-box hang: `:install_failed` is entered when
+the *copy* fails, and the **restore** can then "succeed" while copying nothing (the snapshot
+step returns 0 for an empty install dir — the same robocopy semantics again), so the old
+`errorlevel 8` test passes and the script starts an exe that is not there.
+
+- **The guard for that branch shipped in 1.4.2** (`if not exist "{newexe}" goto install_dead`,
+  generated line 70) — the line numbers quoted in the review are 1.4.0's.
+- **New runtime case** (`sync_check.py` 1.8.2, E group): STAGE passes the pre-copy check but the
+  copy is **failure-injected** (`goto install_failed`), TARGET has no exe and SNAPSHOT is empty.
+  Four assertions, all green in **0.4s**: it exits (a modal box would hang it), the log shows
+  `RESTORE FAILED` — i.e. it really reached `:install_dead` — **no exe was started**, and the
+  marker plus the work dir are kept for a human. A static keypoint also pins the guard's
+  position (after `:install_failed`, before that `start`), so the reverse sample reports it.
+- **Same trap, twice**: the selector for the injection first looked for the *expanded* stage
+  path in the script body — but the body contains `%STAGE%`. The harness note is in the code.
+
 ## 2026-09-19 (paths deprecation notice; i18n 2.2.0 — LANG becomes a derived read)
 
 Both rulings from the lead, executed.

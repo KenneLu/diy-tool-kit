@@ -1,6 +1,10 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.1
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.2
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
+# 1.8.2：E 组补第二条可达路径——**回铺源为空**（SNAPSHOT 没内容）+ 替换失败：真跑一场
+#   （故障注入把 STAGE→TARGET 换成 goto install_failed），断言 0.4s 退出 / 落 :install_dead
+#   （日志 RESTORE FAILED）/ 不启动任何 exe / marker + 现场保留；另加静态要点
+#   "回铺后 start 前也验 exe"。**两次踩同一个坑**：正文里是 cmd 变量不是展开路径。
 # 1.8.1：E 组跟随 update_helper 1.4.1——空暂存包如今**保留现场**（`:cleanup_keep`），
 #   真跑断言从"暂存已删"翻成"暂存还在"，并加静态要点"stage_invalid 走 cleanup_keep"。
 # 1.8.0：`--selftest` E 组新增**真跑反例**（`_apply_bat_runtime_cases`）：把生成的 apply.bat
@@ -373,6 +377,8 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         ("stage_invalid 保留现场（goto cleanup_keep）",
          idx(":stage_invalid") >= 0 and ":cleanup_keep" in text
          and text.split(":stage_invalid")[1].split(":install_failed")[0].find("goto cleanup_keep") >= 0),
+        ("回铺后 start 前也验 exe（否则回铺源为空时又是一条死路）",
+         idx('if not exist "%s" goto install_dead' % newexe) > idx(":install_failed") >= 0),
         ("失败 marker", has('> "%FAILED%" echo')),
         ("cleanup 删暂存", has('if exist "%WORK%" rmdir /s /q "%WORK%"')),
         ("脚本自删", has('del "%~f0"')),
@@ -589,6 +595,55 @@ def _apply_bat_runtime_cases():
                     work.exists(), "work %s" % ("保留" if work.exists() else "被删了！")))
         out.append(("E-runtime 脚本自删（收尾走到 cleanup_tail）", not bat.exists(),
                     "bat %s" % ("还在" if bat.exists() else "已删")))
+
+        # ---- 场景二：**回铺源为空**（SNAPSHOT 没内容）+ 替换失败（rc>=8）----
+        # 第二条可达路径：`%SNAPSHOT%` 本身可能是空的（快照那步对**空安装目录**同样返回 0），
+        # 于是回铺 rc=0 骗过 `errorlevel 8`，走到 `start` 一个不存在的 exe —— 失效形态同样是
+        # **模态框永久阻塞**。断言点：必须落到 `:install_dead`（日志出现 "RESTORE FAILED"）、
+        # 不启动任何 exe、marker 落地、现场保留。
+        # 触发方式：**故障注入**——把 STAGE→TARGET 那条 robocopy 换成 `goto install_failed`，
+        # 比"造一个真让 robocopy 返回 >=8 的目录"确定得多（l-s2t 的 test_update_safety 同法）。
+        stage2 = base / "stage2"; stage2.mkdir()
+        (stage2 / mod.EXE_NAME).write_bytes(b"MZ")          # 过"动手前先验暂存包"
+        install2 = base / "install2"; install2.mkdir()
+        (install2 / "sentinel.txt").write_text("old", encoding="utf-8")  # 关键：**没有 exe**
+        work2 = base / "work2"; work2.mkdir()
+        snap2 = base / "_snapshot2"                          # 不存在 ⇒ 回铺"成功但什么都没铺"
+        log2 = base / "update2.log"
+        text2 = mod.build_apply_script(str(install2), str(stage2), str(work2),
+                                       str(base / "_backup2"), str(log2),
+                                       snapshot_dir=str(snap2))
+        # ⚠️ 正文里是 **cmd 变量**（`%STAGE%`/`%TARGET%`），不是展开后的路径——拿 str(stage2)
+        # 去匹配永远找不到（E 组 harness 第二次踩这个坑）。按变量名选那一条。
+        copy_line = [l for l in text2.splitlines()
+                     if l.strip().startswith("robocopy")
+                     and "%STAGE%" in l and "%TARGET%" in l][0]
+        text2 = text2.replace(copy_line, "goto install_failed")
+        bat2 = base / "apply2.bat"
+        try:
+            bat2.write_text(text2, encoding="mbcs", errors="replace")
+        except (LookupError, UnicodeError):
+            bat2.write_text(text2, encoding="utf-8")
+        t0 = _time.time()
+        hung2 = False
+        try:
+            subprocess.run(["cmd", "/c", str(bat2)], capture_output=True, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except subprocess.TimeoutExpired:
+            hung2 = True
+        elapsed2 = _time.time() - t0
+        logtext = log2.read_text(encoding="utf-8", errors="replace") if log2.exists() else ""
+        exe2 = install2 / mod.EXE_NAME
+        out.append(("E-runtime 回铺源为空：正常退出不阻塞（模态框会挂死）",
+                    not hung2 and elapsed2 < 30, "%.1fs%s" % (elapsed2, " 超时!" if hung2 else "")))
+        out.append(("E-runtime 回铺源为空：落到 :install_dead（日志见 RESTORE FAILED）",
+                    "RESTORE FAILED" in logtext,
+                    "log %s" % ("命中" if "RESTORE FAILED" in logtext else "没有该行")))
+        out.append(("E-runtime 回铺源为空：没启动任何 exe（目录里仍无 exe）",
+                    not exe2.exists(), "exe %s" % ("出现了！" if exe2.exists() else "不存在")))
+        out.append(("E-runtime 回铺源为空：marker 落地 + 现场保留",
+                    (base / "update.failed").is_file() and work2.exists(),
+                    "marker=%s work=%s" % ((base / "update.failed").is_file(), work2.exists())))
     except Exception as exc:
         out.append(("E-runtime apply.bat", False, "异常: %r" % (exc,)))
     finally:
