@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 try:  # Windows 控制台默认 GBK，中文判定标签会变乱码
@@ -42,6 +43,22 @@ _GOOD = (b"for /f \"tokens=2 delims==\" %%a in ('findstr /b /c:\"VERSION = \" "
          b"if defined VERSION for /f \"tokens=1\" %%a in (\"%VERSION:\"=%\") do set VERSION=%%a\r\n")
 _BAD = (b"for /f \"tokens=2,* delims==\" %%a in ('findstr /b /c:\"VERSION = \" "
         b"src" + b"\\" + b"main.py') do set VERSION=%%a\r\n")
+
+
+def _rmtree_strict(path, tries: int = 10, delay: float = 0.2) -> bool:
+    """C-30：删完回读确认。返回 True = 确已消失；False = 还在（调用方计入失败）。
+
+    与 `sync_check._rmtree_strict` 同一规则、同一形态——模板仓自己的脚本也要
+    守自己立的判据。
+    """
+    p = Path(path)
+    for _ in range(max(1, tries)):
+        shutil.rmtree(p, ignore_errors=True)
+        if not p.exists():
+            return True
+        time.sleep(delay)
+    print("[FAIL] temp dir not removed (leak): %s" % p)
+    return False
 
 
 def _instantiate(dst: Path, old_parse: bool) -> None:
@@ -137,7 +154,10 @@ def main() -> int:
             failed += 0 if ok else 1
             print("[%s] %s rc=%s  %s" % ("PASS" if ok else "FAIL", label, rc, detail))
     finally:
-        shutil.rmtree(base, ignore_errors=True)
+        # C-30：删完**回读确认**；删不掉就计入 failed（旧写法 `ignore_errors=True`
+        # 会把"删不掉"变成"看起来删掉了"，每跑一次泄漏一个 %TEMP% 目录）。
+        if not _rmtree_strict(base):
+            failed += 1
     print("[verify_build_bat] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
     return 1 if failed else 0
 

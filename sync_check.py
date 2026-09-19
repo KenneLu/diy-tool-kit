@@ -158,6 +158,24 @@ def identity_line() -> str:
                hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12]))
 
 
+def _rmtree_strict(path, tries: int = 10, delay: float = 0.2) -> bool:
+    """删目录并**回读确认**；删不掉 → 打印 `[FAIL]` 并返回 False（绝不静默吞）。
+
+    为什么模板仓的工具也要守 C-30：`ignore_errors=True` 会把"删不掉"（Windows 上句柄
+    未释放是常态）翻译成"看起来删掉了"，每跑一次泄漏一个 `%TEMP%` 目录而门禁全绿。
+    调用方**必须消费返回值**（"我加了重试 ≠ 失败可见"）。
+    """
+    import time
+    p = Path(path)
+    for _ in range(max(1, tries)):
+        shutil.rmtree(p, ignore_errors=True)
+        if not p.exists():
+            return True
+        time.sleep(delay)
+    print("[FAIL] temp dir not removed (leak): %s" % p)
+    return False
+
+
 def sha256_text(text: str) -> str:
     """代码副本用：剔除 `# TEMPLATE-*` 元信息行后归一化哈希。"""
     norm = "\n".join(line for line in text.splitlines() if not META_LINE.match(line))
@@ -731,7 +749,10 @@ def _apply_bat_runtime_cases():
         if added and need in sys.path:
             sys.path.remove(need)
         sys.modules.pop("_tpl_uh_runtime", None)
-        shutil.rmtree(base, ignore_errors=True)
+        # 删不掉就**抛**（这里在 finally 里，抛出会替换返回值 = fail closed）：
+        # 本函数是判据的一部分，"临时目录泄漏"必须比"某个检查的结论"更响。
+        if not _rmtree_strict(base):
+            raise RuntimeError("temp dir not removed (leak): %s" % base)
     return out
 
 
@@ -808,9 +829,13 @@ def selftest() -> int:
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
         print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
-        return 1 if failed else 0
+        rc = 1 if failed else 0
     finally:
-        shutil.rmtree(base, ignore_errors=True)
+        # C-30 的作者自己也得守 C-30：删完**回读确认**，删不掉就让退出码变红
+        # （旧写法 `rmtree(base, ignore_errors=True)` 把"删不掉"变成"看起来删掉了"）。
+        if not _rmtree_strict(base):
+            rc = 1
+    return rc
 
 
 def default_roots() -> list:
