@@ -2,6 +2,47 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (criteria read prose: C-33 false red fixed, C-30's second instance fixed)
+
+- **`check_ping_tick` flagged its own docstring.** The explanation of *why* `ping -n 2` is banned
+  contained the banned idiom, so the criterion read **prose about code** as **code**. Minimal
+  reproduction (reviewer's): `#` comment green, `rem` line green, **docstring red**. Its five
+  self-test legs were missing exactly the docstring one, so the false red stayed unnoticed until a
+  real tree tripped it.
+- **C-30 had a second instance of the same defect, measured here.** Its cleanup half searched the
+  **raw** text for `rmtree(..., ignore_errors=True)`, and both `conformance_check.py`'s
+  `_rmtree_strict` and `sync_check.py`'s `finally` **quote that banned old form in a docstring /
+  comment** ("the author of C-30 has to obey C-30 itself") — i.e. **the instrument indicted itself
+  on its own compliance note**. Two false reds under `--roots my-diy-tool-template`.
+- **Fix, in four parts (template-only file; no dispatched file touched):** `_strip_docstrings()`
+  blanks **bare string-expression statements** in the AST (language docstrings *plus* explanatory
+  strings that are not first in a body; assignment/argument/concatenated strings are untouched —
+  those are the rendered-bat templates and the criterion's own positive samples);
+  `_masked_code_text()` masks comments **in place, preserving length and newlines**, for criteria
+  that report `path:line` (C-30's registry key); C-30's cleanup half now scans the masked text;
+  and the scan surface **excludes the instrument's own file by absolute path** and **prints the
+  exclusion** (silent exclusion is indistinguishable from not scanning — same rule as C-30's
+  per-root directory count).
+- **The boundary, in the lead's words:** the "don't touch strings" exemption applies to
+  **"code text that will be executed"**; docstrings/comments are **"text about code"** — both are
+  STRING tokens, with different meaning. **This was a mis-drawn exemption boundary, not an
+  implementation bug.** Same family as bare `mkdtemp()`'s "has a prefix or not" and C-22's "by file
+  extension": **dividing exemptions by token type groups semantically different objects together**,
+  so each such line needs a reverse cell.
+- **New self-test legs (a missing leg is why the false red stayed green):** C-33 gains
+  `ping_in_py_docstring_ok`, the reverse cell `ping_in_py_string_still_flagged` (the same sentence
+  as a real string constant **must still go red**, proving the green comes from exempting the
+  docstring, not the sentence), and `own_instrument_excluded_and_announced`; C-30 gains
+  `prose_mention_in_docstring_ok` with the reverse cell `prose_mention_reverse_cell_flagged`.
+  ⇒ **design discipline ⑨: every exemption boundary needs a self-test leg, and it needs a reverse
+  cell.**
+- **Measured after the fix:** C-33 green on the template (21 files) and on all four tools
+  (22/24/43/25/32 files); C-30 green on the template. l-s2t's real `ping` tick was already fixed
+  by ls2t-dev — `src/updater.py:233` renders `powershell … Start-Sleep`, and `:48`/`:225` are a
+  comment and a `rem` line, correctly exempt.
+- **Family reading after the batch: 1 FAIL / 2 WARN / 0 BROKEN** (reme C-27 `hold_exe_delete_guard`
+  not yet wired; dsh and l-s2t C-38). **l-s2t's C-27 is gone** — ls2t-dev wired it in the meantime.
+
 ## 2026-09-19 (control-cell rule for verifiers; the cmd-idiom chapter is not inherited)
 
 - **A criterion/verification script must carry a "control cell".** Folded into **C-22's docstring** and

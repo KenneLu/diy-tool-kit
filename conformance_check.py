@@ -1884,8 +1884,12 @@ def c30(c: Ctx):
     # reme `src/main.py:7405` 的 `work = Path(mkdtemp(prefix=f"..."))` 在 7409 被
     # `rmtree(work, ignore_errors=True)` 删（下载/校验失败的早退路径），是同一个缺陷的
     # 生产代码形态；只看 tests/ 会让它整个溜过去。
+    # ⚠️ 文本先**掩码**（注释/docstring → 空格，长度与换行不变）：本条要报 `相对路径:行号`，
+    # 所以不能用会拼掉换行的 `_code_only_text`。不掩码的代价是实测过的假红——本文件
+    # `_rmtree_strict` 的 docstring **引用**了被禁写法（"本工具自己先得守 C-30"），
+    # 于是**仪器在自己的合规说明上自证违规**（与 C-33 读 docstring 同族同因）。
     files = _py_files_under(c.dir)
-    texts = [(p, c.read(p)) for p in files]
+    texts = [(p, _masked_code_text(c.read(p))) for p in files]
     producers = _mkdtemp_producers([t for _, t in texts])
     roots_total = 0
     for p, text in texts:
@@ -2295,19 +2299,117 @@ def check_evidence_order(root: Path):
 # ——**日志说谎**。这是"以未验证的单位假设写等待/超时"的一族（同类：robocopy rc=0 其实是
 # "没拷文件"）。判据口径：`.py`/`.bat` 里出现 `ping` 且带 `-n`/`-w` 参数即**确证违规**
 # （本家族没有任何"真的需要 ping 网络"的用途；有求真的用法再给它开单独形态）。
+#
+# ⚠️ **假红与修法（2026-09-19，lead 批准，且是本波冻结的硬前置）**：本判据曾把自己的
+# **docstring 判红**——那段散文正是在解释"为什么禁 `ping -n 2`"，于是**越说清原因越违规**；
+# 把模板仓当工具根跑（`--roots my-diy-tool-template`）时更明显：自身 5 处命中全在
+# `conformance_check.py` 里（1 处 docstring + 1 处诊断文案 + 3 处自证样本）。修法三条
+# （**不是**删掉解释文字——那等于让判据在最该说清原因的文字上被绕开）：
+#   ① `_code_only_text` 挖掉 **AST docstring 节点**（豁免对象 = "关于代码的文本"）；
+#   ② 扫描面**按绝对路径排除仪器自身**（它的诊断文案与自证样本**必然**含被禁形态），
+#      排除项打印进 detail（否则"排除了"与"没扫"同形，同 C-30 的扫描面纪律）；
+#   ③ 自证集补上缺的那条腿 `ping_in_py_docstring_ok`——**原来 5 条腿恰好缺它**，所以假红
+#      一路绿灯。⇒ **豁免的每一条边界都必须有一条腿**，否则那条边界没人守着。
 _PING_TICK = re.compile(r"\bping(?:\.exe)?\b[^\n]*?\s-(?:n|w)\b", re.I)
 
 
-def _code_only_text(p: Path, text: str) -> str:
-    """**注释不算违规**（纪律 ④(c)：这里要抓的是会被执行的节拍）。
+def _strip_docstrings(text: str) -> str:
+    """挖掉 **AST 里的 docstring 节点**（保留行号与偏移，位置不失真）。
 
-    `.py`：用 `tokenize` 把 `COMMENT` 词法单元挖掉（不碰字符串——渲染 bat 的 `.py` 模板
-    正是**字符串**，那才是要查的东西）；`.bat`/`.cmd`：逐行丢掉 `rem` / `::`。
-    **两件都做**：渲染出来的 bat 会以 `rem` 行形式存在字符串里。
+    挖的是**裸字符串表达式语句**（`ast.Expr` 且值是**字符串常量**）：包含语言定义的 docstring
+    （`Module`/`ClassDef`/`FunctionDef`/`AsyncFunctionDef` 的 `body[0]`），也包含**位置不在
+    首位**的说明性字符串——两者**运行时都是零效果**，语义上都是"关于代码的文本"。
+    ⚠️ 只挖到"裸"这一层：**参与运算/赋值/传参的字符串一律保留**——渲染 bat 的 python 模板、
+    判据自己的正样本，都是这种普通字符串，那才是要查的东西。
+    解析失败（语法错）时**原样返回**：宁可按文本查，也不静默放过。
+    """
+    import ast
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return text
+    rows = text.splitlines(keepends=True)
+    offset = []
+    acc = 0
+    for line in rows:
+        offset.append(acc)
+        acc += len(line)
+    for node in ast.walk(tree):
+        if (not isinstance(node, ast.Expr)
+                or not isinstance(node.value, ast.Constant)
+                or not isinstance(node.value.value, str)):
+            continue
+        lo = node.lineno
+        hi = node.end_lineno or node.lineno
+        for r in range(lo, min(hi, len(rows)) + 1):
+            # 逐字符掩成空格：**换行原样保留** ⇒ 行号与偏移量都不失真
+            line = rows[r - 1]
+            body_end = len(line.rstrip("\r\n"))
+            text = (text[:offset[r - 1]]
+                    + " " * body_end + line[body_end:]
+                        + text[offset[r - 1] + len(line):])
+    return text
+
+
+def _masked_code_text(text: str) -> str:
+    """把**注释与 docstring 就地掩成空格**：长度与换行**完全不变** ⇒ 偏移量与行号仍可靠。
+
+    与 `_code_only_text` 的分工：那个拼成"逻辑行"给**跨行形态正则**用（行号会失真）；
+    这个留在原位置给**要报行号的判据**用（C-30 的登记键就是 `相对路径:行号`）。
+    **为什么必须有它（2026-09-19，同一条豁免边界、同一成因）**：C-30 下半曾在**原始文本**
+    上找 `rmtree(..., ignore_errors=True)`，而 `_rmtree_strict` 的 docstring **引用**了那句
+    旧写法（"本工具自己先得守 C-30"）⇒ **仪器在自己的合规说明上自证违规**，和 C-33 读
+    docstring 假红一模一样。⇒ **凡"在源码文本上找形态"的判据，都必须在掩码后的文本上找**。
+    """
+    import io
+    import tokenize
+    out = _strip_docstrings(text)
+    try:
+        toks = list(tokenize.generate_tokens(io.StringIO(out).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return out
+    rows = out.splitlines(keepends=True)
+    offset = []
+    acc = 0
+    for line in rows:
+        offset.append(acc)
+        acc += len(line)
+    buf = list(out)
+    for t in toks:
+        if t.type != tokenize.COMMENT or t.start[0] - 1 >= len(rows):
+            continue
+        r, col = t.start                      # COMMENT 词法单元**从不跨行**
+        line = rows[r - 1]
+        end = len(line.rstrip("\r\n"))
+        for i in range(offset[r - 1] + col, offset[r - 1] + end):
+            if buf[i] not in "\r\n":
+                buf[i] = " "
+    return "".join(buf)
+
+
+def _code_only_text(p: Path, text: str) -> str:
+    """**注释与 docstring 不算违规**（纪律 ④(c)：这里要抓的是会被执行的节拍）。
+
+    `.py`：① 用 `ast` 挖掉 **docstring 节点**；② 用 `tokenize` 把 `COMMENT` 词法单元挖掉。
+    其余字符串**不碰**——渲染 bat 的 `.py` 模板正是**字符串**，那才是要查的东西。
+    `.bat`/`.cmd`：逐行丢掉 `rem` / `::`。**两件都做**：渲染出来的 bat 会以 `rem` 行形式
+    存在字符串里。
+
+    ⚠️ **豁免边界（2026-09-19，lead 裁定，写进条款）**：**"不碰字符串"这条豁免的适用对象是
+    "会被执行的代码文本"**；**docstring / 注释是"关于代码的文本"**——它与 bat 模板**同为
+    STRING token，语义不同**。**这是豁免边界画错，不是实现 bug**。
+    ⇒ 通用形态（与今天多条同族）：**判据的豁免范围一旦按"token 类型"划，就会把"语义不同的
+    同类型对象"一起放过、或一起误伤**（裸 `mkdtemp()` 按"prefix 有无"划、C-22 按"扩展名"划，
+    都出过同类问题）。**按 token 类型划 = 按语法分类；而这里要分的是语义**。
+    ⇒ 代价曾经是**假红**：本判据自己的 docstring 解释了"为什么要禁 `ping -n 2`"，于是
+    **解释得越清楚越会被判红**。**改写注释来绕开是错的**——那等于让判据在最该说清原因的文字上
+    被绕开；只能从判据侧修（本函数）＋补上缺的那条自证腿（`ping_in_py_docstring_ok`）。
+    自证集此前 **5 条腿恰好缺这一条**，所以假红一路绿灯、直到被真树上的散文触发。
     """
     if p.suffix.lower() == ".py":
         import io
         import tokenize
+        text = _strip_docstrings(text)
         try:
             out = []
             for tok in tokenize.generate_tokens(io.StringIO(text).readline):
@@ -2328,25 +2430,41 @@ def _code_only_text(p: Path, text: str) -> str:
 
 
 def check_ping_tick(root: Path):
-    """`root` 下的 `.py`/`.bat`/`.cmd` 不得用 `ping -n/-w` 当节拍。返回 `(ok, detail)`。"""
+    """`root` 下的 `.py`/`.bat`/`.cmd` 不得用 `ping -n/-w` 当节拍。返回 `(ok, detail)`。
+
+    ⚠️ **扫描面排除仪器自身**（2026-09-19，同一条豁免边界的机械形态）：本判据所在文件的
+    **诊断文案**（解释"为什么要禁 `ping -n 2`"）与**自证样本**（`ping_tick_in_py_flagged`
+    等把被禁形态当**数据**）**必然**包含被禁字符串——它们都是"关于代码的文本"。判据对自己
+    无法做可靠证人：**它引用的正是它要禁的东西**。⇒ 自身文件按**绝对路径**排除（不按文件名，
+    否则改个名字就能豁免），且**排除数量必须打印出来**——否则"排除了"与"没扫"同形
+    （同 C-30"每个根都要打印扫描目录数"）。
+    """
+    self_path = Path(__file__).resolve()
     hits = []
     files = [p for p in root.rglob("*")
              if p.is_file() and p.suffix.lower() in (".py", ".bat", ".cmd")
              and not any(part in _PY_SKIP_DIRS for part in p.parts)]
+    excluded = []
     for p in sorted(files):
+        if p.resolve() == self_path:
+            excluded.append(p.relative_to(root).as_posix())
+            continue
         text = _code_only_text(p, p.read_text(encoding="utf-8", errors="replace"))
         rel = p.relative_to(root).as_posix()
         for n, m in enumerate(_PING_TICK.finditer(text), 1):
             hits.append("%s(命中%d) `%s`" % (rel, n, m.group(0).strip()[:40]))
+    span = "扫描面：%d 个 .py/.bat/.cmd" % (len(files) - len(excluded))
+    if excluded:
+        span += "；排除仪器自身 %s（诊断文案与自证样本必然含被禁形态）" % ", ".join(excluded)
     if hits:
         return False, ("%d 处用 ping 当等待节拍：%s。【为什么是硬违规】`ping -n 2` 的\"1 秒\""
                        "只在 loopback ICMP 有响应时成立；丢弃 ICMP 的机器上实测 **9.0s/拍**"
                        "（两次 4.5s 超时），名义 120s→实际 ~18 分钟，而超时日志仍写\"120s\""
                        "（**日志说谎**）。改用不依赖网络的睡眠："
                        "`powershell -NoProfile -Command \"Start-Sleep -Milliseconds 1000\"`"
-                       "（DETACHED 进程无 console，子进程不会弹窗）"
-                       % (len(hits), ", ".join(hits[:8])))
-    return True, "没有把 ping 当等待节拍"
+                       "（DETACHED 进程无 console，子进程不会弹窗）。%s"
+                       % (len(hits), ", ".join(hits[:8]), span))
+    return True, "没有把 ping 当等待节拍。%s" % span
 
 
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
@@ -3009,11 +3127,24 @@ def selftest() -> int:
                            "sub = TMP / 'sub'\n"
                            "shutil.rmtree(sub, ignore_errors=True)\n"
                            "shutil.rmtree(TMP)\n")
+        # 2026-09-19 补：**散文不算**（豁免边界必须有腿守着，同 C-33）。同一条被禁写法写在
+        # docstring / 注释里，只是"关于代码的文本"⇒ 必须 ok；反向格：同样的字符串是**真调用**
+        # ⇒ 必须红（证明绿来自"豁免了散文"，不是"豁免了这句话"）。
+        _cleanup_prose = ("import shutil, tempfile\n"
+                          '"""\u672c\u5de5\u5177\u81ea\u5df1\u5148\u5f97\u5b88\uff1a\u4ee5\u524d\u7528 '
+                          "rmtree(TMP, ignore_errors=True) \u6536\u5c3e\u3002\"\"\"\n"
+                          "TMP = tempfile.mkdtemp(prefix='t-')\n"
+                          "# \u65e7\u5199\u6cd5\uff1ashutil.rmtree(TMP, ignore_errors=True)\n"
+                          "shutil.rmtree(TMP)\n")
+        _cleanup_prose_reverse = _cleanup_prose.replace("shutil.rmtree(TMP)\n",
+                                                        "shutil.rmtree(TMP, ignore_errors=True)\n")
         c30_cases = (
             ("verified_cleanup_ok", _cleanup_ok, True),
             ("ignore_errors_on_mkdtemp_root_flagged", _cleanup_bad, False),
             ("ignore_errors_through_wrapper_flagged", _cleanup_wrapper, False),
             ("ignore_errors_on_scratch_subdir_ok", _cleanup_subdir, True),
+            ("prose_mention_in_docstring_ok", _cleanup_prose, True),
+            ("prose_mention_reverse_cell_flagged", _cleanup_prose_reverse, False),
         )
         for name, body, want in c30_cases:
             d = base / ("c30_" + name) / "src"
@@ -3112,6 +3243,15 @@ def selftest() -> int:
              {"src/main.py": "# 旧写法是 ping -n 2 127.0.0.1，实测 9 秒\nX = 1\n"}, True),
             ("ping_in_bat_rem_ok",
              {"scripts/apply.bat": "@echo off\r\nrem ping -n 2 127.0.0.1 was wrong\r\n"}, True),
+            # 2026-09-19 补：**这条腿此前缺失，正是假红一路绿灯的原因**（豁免边界必须有腿守着）。
+            # docstring = "关于代码的文本"，与下面那条 bat 模板**同为 STRING token、语义不同**。
+            ("ping_in_py_docstring_ok",
+             {"src/main.py": '"""说明：禁拿 `ping -n 2 127.0.0.1` 当节拍，实测 9 秒。"""\nX = 1\n'},
+             True),
+            # 反向对照（唯一变量法）：同样一句话**不在 docstring 里**而是一个真正的字符串常量
+            # ⇒ 必须**照样红**，证明上面那条绿是"豁免了 docstring"，不是"豁免了这句话"。
+            ("ping_in_py_string_still_flagged",
+             {"src/main.py": 'HELP = "禁拿 `ping -n 2 127.0.0.1` 当节拍"\n'}, False),
         )
         for name, files, want in c33_cases:
             d = base / ("c33_" + name)
@@ -3124,6 +3264,18 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-33 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-33 自证腿（2026-09-19 补）：**扫描面必须排除仪器自身，且必须把排除项说出来**。
+        # 这条腿扫的是**真目录**（本文件所在目录），不是合成样本——因为要证的正是"仪器对
+        # 自己不做证人"这条性质。判别力：去掉 check_ping_tick 里的排除分支，本腿立刻红。
+        # 同时钉住"排除 ≠ 静默"：detail 里必须出现被排除的文件名，否则"排除了"与"没扫"同形。
+        _own_root = Path(__file__).resolve().parent
+        ok, detail = check_ping_tick(_own_root)
+        good = ok and ("conformance_check.py" in detail)
+        failed += 0 if good else 1
+        print("[selftest] %s  C-33 own_instrument_excluded_and_announced: ok=%s want=True "
+              "(且 detail 必须点名被排除的文件) | %s"
+              % ("PASS" if good else "FAIL", ok, detail[:160]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；
