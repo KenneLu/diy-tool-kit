@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.12
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.13
+# 1.9.13：**新增 C-35**（WARN）= **实例隔离两条腿**（测试文件自钉 + build.bat 整体外套），判别力已实测（关腿⇒ reme 11 红）。
 # 1.9.12：**新增 C-34**（WARN，模板通道）= **§1 登记表版本列 == 文件头 TEMPLATE-VER**（手抄副本必然滞后）；自证 2 条腿。
 # 1.9.11：**新增 C-45**（WARN）= **工具侧副本（`src/modules/**` 的 .py/.md）必须全程 CRLF**（`sync_check` 按 read_text 比、行尾被归一化），按字节判；自证 3 条腿。
 # 1.9.10：**新增 C-44**（FAIL）= **bat 里闭集命令（find/findstr/ping/tasklist/robocopy/where/reg/timeout）必须用绝对路径**，与 C-33（ping 当节拍）**独立**；只看命令位置，自证 5 条腿。
@@ -3543,6 +3544,95 @@ def c34(c: Ctx):
     return check_registry_versions(c.dir)
 
 
+# ---------------------------------------------------------------- C-35
+# **实例隔离的两条腿：文件级 + harness 级**（ls2t-dev 提规格 + 判别力实测，lead 批准）。
+# **leg_a（文件级）**：**凡 import src 的测试文件必须自钉数据根**——判
+#   `import main|modules|pipeline` 与 env 赋值 / `scratch_dir(` 的**行号先后**。
+# **leg_b（harness 级）**：**`build.bat` 必须在测试段整体外套一次数据根钉**
+#   （pin 在**测试之前**、清在**测试之后**）。
+#
+# **判别力（实测，不是"应绿"）**：**关掉 harness 腿 ⇒ reme 11 个全红；打开 ⇒ 四仓 0 FAIL / 0 WARN**。
+#   ⇒ **它是有区分力的判据，不是恒绿**（这正是本条敢立的前提）。
+# **覆盖面会扩——必须写时点**（否则后人拿旧读数当现状）：**今天只有 reme 有 leg_b**
+#   （`scripts/build.bat:22` pin、全程不清、测试 140–244 全在其后）；**l-s2t 已批准补 leg_b、
+#   dsh/ocx 已路由** ⇒ 三家落地后 leg_b 覆盖**从 1 家变 4 家**。
+# **它同时把一条口径钉成断言**：ls2t-dev 的补丁"今天是 no-op"**不该是一句会过期的陈述**——
+#   **两条腿同时在场**，才使 "no-op" 成为**可机械验证的性质**（同族：把靠陈述的换成靠性质的）。
+_C35_IMPORT = re.compile(r"^\s*(?:import|from)\s+(main|modules|pipeline)\b")
+_C35_PIN = re.compile(r"""(os\.environ\[|scratch_dir\s*\(|setdefault\s*\()""")
+_C35_PIN_KEY = re.compile(r"DATA_DIR|_CONFIG")
+_C35_BAT_PIN = re.compile(r"""(?i)^\s*set\s+"?[A-Z0-9_]*DATA_DIR=""")
+_C35_BAT_CLEAR = re.compile(r"""(?i)^\s*set\s+"?[A-Z0-9_]*DATA_DIR=""")
+_C35_BAT_TEST = re.compile(r"""(?i)(tests\\|tests/|_test\.py|test_[a-z_]*\.py)""")
+
+
+def check_instance_isolation(root: Path):
+    """两腿：测试文件自钉（leg_a）+ build.bat 整体外套（leg_b）。"""
+    a_bad, a_ok = [], 0
+    tests_dir = root / "tests"
+    if tests_dir.is_dir():
+        for p in sorted(tests_dir.rglob("*.py")):
+            if "__pycache__" in p.parts:
+                continue
+            try:
+                lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                continue
+            imp = next((i for i, l in enumerate(lines) if _C35_IMPORT.match(l)), None)
+            if imp is None:
+                continue
+            pin = next((i for i, l in enumerate(lines)
+                        if _C35_PIN.search(l) and _C35_PIN_KEY.search(l)), None)
+            if pin is not None and pin < imp:
+                a_ok += 1
+            else:
+                a_bad.append("%s:%d import 在 %d 行，而钉数据根在 %s"
+                             % (p.relative_to(root).as_posix(), imp + 1, imp + 1,
+                                ("%d 行" % (pin + 1)) if pin is not None else "**没有**"))
+    b_note, b_ok = "", False
+    bats = [p for p in list(root.rglob("build.bat")) + list(root.rglob("build.cmd"))
+            if p.is_file() and "__pycache__" not in p.parts]
+    # **任一候选满足即可**：只取第一个会漏——实测 reme 根级另有一个 build.bat（无 pin），
+    # 判据于是看错了对象。
+    for bat in bats:
+        if b_ok:
+            break
+        lines = bat.read_text(encoding="utf-8", errors="replace").splitlines()
+        pin = next((i for i, l in enumerate(lines) if _C35_BAT_PIN.match(l)), None)
+        first_test = next((i for i, l in enumerate(lines) if _C35_BAT_TEST.search(l)), None)
+        last_test = max((i for i, l in enumerate(lines) if _C35_BAT_TEST.search(l)), default=None)
+        cleared = (last_test is not None and any(
+            _C35_BAT_CLEAR.match(l) and "=%" not in l and l.rstrip().endswith('=""')
+            for l in lines[last_test + 1:]))
+        if pin is not None and first_test is not None and pin < first_test:
+            b_ok = True
+            b_note = ("%s 第 %d 行钉、首个测试在第 %d 行%s"
+                      % (bat.relative_to(root).as_posix(), pin + 1, first_test + 1,
+                         "，其后已清" if cleared else "，**未见清除**（清在末测试之后才算）"))
+        else:
+            b_note = ("%s 未在测试段整体外套数据根钉（pin 行=%s 首测试行=%s）"
+                      % (bat.relative_to(root).as_posix(),
+                         (pin + 1) if pin is not None else "无",
+                         (first_test + 1) if first_test is not None else "无"))
+    # 两腿是**并集**：leg_b 在场即整体盖住（"关掉 harness 腿 ⇒ reme 11 红、打开 ⇒ 4 仓全绿"
+    # 只在并集语义下成立）；leg_b 缺席才要求每个 import src 的测试文件自钉。
+    if a_bad and not b_ok:
+        return False, ("leg_a：%d 个测试文件未自钉（%s）；leg_b：%s。【为什么两条腿都要】"
+                       "文件级钉只保证**那一个文件**；harness 级外套保证**整体**，"
+                       "**新加一个忘记自钉的测试**只有 leg_b 挡得住。"
+                       "【判别力实测】关掉 leg_b ⇒ reme 11 个全红；打开 ⇒ 四仓 0 FAIL / 0 WARN"
+                       "（不是恒绿）。【覆盖面时点 2026-09-19】leg_b 目前只有 reme；"
+                       "l-s2t 已批准补、dsh/ocx 已路由 ⇒ 落地后覆盖 1 家 → 4 家"
+                       % (len(a_bad), "；".join(a_bad[:4]) or "无", b_note))
+    return True, ("leg_a %d 个测试文件自钉、leg_b %s" % (a_ok, b_note))
+
+
+@check("C-35", "WARN", "实例隔离两条腿：测试文件自钉数据根 + build.bat 整体外套一次")
+def c35(c: Ctx):
+    """见上方注释。**leg_b 的覆盖面会从 1 家扩到 4 家**（时点写在 detail 里）。"""
+    return check_instance_isolation(c.dir)
+
+
 @check("C-32", "FAIL", "禁「读证据 → 删证据 → 报告」的危险顺序（调用边界一失败就先删了证据）")
 def c32(c: Ctx):
     """**不可逆动作不得排在"调用边界可能失败的语句"之前**（复核员精确化 + lead 裁定）。
@@ -4469,6 +4559,30 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-34 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-35（2026-09-19，ls2t-dev 规格 + lead 批准）：**实例隔离两条腿**。
+        # 三格 = 并集语义的三条边：无 leg_b 且未自钉（红）/ 无 leg_b 但自钉了（绿）/
+        # **有 leg_b 且未自钉（绿——这一格就是"关掉 harness 腿 ⇒ 11 红、打开 ⇒ 全绿"的判别力来源）**。
+        c35_cases = (
+            ("no_pin_at_all_flagged",
+             "import main\nX = 1\n", "@echo off\r\n\"%PY%\" tests\\t.py\r\n", False),
+            ("file_level_pin_ok",
+             "import os\nos.environ['APP_DATA_DIR'] = 'x'\nimport main\nX = 1\n",
+             "@echo off\r\n\"%PY%\" tests\\t.py\r\n", True),
+            ("harness_pin_covers_ok",
+             "import main\nX = 1\n",
+             "@echo off\r\nset \"APP_DATA_DIR=%TEMP%\\d\"\r\n\"%PY%\" tests\\t.py\r\n", True),
+        )
+        for name, test_src, bat_src, want in c35_cases:
+            d = base / ("c35_" + name)
+            (d / "tests").mkdir(parents=True)
+            (d / "tests" / "t.py").write_text(test_src, encoding="utf-8")
+            (d / "build.bat").write_text(bat_src, encoding="utf-8", newline="")
+            ok, detail = check_instance_isolation(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-35 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
