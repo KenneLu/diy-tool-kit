@@ -2,6 +2,41 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (public build flow skeleton: STANDARDS D1 + build.bat / release.bat)
+
+User asked for the shared build/test **flow** to be unified across the four tools,
+with reme-helper as the reference. Turned into a template-side artifact.
+
+- **STANDARDS D1 rewritten as a step skeleton** (phase / step / judgement+exit /
+  trigger), with three **INSERT POINTS** where tool-specific steps may go and
+  nothing else may be invented:
+  0 preflight (VERSION parse / target dir free / target-directory guard) →
+  1 cheap gates (compile → template sync → i18n (T1) → tray suites → tests) →
+  2 business selftest (real resources) →
+  3 package (icon → PyInstaller → assemble → deliverable checks) →
+  4 frozen verify (smoke with dual env pin → trigger checks → DONE).
+- **Skeleton vs step-set are explicitly separated** (the user's boundary):
+  "the skeleton is uniform" means the phases, order, failure style, isolation and
+  flags are the same everywhere; "which steps a tool has" follows its triggers.
+  So dsh/ocx having **no `tests/`** is a **gap** (their capabilities exist), not a
+  different skeleton — and reme having 8 suites is not something others must copy.
+- **Common conventions pinned**: gate lives in root `build.bat` (a thin forwarder to
+  `scripts\build.bat` is allowed, but logic may exist in one place only); `VERSION`
+  is read from one source and `build.bat`/`release.bat` must agree; the running check
+  uses `%APPNAME%` (no literals); every gated instance pins **both**
+  `<APP_UC>_DATA_DIR` and `<APP_UC>_CONFIG`; `norun`/`nopause` flags are uniform.
+- **`modules/build_release/build.bat` rewritten to the skeleton**, folding in this
+  round's fixes: (a) VERSION parsed with the **two-step** form (split on `=`, drop
+  quotes, take the first token) — verified under cmd against trailing-comment and CJK
+  variants; the earlier `delims=^"` shape is gone as too fragile in escaping
+  contexts; (b) the running guard blocks only when the live instance's directory **is**
+  the target dir; (c) that same guard now precedes **every** delete of a release dir,
+  including a new `clean --force` subcommand; (d) the frozen smoke pins both env vars.
+- **`release.bat` aligned**: same two-step VERSION parse, same single source as
+  build.bat (a trailing comment can no longer produce a garbage tag).
+- Template-only change (`modules/build_release/` is excluded from `sync_check`) —
+  **no cascade**; the four tools adopt it on their own schedule.
+
 ## 2026-09-19 (update_helper 1.1.0 — same state-copy bug, second instance)
 
 The conformance auditor found the i18n defect again, in `update_helper`, and this time

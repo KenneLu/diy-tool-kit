@@ -3,14 +3,16 @@ rem T9: tag the current commit and push the tag; a v* tag triggers
 rem .github/workflows/release.yml which builds and publishes the release.
 rem ASCII only in this file: cmd.exe parses it with the OEM codepage.
 
-rem Version from appconfig.py - the app and the tag can never disagree
+rem Version from the SAME single source as build.bat (D1 0.1) - the app and the tag
+rem can never disagree. Two-step parse; "tokens=2,*" would swallow a trailing
+rem comment into VERSION and produce a garbage tag (see STANDARDS B3/D1).
 set VERSION=
-for /f "tokens=2,*" %%a in ('findstr /b /c:"VERSION = " appconfig.py') do set VERSION=%%~b
+for /f "tokens=2 delims==" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%a
+if defined VERSION for /f "tokens=1" %%a in ("%VERSION:"=%") do set VERSION=%%a
 if not defined VERSION (
-  echo [ERROR] Cannot read VERSION from appconfig.py.
+  echo [ERROR] Cannot read VERSION from src\main.py.
   exit /b 1
 )
-set VERSION=%VERSION:"=%
 set TAG=v%VERSION%
 echo [VERSION] %VERSION%   [TAG] %TAG%
 

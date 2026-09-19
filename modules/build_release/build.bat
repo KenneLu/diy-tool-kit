@@ -1,13 +1,21 @@
 @echo off
+rem T8 build gate skeleton - copy into the tool and fill the <...> placeholders.
+rem Layout (G1/B3): release\<APPNAME>-<VERSION>\<APPNAME>.exe - the exe never carries
+rem a version; the release folder and zip name do.
+rem ASCII only in this file: cmd.exe parses it with the OEM code page.
+rem Usage: build.bat [norun] [nopause] | build.bat clean --force
+rem
+rem Step skeleton = STANDARDS D1 (public build flow). Keep the ORDER; tool-specific
+rem steps go ONLY at the marked INSERT POINTS. Every step fails non-zero - never
+rem judge success by eye.
+rem   0 preflight : VERSION parse / target dir free / running-instance target guard
+rem   1 cheap     : compile -> template sync -> i18n (T1) -> tray suites -> tests
+rem   2 selftest  : core path with real resources
+rem   3 package   : icon -> PyInstaller -> assemble -> deliverable checks
+rem   4 frozen    : smoke (dual env pin) -> trigger checks -> DONE
+
 setlocal EnableExtensions
 cd /d "%~dp0"
-
-rem T8 build gate skeleton (copy into the tool, adjust PY/APPNAME/gates).
-rem Layout (G1/B3): release\<APPNAME>-<VERSION>\<APPNAME>.exe - the exe never
-rem carries a version; the release folder and zip name do.
-rem Gates: compile check -> unit tests (if any) -> PyInstaller -> frozen smoke.
-rem ASCII only in this file: cmd.exe parses it with the OEM code page.
-rem Usage: build.bat [norun] [nopause]
 
 set RUN_AFTER=1
 set NOPAUSE=
@@ -18,39 +26,66 @@ for %%a in (%BUILD_ARGS%) do (
   if /i "%%a"=="nopause" set NOPAUSE=1
 )
 :args_done
+if /i "%~1"=="clean" goto :do_clean
 
 set PY=python
 set APPNAME=<APP_ID>
-rem Version single source of truth: VERSION in src\main.py (or paths.py).
-rem Parse BETWEEN THE QUOTES: the line may carry a trailing comment, e.g.
-rem   VERSION = "1.4.0"   # only changed at release time
-rem "tokens=2,*" would swallow the comment into VERSION and corrupt
-rem RELEASE_DIR. Rule (B3): nothing after the closing quote but blanks.
+rem APP_UC = APP_ID uppercased with '-' turned into '_' (B3/NAME-10),
+rem e.g. dsh-helper -> DSH_HELPER. Used for the dual isolation pin below.
+set APP_UC=<APP_ID_UC>
+rem Path of the template repo as seen from this tool (for the sync gate).
+set TEMPLATE=..\my-diy-tool-template
+
+rem ---------------------------------------------------------------------------
+rem 0.1 VERSION - single source of truth (point at ONE place: main.py or appconfig.py)
+rem Two-step parse. Do NOT use "tokens=2,*": it hands the REST OF THE LINE to the
+rem variable, so a trailing comment becomes part of the version and turns
+rem RELEASE_DIR into garbage. Rule (B3): nothing after the closing quote but blanks.
+rem   step 1  split on '='                               ->  "1.4.0"   # comment
+rem   step 2  drop quotes, keep first space-delimited token  ->  1.4.0
+rem ---------------------------------------------------------------------------
 set VERSION=
-for /f tokens^=2^ delims^=^" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%a
+for /f "tokens=2 delims==" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%a
+if defined VERSION for /f "tokens=1" %%a in ("%VERSION:"=%") do set VERSION=%%a
 if not defined VERSION (
-  echo [ERROR] Cannot read VERSION.
+  echo [ERROR] Cannot read VERSION from src\main.py.
   if not defined NOPAUSE pause
   exit /b 1
 )
 set RELEASE_DIR=release\%APPNAME%-%VERSION%
 set FROZEN_EXE=%RELEASE_DIR%\%APPNAME%.exe
+echo [VERSION] %VERSION%  release: %RELEASE_DIR%
 
+rem ---------------------------------------------------------------------------
+rem 0.2 target dir must be free (one version, one dir - reproducible)
+rem ---------------------------------------------------------------------------
 if exist "%RELEASE_DIR%" (
   echo [ERROR] %RELEASE_DIR% already exists. Delete it or bump VERSION.
   if not defined NOPAUSE pause
   exit /b 1
 )
 
-rem D1-02 refined (2026-09-19): building into a NEW version dir does not touch a
-rem running instance - the smoke runs from the new dir with an isolated data dir
-rem and takes no mutex. So do NOT block on "some instance is running"; block only
-rem when the running instance lives INSIDE this build's target dir (the one truly
-rem dangerous case: overwriting/deleting a release dir that is in use).
+rem ---------------------------------------------------------------------------
+rem 0.3 running-instance guard (D1-02 refined 2026-09-19)
+rem Refuse ONLY when a live instance runs FROM this build's target dir. Building a
+rem DIFFERENT version dir is safe: files differ, the frozen smoke pins its own data
+rem dir and takes no mutex. The dangerous case is deleting/overwriting the dir a
+rem live instance runs from - and that rule covers EVERY delete of a release dir
+rem (this build, a manual rmdir, build.bat clean), not just building.
+rem ---------------------------------------------------------------------------
+set "TARGET_ABS=%CD%\%RELEASE_DIR%"
 call :guard_target_not_running
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo [ERROR] A %APPNAME% instance is running FROM %RELEASE_DIR%.
+  echo [ERROR] Exit it from the tray before touching this directory.
+  if not defined NOPAUSE pause
+  exit /b 1
+)
 
-echo [GATE] compile check ...
+rem ---------------------------------------------------------------------------
+rem 1 cheap gates (cheap first, expensive later)
+rem ---------------------------------------------------------------------------
+echo [GATE] 1.1 compile ...
 %PY% -m py_compile src\main.py
 if errorlevel 1 (
   echo [ERROR] compile gate failed.
@@ -58,15 +93,67 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [GATE] unit tests (if present) ...
-if exist tests\*.py %PY% -m pytest -q tests
-if errorlevel 1 (
-  echo [ERROR] tests failed.
+echo [GATE] 1.2 template sync check ...
+if exist "%TEMPLATE%\sync_check.py" (
+  %PY% "%TEMPLATE%\sync_check.py" --roots %APPNAME%
+  if errorlevel 1 (
+    echo [ERROR] template drift - see the sync_check output above.
+    if not defined NOPAUSE pause
+    exit /b 1
+  )
+) else (
+  echo [WARN] sync_check.py not found next to this tool - gate skipped. CI checkouts
+  echo [WARN] do not contain the template repo; that gap is accepted and documented.
+)
+
+rem 1.3 i18n table coverage (T1 triggers) - enable when the tool ships i18n
+rem echo [GATE] 1.3 i18n coverage ...
+rem %PY% tests\test_i18n.py
+
+rem 1.4 tray suites: single instance / startup path / i18n menu refresh (tray tools)
+rem echo [GATE] 1.4 tray suites ...
+rem %PY% tests\test_single_instance.py
+rem %PY% tests\test_startup_path.py
+
+echo [GATE] 1.5 tests (full suite set) ...
+if exist tests\*.py (
+  %PY% -m pytest -q tests
+  if errorlevel 1 (
+    echo [ERROR] tests failed.
+    if not defined NOPAUSE pause
+    exit /b 1
+  )
+) else (
+  echo [ERROR] no tests\ directory - D1 requires one (capabilities exist, so do
+  echo [ERROR] regressions). Missing tests are a GAP, not an allowed difference.
   if not defined NOPAUSE pause
   exit /b 1
 )
 
-echo [BUILD] PyInstaller onedir noconsole ...
+rem ==== INSERT POINT A: tool-specific static / side-effect-free checks ====
+
+rem ---------------------------------------------------------------------------
+rem 2 business selftest - core path with REAL resources (not covered by unit tests)
+rem ---------------------------------------------------------------------------
+rem echo [TEST] 2.1 core selftest ...
+rem %PY% src\pipeline.py
+
+rem ==== INSERT POINT B: tool-specific heavy-resource checks ====
+
+rem ---------------------------------------------------------------------------
+rem 3 package
+rem ---------------------------------------------------------------------------
+echo [BUILD] 3.1 icon ...
+if exist src\icons.py (
+  %PY% src\icons.py
+  if errorlevel 1 (
+    echo [ERROR] icon generation failed.
+    if not defined NOPAUSE pause
+    exit /b 1
+  )
+)
+
+echo [BUILD] 3.2 PyInstaller onedir noconsole ...
 %PY% -m PyInstaller --noconfirm --clean --onedir --noconsole ^
   --name %APPNAME% ^
   --distpath build\dist_tmp ^
@@ -79,20 +166,19 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [PACK] assembling %RELEASE_DIR% ...
+echo [PACK] 3.3 assembling %RELEASE_DIR% ...
 if not exist "%RELEASE_DIR%" mkdir "%RELEASE_DIR%"
-robocopy "build\dist_tmp\%APPNAME%" "%RELEASE_DIR%" /E /R:1 /W:1 /NFL /NDL /NP >/dev/null
+robocopy "build\dist_tmp\%APPNAME%" "%RELEASE_DIR%" /E /R:1 /W:1 /NFL /NDL /NP >nul
 if errorlevel 8 (
   echo [ERROR] package copy failed.
   if not defined NOPAUSE pause
   exit /b 1
 )
-rmdir /s /q "build\dist_tmp" 2>/dev/null
+rmdir /s /q "build\dist_tmp" 2>nul
+if exist README.md copy /y README.md "%RELEASE_DIR%" >nul
+if exist README.zh-CN.md copy /y README.zh-CN.md "%RELEASE_DIR%" >nul
 
-if exist README.md copy /y README.md "%RELEASE_DIR%" >/dev/null
-if exist README.zh-CN.md copy /y README.zh-CN.md "%RELEASE_DIR%" >/dev/null
-
-rem Deliverable checks: exe + runtime - guards against a silently empty package.
+echo [GATE] 3.4 deliverable checks ...
 if not exist "%FROZEN_EXE%" (
   echo [ERROR] %APPNAME%.exe missing from the release.
   if not defined NOPAUSE pause
@@ -104,45 +190,72 @@ if not exist "%RELEASE_DIR%\_internal\base_library.zip" (
   exit /b 1
 )
 
+rem ---------------------------------------------------------------------------
+rem 4 frozen verify - ALWAYS pin BOTH env vars (instance isolation, F11/D12):
+rem   APP_UC_CONFIG    the config THIS package ships
+rem   APP_UC_DATA_DIR  the whole data root -> inside the release dir
+rem Without the data-dir pin the smoke writes into the user's live AppData.
+rem ---------------------------------------------------------------------------
 set "PYTHONUTF8=1"
-echo [TEST] frozen smoke ...
+set "%APP_UC%_CONFIG=%CD%\%RELEASE_DIR%\config.json"
+set "%APP_UC%_DATA_DIR=%CD%\%RELEASE_DIR%\smoke-data"
+echo [TEST] 4.1 frozen smoke ...
 "%FROZEN_EXE%" --smoke
-if errorlevel 1 (
+set SMOKE_RC=%errorlevel%
+set "%APP_UC%_CONFIG="
+set "%APP_UC%_DATA_DIR="
+if exist "%RELEASE_DIR%\smoke.log" del /q "%RELEASE_DIR%\smoke.log"
+if exist "%RELEASE_DIR%\log" rmdir /s /q "%RELEASE_DIR%\log"
+if exist "%RELEASE_DIR%\smoke-data" rmdir /s /q "%RELEASE_DIR%\smoke-data"
+if not "%SMOKE_RC%"=="0" (
   echo [ERROR] smoke test failed.
   if not defined NOPAUSE pause
   exit /b 1
 )
-if exist "%RELEASE_DIR%\smoke.log" del /q "%RELEASE_DIR%\smoke.log"
-if exist "%RELEASE_DIR%\log" rmdir /s /q "%RELEASE_DIR%\log"
+
+rem 4.2 frozen trigger checks (enable when the tool has them)
+rem echo [TEST] 4.2 frozen ui-check ...
+rem "%FROZEN_EXE%" --ui-check
+
+rem ==== INSERT POINT C: tool-specific frozen-state checks ====
 
 echo.
-echo [DONE] release: %FROZEN_EXE%
+echo [DONE] 4.3 release: %FROZEN_EXE%
 if defined RUN_AFTER start "" "%FROZEN_EXE%"
 if not defined NOPAUSE pause
 exit /b 0
 
 rem ---------------------------------------------------------------------------
-rem D1-02 guard: refuse only when a running instance lives under %RELEASE_DIR%.
-rem MUST be called before ANY action that deletes/overwrites a release dir
-rem (this build, a manual rmdir, or a future --clean switch) - the gate has to
-rem protect the in-use directory, not "any running instance".
-rem Returns errorlevel 1 when blocked.
+rem guard: errorlevel 1 when a live %APPNAME% instance runs from %TARGET_ABS%
+rem Caller sets TARGET_ABS (absolute dir, NO trailing backslash).
+rem MUST precede any build, rmdir or clean that deletes/overwrites a release dir.
 rem ---------------------------------------------------------------------------
 :guard_target_not_running
-set "TARGET_ABS=%CD%\%RELEASE_DIR%"
 set "RUN_EXE="
 for /f "usebackq delims=" %%p in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Process -Name '%APPNAME%' -ErrorAction SilentlyContinue | Where-Object { $_.Path } | Select-Object -First 1 -ExpandProperty Path)" 2^>nul`) do set "RUN_EXE=%%p"
 if not defined RUN_EXE exit /b 0
 echo [GATE] running instance: %RUN_EXE%
-rem Compare the instance's DIRECTORY with the target dir (strip the trailing
-rem backslash %%~dpd adds). Beats string-prefix matching: no quoting pitfalls.
 for %%d in ("%RUN_EXE%") do set "RUN_DIR=%%~dpd"
 set "RUN_DIR=%RUN_DIR:~0,-1%"
-if /i "%RUN_DIR%"=="%TARGET_ABS%" (
-  echo [ERROR] The running instance lives inside %RELEASE_DIR%.
-  echo         Exit it from the tray before touching THIS release dir.
-  echo         (Building another version dir stays allowed - D1-02.)
-  if not defined NOPAUSE pause
+if /i "%RUN_DIR%"=="%TARGET_ABS%" exit /b 1
+exit /b 0
+
+rem ---------------------------------------------------------------------------
+rem clean: remove release\ - but never the directory a live instance runs from
+rem ---------------------------------------------------------------------------
+:do_clean
+if /i not "%~2"=="--force" (
+  echo [ERROR] clean removes release\ - pass --force to confirm.
   exit /b 1
 )
+for /d %%D in ("release\%APPNAME%-*") do (
+  set "TARGET_ABS=%%~fD"
+  call :guard_target_not_running
+  if errorlevel 1 (
+    echo [ERROR] refusing to clean %%~fD - a live instance runs from it.
+    exit /b 1
+  )
+)
+rmdir /s /q "release" 2>nul
+echo [CLEAN] removed release\
 exit /b 0
