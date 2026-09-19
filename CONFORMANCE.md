@@ -44,16 +44,22 @@
 
 | 模板件 | 能力 | 对外接口（稳定承诺） | 版本 |
 |---|---|---|---|
-| `modules/appconfig/appconfig.py` | 参数区：**唯一要改的文件** | `APP_ID` / `APP_NAME` / `REPO_OWNER` / `REPO_NAME` / `EXE_NAME` / `VERSION` / `ICON_DRAW(d, size)` | 1.0.0 |
-| `modules/paths/paths.py` | 数据区/播种/稳定位/**数据根重定向** | `APP_DIR` `RUN_DIR` `USER_DATA_DIR` `CONFIG_PATH` `LEGACY_CONFIG_PATH` `LOG_DIR` `LOG_PATH` `UPDATE_DIR` `INSTALL_DIR` `INSTALL_EXE` `is_stable_install()` `ensure_user_dirs()` `seed_config()` `process_pending_update()` | 1.1.2 |
-| `modules/autostart/autostart.py` | 自启三件套 | `get_autostart_cmd(target="stable")` `is_autostart_enabled()` `set_autostart(bool)` `migrate_autostart(log=…)` | 1.1.1 |
-| `modules/update_helper/update_helper.py` | 更新三段式（查/下/换） | `check_update(cur, force=False)` `download_and_prepare(...)` `UPDATE_READY` `PENDING_CMD` | 1.0.1 |
-| `modules/i18n/i18n.py` | 轻量中英双表（机制词表分离） | `init(lang)` `t(key,*args)` `load_language_from_config` `save_language_to_config` `detect_system_lang()` `load_tables()` `available_langs()` | 2.1.0 |
+| `modules/appconfig/appconfig.py` | 参数区：**唯一要改的文件** | `APP_ID` / `APP_NAME` / `REPO_OWNER` / `REPO_NAME` / `EXE_NAME` / `VERSION` / `ICON_DRAW(d, size)` | 1.0.1 |
+| `modules/paths/paths.py` | 数据区/播种/稳定位/**数据根重定向** | `APP_DIR` `RUN_DIR` `USER_DATA_DIR` `CONFIG_PATH` `LEGACY_CONFIG_PATH` `LOG_DIR` `LOG_PATH` `UPDATE_DIR` `INSTALL_DIR` `INSTALL_EXE` `is_stable_install()` `ensure_user_dirs()` `seed_config()` `process_pending_update()`（⛔ 已弃用） | 1.1.3 |
+| `modules/autostart/autostart.py` | 自启三件套 | `get_autostart_cmd(target="stable")` `is_autostart_enabled()` `set_autostart(bool)` `migrate_autostart(log=…)` | 1.1.2 |
+| `modules/update_helper/update_helper.py` | 更新三段式（查/下/换） | `check_update(cur, force=False)` `download_and_prepare(...)` `UPDATE_READY` `PENDING_CMD` | 1.4.3 |
+| `modules/i18n/i18n.py` | 轻量中英双表（机制词表分离） | `init(lang)` `t(key,*args)` `load_language_from_config` `save_language_to_config` `detect_system_lang()` `load_tables()` `available_langs()` | 2.2.0 |
 | `modules/icons/icons.py` | 代码生成双 ico | `make_image(size)` `write_app_icons(out_dir)` / CLI | 2.0.0 |
-| `modules/tray_kit/tray_kit.py` | 单实例 / 退出请求 / token 掩码 / 签名重画 / **退出确认框** | `acquire_single_instance(app_id, mutex_name=None, log=…)` `single_instance_free(name)` `warn_duplicate_instance` `confirm_quit_dialog(app, text, init, parent=None, on_change=None)` `make_quit_request_path(dir)` `quit_watch_loop(stop, path, on_quit, beat)` `mask_token(url)` `MenuSignature(rebuild, menu_is_open, log)` | 2.0.1 |
-| `modules/log_kit/log_kit.py` | 滚动日志 1MB×3 + 打开日志目录 | `make_logger(log_dir)` `get_logger(log_dir)` `LOG_MAX_BYTES` `LOG_BACKUPS` | 1.0.2 |
-| `modules/service_link/service_link.py` | 服务唯一性/接入/有界清理状态机 | `ServiceLink(probe, launch, terminate, graceful=None, adopt_pid=None, log)` `.refresh()` `.can_start()` `.start()` `.stop()` `.state` `.spectators` `.note_spectators()` | 0.1.0 |
-| `sync_check.py` | 防漂移哈希比对 | `python my-diy-tool-template/sync_check.py [--roots …]` | 1.2.0 |
+| `modules/tray_kit/tray_kit.py` | 单实例 / 退出请求 / token 掩码 / 签名重画 / **退出确认框** | `acquire_single_instance(app_id, mutex_name=None, log=…)` `single_instance_free(name)` `warn_duplicate_instance` `confirm_quit_dialog(app, text, init, parent=None, on_change=None)` `make_quit_request_path(dir)` `quit_watch_loop(stop, path, on_quit, beat)` `mask_token(url)` `MenuSignature(rebuild, menu_is_open, log)` | 2.2.0 |
+| `modules/log_kit/log_kit.py` | 滚动日志 1MB×3 + 打开日志目录 | `make_logger(log_dir)`（**log 为 print 形态**，见 D4-04/C-29） `get_logger(log_dir)` `LOG_MAX_BYTES` `LOG_BACKUPS` | 1.0.3 |
+| `modules/service_link/service_link.py` | 服务唯一性/接入/有界清理状态机 | `ServiceLink(probe, launch, terminate, graceful=None, adopt_pid=None, log)` `.refresh()` `.can_start()` `.start()` `.stop()` `.state` `.spectators`（**属性**，非方法） `.note_spectators()` | 0.1.0 |
+| `sync_check.py` | 防漂移哈希比对 | `python my-diy-tool-template/sync_check.py [--roots …]` | 1.8.3 |
+| `conformance_check.py` | 规范符合度机械检查（本条表与 §5.1 的执行者） | `python …/conformance_check.py [--roots …] [--only …] [--selftest] [--temp-leak[-save/-baseline]]` | 1.9.1 |
+
+> **版本列 = 磁盘上的 `TEMPLATE-VER`**（与 §2.4 B2 的"登记表版本 == 磁盘版本"同一口径）。
+> 2026-09-19 复核发现本表**长期无人更新**：9 行里 **6 行落后**（最远的是 `update_helper`
+> 1.0.1 vs 1.4.3、`tray_kit` 2.0.1 vs 2.2.0），已按磁盘值逐行同步；登记为 **§4.1.23**。
+> ⚠️ 这一列**当前没有任何机械判据**（C-04 只查四工具的 B2 表），所以它一定会再漂。
 
 ### L2 文本级规范 —— 格式统一，内容逐工具各异
 
@@ -405,13 +411,20 @@ EXIT-06 破坏 = 用户可能在"以为只是关窗口"时把正在跑的服务�
 
 | 4.1.16 | **"没人查的一致性一定会漂"：模板派发件的行尾无人检查**（2026-09-19，lead 批准加判据） | `log_kit.py` 被编辑器**整文件重写**成 LF-only：`py_compile` 绿、`sync_check` 两边同为 LF 也 `[ok]`、C-22 只盯 `.bat`/`.cmd`——**四层判据全绿而字节已经变了**，靠"读回字节"才发现（`CRLF=80 / LF-only=0`）。**机制**：拷贝式分发下正本的行尾 = 四份副本的行尾，所以"漂"会被原样放大四倍；而"没人查"的这类一致性**必然漂**（本家族当晚已第二次：C-22 的 bat、本条的 `.py`/`.md`） | **已落** `conformance_check.py` **C-31（WARN）**：派发件（`modules/**` 的 `.py`/`.md`，排除 `build_release/`、`baseline/`）必须全程 CRLF，逐文件报"首个 LF 行号 + LF/CRLF 计数"；样本 4 条（CRLF ok / LF-only / 混合 / 模板专属目录不误伤）。<br>**首跑真实树：4/27 命中**——`modules/autostart/autostart.py`（66 行全 LF）、`modules/icons/icons.py`（63）、`modules/service_link/README.md`（58）、`modules/service_link/service_link.py`（123）；**且工具侧副本同样是 LF**（dsh/ocx/l-s2t 的 `autostart.py`、reme 的 `service_link/*`）。<br>⚠️ **修法约束**：只把正本改成 CRLF 会让 `sync_check` 对这些副本立刻 `[DIFF]`——必须**正本 + 全部受影响副本同批**处理，即一次"可重拷"冻结事件（先改完 → 再冻结 → 最后宣告）。在裁定该波次之前，本条以 WARN 长期可见 |
 
-| 4.1.17 | **泄漏判据的"结构性天花板"：前缀法的覆盖上限 = 源码里出现过的前缀字面量**（2026-09-19，lead 实测后裁定补腿；task #43） | 前缀法（"从源码枚举 `mkdtemp(prefix=...)` → 逐前缀 glob"）被当成"免疫误报"的正解，但实测它**必然假绿**：lead 用 `ocx-*`/`dsh-helper-*`/`local-speak2text-*`/`reme-update-bat-*` 等前缀扫 → **0 命中**，三家据此宣称"泄漏 = 0"；改用**不看名字的结构签名**复扫 → **20 个**。两类盲区：(i) 固定名/自定义名 scratch（`reme-gate-2.2.0`、`icon-probe-*`、`smoke-proof-*`）——四个工具源码里**一个字都搜不到**，它们来自**扫描范围之外**的探针脚本或裸 `mkdtemp()`；(ii) 裸 `mkdtemp()`（系统默认前缀 `tmp`）。**"前缀法 0 命中"与"真的没泄漏"在输出上完全同形**——判据可以自己假绿 | **已落**（`conformance_check.py` 1.9.0）：① 运行期取证**两条腿**（腿 A 生成器派生 + 腿 B 形态派生），且**必须打印扫描面**（`%TEMP%` 路径 / 顶层目录数 / 前缀数 / 每腿命中数 / 并集）；② 腿 B 签名经**实物标定**：`<顶层>/<恰好一个子目录>/config.json` 且顶层下**存在** `*.log`。当时实测 **112 个顶层目录**上腿 A = 0、腿 B = **20/20 回归集命中、零误报**；把签名写成"`log/*.log` **非空**"则只覆盖 **11/20**（漏的全是 0 字节 log——空文件/空目录同样是残留，与 C-30 第一版口径一致）；③ 20 个残留已登记为**负样本回归集** `_TEMP_REGRESSION_20260919`，selftest 用其中的真名（`icon-probe-077hxtaw`）作样本证明"不看名字也能命中"；④ 裸 `mkdtemp()` 由 FAIL 改 **WARN**（推得出但很弱，主判据是腿 B）。**清理侧**归 #36/#37/#42：先判活进程占用 → 删 → `try/finally` → 汇报"清理前后列表 + 扫描面" |
+| 4.1.17 | **泄漏判据的"结构性天花板"：前缀法的覆盖上限 = 源码里出现过的前缀字面量**（2026-09-19，lead 实测后裁定补腿；task #43） | 前缀法（"从源码枚举 `mkdtemp(prefix=...)` → 逐前缀 glob"）被当成"免疫误报"的正解，但实测它**必然假绿**：lead 用 `ocx-*`/`dsh-helper-*`/`local-speak2text-*`/`reme-update-bat-*` 等前缀扫 → **0 命中**，三家据此宣称"泄漏 = 0"；改用**不看名字的结构签名**复扫 → **20 个**。两类盲区：(i) 固定名/自定义名 scratch（`reme-gate-2.2.0`、`icon-probe-*`、`smoke-proof-*`）——四个工具源码里**一个字都搜不到**，它们来自**扫描范围之外**的探针脚本或裸 `mkdtemp()`；(ii) 裸 `mkdtemp()`（系统默认前缀 `tmp`）。**"前缀法 0 命中"与"真的没泄漏"在输出上完全同形**——判据可以自己假绿 | **已落**（`conformance_check.py` 1.9.0）：① 运行期取证**两条腿**（腿 A 生成器派生 + 腿 B 形态派生），且**必须打印扫描面**（`%TEMP%` 路径 / 顶层目录数 / 前缀数 / 每腿命中数 / 并集）；② 腿 B 签名经**实物标定**：`<顶层>/<恰好一个子目录>/config.json` 且顶层下**存在** `*.log`。当时实测 **112 个顶层目录**上腿 A = 0、腿 B = **20/20 回归集命中、零误报**；把签名写成"`log/*.log` **非空**"则只覆盖 **11/20**（漏的全是 0 字节 log——空文件/空目录同样是残留，与 C-30 第一版口径一致）；③ 20 个残留已登记为**负样本回归集** `_TEMP_REGRESSION_20260919`，selftest 用其中的真名（`icon-probe-077hxtaw`）作样本证明"不看名字也能命中"；④ 裸 `mkdtemp()` 由 FAIL 改 **WARN**（推得出但很弱，主判据是腿 B）。**清理侧**归 #36/#37/#42：先判活进程占用 → 删 → `try/finally` → 汇报"清理前后列表 + 扫描面"。<br>⚠️ **2026-09-19 腿 B 放宽（lead 报"固定名 scratch 目录漏检"后，用合成形状实测）**：旧签名多写了一条"**恰好一个子目录**"，而那是**形状的偶然特征、不是不变量**——任何多一个子目录（如 `ui-icons/`）的数据根都会隐身。合成形状实测：`log/{config.json,app.log}` HIT；**加一个 `ui-icons/` → MISS**；**`config.json` 摆在顶层 → MISS**（后两者都是真实形态）。新签名 = **`config.json` 在顶层或其一层子目录内 + 顶层下至少一个 `*.log`**。当日 93 个顶层目录实测：旧 4 命中 / 新 7 命中，**新增 3 个全是 `marker-e2e-*`（此前完全不可见的残留，不是误报）**；残余 FP 风险写进注释（外来程序的"config + log"临时目录），弱前缀 WARN 保留 |
 
 | 4.1.18 | **判据存在 ≠ 被检查对象在范围内**（2026-09-19，lead 裁定并留档） | C-28（`.md` 不得含 TAB）只扫四个工具——`main()` 里 `d.name not in {"__pycache__", TEMPLATE_DIR.name}` **把模板仓显式排除**，于是**模板自己的 `.md` 从未被扫过**，而模板正是"四份副本之源"。这与"`sync_check` 只比副本像不像、不查正本自相矛盾"是**同一家族**：**盲区不是缺判据，是判据的适用范围没被检查**。本轮已连续两次撞上它（C-28／C-30 都只覆盖工具侧，模板正本只在 `sync_check` 的比对里出现） | **已落**：给框架加 `TEMPLATE_CHECKS` 注册表——模板判据在 `main()` 里**只跑一次**（`Ctx.dir` = 模板仓根），不跟着四个工具重复刷 N 遍；C-28 按 lead 的"最省事形态"补扫模板仓（不为此给模板开整轮：它没有 `src/` + `build.bat`，整轮会空转甚至误报），C-31（派发件行尾）也走这条通道。**纪律**：新增/改动任何判据时，必须回答"**它的适用范围（roots）是谁定的、正本在不在里面**" |
 
 | 4.1.19 | **不可逆动作排在"调用边界可能失败的语句"之前**（2026-09-19 立；口径由 lead 的宽版收窄为复核员版） | 形态：`detail = marker.read_text(...)` → `marker.unlink()` → `log("previous update failed:", detail)`。**危险不在"log 会不会失败"，而在"调用边界会不会先抛"**：arity/签名不符、属性不存在、名字未定义这类错误在**进入被调方之前**就抛出，**被调方内部的 try/except 保护不了它**——C-29 契约冲突下 l-s2t **真的炸了**（`TypeError` + marker 已删 + 提示消失，实测）。**宽版为什么被否**：lead 原表述"不可逆动作必须排在**所有可能抛异常的语句**之后"会把 `quit_watch_loop` 的 `unlink → log`（模板 + 4 份副本）误报 5 处——`log_kit.log()` 内部 `try/except Exception: pass`，**它本函数不抛**。修完 C-29 后这类危险退化成**潜伏态**，但下次契约冲突会以同样方式炸 | **已落** `conformance_check.py` **C-32（FAIL）**：窄版 D/A/R 三条（见 §5.1 行），样本 7 条覆盖真形态、reme 旧形态、`log` 在删之前、只删不读、读了不 log、接收者不同、幂等删除。**已知站点 5 处（复核员实测 5/5 全真、零假阳性）**：模板 + dsh + ocx `update_helper.pop_failed_update_note()`（三处，**当前仍在役**）；l-s2t `updater.pop_failed_update_note()`、reme `_report_failed_previous_update()`（**历史上真阳性**：l-s2t 那条有实测 TypeError + marker 消失；两处**当前代码已修**为先 log 后删）。**修法约束**：模板整改后必须与 dsh/ocx 副本**同批**（同 C-31 的"可重拷"冻结约束） |
 
 | 4.1.20 | **等待/超时的单位假设没人量过：`ping -n 2` 不是「1 秒」**（2026-09-19，ls2t-dev 发现、lead 独立复测） | `_APPLY_BAT` 的等待节拍写成 `ping -n 2 127.0.0.1 >nul`，本意「睡 1 秒」。实测（lead 复测）：`cmd /c 'ping -n 2 127.0.0.1'` = **9.04s / 9.00s / 9.00s**，输出「数据包: 已发送 = 2，已接收 = 0，丢失 = 2 (100% 丢失)」——**loopback ICMP 全丢**，于是每个包等满 4.5s 超时。后果：节拍名义 1s 实际 **9.0s**（差 9 倍）、`UPDATE_WAIT_LIMIT = 120` 的「120 秒」实际 **约 18 分钟**、`:giveup` 打印 `after {limit}s` **与实际相差一个数量级（日志说谎）**。**同一句在模板 + 四份副本**（dsh/ocx 的 `update_helper.py`、l-s2t `updater.py`、reme `main.py`）。**只在 ping 慢/被拦的机器上暴露**，本地实测很容易看不到 | **已修（模板侧，1.9.0 批次）**：① 节拍换成不依赖 ICMP 的 `powershell -NoProfile -Command 'Start-Sleep -Milliseconds 1000'`（DETACHED 无 console，子进程不弹窗；本机实测每拍 1.29s，含 PowerShell 启动费）；② 常量拆成 `UPDATE_WAIT_LIMIT`（**轮询次数**）× `UPDATE_WAIT_TICK_MS`（每拍毫秒）= `UPDATE_WAIT_BUDGET_S`（名义预算，**下界**），注释写明「别把次数当秒」；③ `:giveup` 改成 `after %tries% polls x {tick_ms}ms (nominal budget {budget_s}s, lower bound)`——**不再打印一个没人量过的「秒」**；④ 新增机械判据 **C-33**（禁 `ping` 当节拍，注释/`rem` 不算）；⑤ `sync_check.py` 的 bat 语义断言同步改成 `Start-Sleep -Milliseconds`。**其余四份**由各自仓库随本轮「可重拷」波次同步（reme 还有 `scripts/build.bat` 一处 `ping -n 9`）|
+
+| 4.1.21 | **清扫器前缀少写一个字符 = 一类产物永久漏扫，而且完全无声**（2026-09-19，helpers-dev 发现；`update_helper.sweep_stale_update_dirs`） | `TEMP_PREFIX = f"{APP_ID}-update-"` 带了**尾随 `-`**，于是 `glob("<APP_ID>-update-*")` **永远匹配不到**替换脚本 `<APP_ID>-update.bat`（固定名，中断的更新留下的就是它）；而清理分支只写 `is_dir()` ⇒ **每中断一次就永久多一个 `*-update.bat`**，且没有任何输出。两类产物的**唯一共同前缀**到 `-update` 为止（暂存目录是 `-update-<随机>`，脚本是 `-update.bat`）| **已修（模板 1.4.3）**：`TEMP_PREFIX` 去掉尾随 `-`，sweeper 同时处理目录与文件（`rmtree` / `unlink`），年龄闸（`st_mtime >= cutoff` 跳过）不变。**实测正/负对照**：`TMPDIR` 重定向后造 3 个过期产物 + 2 个新鲜产物 → `removed = 3`，新鲜的**一个都没动**。教训：**"清扫器跑过了" ≠ "该扫的都扫到了"**——清扫类代码必须配一个"本该被扫到"的正样本，否则漏扫与干净在输出上同形（同 §4.1.17）|
+| 4.1.22 | **自愈的两处"不出声"：`except: pass` 让"本来就没这条"与"读失败"同形；`value == wanted` 短路放过死链**（2026-09-19，tpl-keeper 认领；`autostart.migrate_autostart` 模板 1.1.2） | 两个独立缺陷：①条目不存在（用户自己关掉了自启 / 被杀软清掉）时静默返回——**不自动创建是对的**（自动创建等于替用户把他关掉的自启重新打开），但 `except (FileNotFoundError, OSError): pass` 把**读失败**也吞成静默，两种情形在日志里**完全同形**（都是什么都不打印），现场无法区分；②判据 `value != wanted and not os.path.exists(value.strip('"'))` 里 `value == wanted` 会**短路**——注册值恰好等于当前值、文件已被删（旧包目录被整体改名/搬走，路径字符串恰好没变）时**永不修复**；且 `strip('"')` 对**源码态命令行**（`"…\pythonw.exe" "…\main.py"`）得到的是不可能存在的路径 ⇒ 源码态**每次启动都判"已消失"并重写一次** | **已修（模板 1.1.2）**：①条目不存在 → 记一行日志、**不写注册表**；读失败 → 记一行**不同**的日志（两者不再同形）；②新增 `_cmd_exe()` 取命令行**第一个 token**，判据**只看目标文件是否存在**（去掉 `value != wanted`），重写后**复查**新目标、仍不存在就如实报告（不谎报 `migrated`）。三份副本（l-s2t/dsh/ocx）随本波"可重拷"同批 |
+
+| 4.1.23 | **§1（L1）的"版本"列没有判据 ⇒ 9 行里 6 行落后**（2026-09-19，tpl-keeper 复核发现） | §1 是本文件最像"契约"的一张表（模板件 / 能力 / **对外接口稳定承诺** / 版本），但**版本列从来没有被打过**：C-04 只查四工具的 B2 表，模板通道只跑 C-28/C-31/C-32/C-33。实测（逐文件读头部 `TEMPLATE-VER`，非转述）：`appconfig` 1.0.0→**1.0.1**、`paths` 1.1.2→**1.1.3**、`update_helper` **1.0.1→1.4.3**、`i18n` 2.1.0→**2.2.0**、`tray_kit` 2.0.1→**2.2.0**、`log_kit` 1.0.2→**1.0.3**、`sync_check` 1.2.0→**1.8.3**（`autostart`/`icons`/`service_link` 三行本来就是对的）。**危害不是难看**：`update_helper` 那一格写着 1.0.1 而磁盘是 1.4.3，读者会按 1.0.1 的语义去理解接口——而 1.0.1 正是"两处静默失效"的那一版（B4 仲裁规则的反例原型）。这与 §4.1.18 同族：**判据存在 ≠ 被检查对象在范围内**；也与 §4.1.10b 同族：**文档落后于代码不会自己报错** | **已修**：9 行 + `sync_check` 行按磁盘 `TEMPLATE-VER` 逐格同步，补 `conformance_check.py` 一行（原表列了 `sync_check` 却不列它，而它才是跑这张表的人），`paths.process_pending_update()` 标 ⛔ 已弃用（§4.1.5 的处置第二步已落：模板 `paths.py` 1.1.3）。**顺带一处未遂错**：我按"方法调用"的直觉把 `service_link` 的 `.spectators` 写成 `.spectators()`，回读源码发现它是**属性**（`self.spectators = []`，第 50 行）——按 §D7 第 8 条（枚举签名、不猜）已改回并加注。**待办（建议下一轮，不擅自并进本波）**：加 **C-34**（模板通道）：解析 §1 表各行，断言"表内版本 == 该文件头部 `TEMPLATE-VER`"，不匹配即 WARN——否则这一列一定会再漂 |
+
+| 4.1.24 | **口径写成散文 ⇒ 收方各自实现、各自算出假红**（2026-09-19，lead 提议、tpl-keeper 落地） | `.py` 归一化口径在文档里被描述过两次、**两次都不完整**：第一次漏"补不补尾换行"，第二次漏"换行要不要归一"。后果都是同一种：**认真自证的收方报出假红**——复核员自己实现算得 `49b778fc7b26`（先 `decode()` 再 `split("\n")`，CRLF 副本没归一）、`e636cb41bf50`（同因），而 dsh/ocx 明明已经拷对。**根因**：散文与代码是**两份描述**，且散文先漂（设计纪律 ⑦ 的同族） | **已落（两道防线）**：① `ALIGNMENT.md §0` 把口径改为**指向唯一实现**（`sync_check.sha256_text()`），并写明"**收方不要自己重实现这个算子**，跑 `sync_check` 取 `[ok]/[DIFF]` 就是权威判定"；② 新增 **C-36**（模板通道，FAIL）：**性质断言代替散文**——取任一模板 `.py` 正本内容，断言 `sha256_text(LF) == sha256_text(CRLF) == sha256_text(CR)`，**且不等于** naive `split("\n")` 控制值（否则"恒返回常数"的实现也能通过 ⇒ 判据无区分力）；扫描面打印算子名 + 样本文件 + 三种变体哈希 + 控制值。样本 2 条：真算子必须 ok、**变异算子（`splitlines()`→`split("\n")`）必须不 ok**（这一条就是判别力的自证）|
 
 ### 4.2 蓝本豁免的收紧（建议，待用户裁定）
 
@@ -473,13 +486,15 @@ EXIT-06 破坏 = 用户可能在"以为只是关窗口"时把正在跑的服务�
 > ```
 >
 > 分工：`sync_check.py` 管"拷贝件与模板正本是否一致"（哈希级）；本脚本管"条款是否落地"（语义级）。
-> **设计纪律 ①–⑤（⑤ 于 2026-09-19 补，前四条同日由 lead 合并定稿）**：
+> **设计纪律 ①–⑦（⑤⑥⑦ 于 2026-09-19 补，前四条同日由 lead 合并定稿）**：
 > ① **只写能给出证据的检查**，判不了的宁可 WARN、不硬判 FAIL——误判一次，人就再也不信这个工具了（首版即修掉 6 处误判，见 §4.3）；
 > ② **每条检查的输出必须带 `文件:行号` 或实际值**，否则等于没说；
 > ③ **FAIL = 硬违规**（默认让退出码非 0）；**WARN = 需要人判断**，只提示；
 > ④ **"不认识形态"与"检出违规"必须分开**（展开见下）；
-> ⑤ **判据的每条限定，都必须用"已知正例"回验过才算数**（展开见下）。
-> 前四条管"**判据的输出要诚实**"，⑤管"**判据的构造过程要回验**"——合起来才完整。
+> ⑤ **判据的每条限定，都必须用"已知正例"回验过才算数**（展开见下）；
+> ⑥ **"0 命中"与"确实没有"必须分开：报 ok / 不适用时必须同时给出扫描面**（展开见下）；
+> ⑦ **同一件事只允许一份判据：禁止自造第二套"加强版"**（展开见下）。
+> 前四条管"**判据的输出要诚实**"，⑤管"**判据的构造过程要回验**"，⑥管"**判据的覆盖必须自证**"，⑦管"**判据的唯一性**"。
 > **④ "不认识形态"与"检出违规"必须分开**（2026-09-19 补；同日由 lead 升级并合并两条口径）：
 > **(a) 不通过消息必须与它实际检出的东西一致**——检不出就只能说检不出，**不许用不相干的模式
 > 去解释失败**。反例：C-10 把"探针的消费形态不认识"说成"smoke 里跑了真守卫"，让人差点往
@@ -508,6 +523,32 @@ EXIT-06 破坏 = 用户可能在"以为只是关窗口"时把正在跑的服务�
 > 推论：**样本必须抄真实现场的形状**——C-32 首版就是被 `read_text(...).strip()` 的链式包装
 > 与 `except: return ""` 挡住而零命中，是真实树首跑（模板 `update_helper` 竟然 `[ok]`）把漏报
 > 打出来的；用想象中的形状写样本，会得到"全绿但漏掉真案"。
+
+> **设计纪律 ⑥（2026-09-19 加，lead 依 tpl-keeper 的实证升级）：判据报"ok / 不适用 / 0 命中"时，
+> 必须同时给出它的扫描面**（扫了哪些路径、候选站点几个、命中几个）。
+> **"只报 0 命中"与"确实没有"在输出上不可区分**——那正是本族反复栽的形状。同族三条：
+> ④"不认识 ≠ 违规"（管**输入形态**）、§4.1.18"判据存在 ≠ 被检查对象在范围内"（管**适用范围**）、
+> 本条"没命中 ≠ 没问题"（管**覆盖**）——三条合起来才把"判据的输出"这一面补齐。
+> **实证（C-30 首版，tpl-keeper 自犯）**：第一版只认**裸调用** `X = mkdtemp(...)`，于是 reme 那行
+> `root = Path(tempfile.mkdtemp(...))` **被静默跳过**——**最该被检的那个文件被判成"本条不适用"**。
+> 改按"赋值右侧含 `mkdtemp(`"+ 认包装函数调用点后，真实树立刻变成 **reme 1 / l-s2t 9 / dsh 6 / ocx 6**。
+> **落地要求**：① 每条判据的 ok / 不适用分支必须打印扫描面（`--temp-leak` 已是范例：`%TEMP%` 路径 /
+> 顶层目录数 / 前缀数 / 每腿命中数 / 并集）；② **样本测试要断言这个数字**，否则"扫了 0 个文件"
+> 会伪装成绿；③ **判据首跑报"不适用 / 0 命中"时，当作可疑信号，而不是绿灯。**
+> 一句话：**"我没命中"与"我没有检查"必须在输出上长得不一样。**
+
+> **设计纪律 ⑦（2026-09-19 加，lead 裁定后立）：同一件事只允许一份判据——禁止自造第二套"加强版"。**
+> 两份判据会**各自漂移、各自误报**，最后由"**没人知道该信哪个**"——这正是本族今晚在消灭的那种
+> 漂移，只是换了个载体（从"文件副本""文档结论"换成了"判据本身"）。与同一族的
+> "**索引里缺条目本身就是盲区**"（本文件 §4.1.18 与 checker 头部那句自我要求）并列。
+> **实证（tpl-keeper，2026-09-19）**：复核员的 C-30 增强草案未到时，我**拒绝**自造一版"加强版前缀判据"
+> ——理由不是省事，而是**同一条规则有两个实现，等于给契约换了两把尺**；后到的草案与既有实现必须**合并进
+> 同一个检查**，而不是并存。
+> **同族的第二个形态（lead 当日更正）**：把"**判据的机制**"与"**取证的方法**"混成一句话——C-30
+> 从第一版起就是**读源码判定**（看赋值右侧是否含 `mkdtemp(`），而"枚举前缀再回查 `%TEMP%`"是
+> **一次性的泄漏取证方法**；两者分属两个文档位置，**不该在同一句里以第二份判据的口吻出现**。
+> **落地**：新增任何检查前先问"**这条是否已有实现/草案**"；有则**扩展那一个**（或等它），不并存第二份。
+> 与 ④⑤⑥ 的分工：④ 管**输入形态**、⑥ 管**覆盖**、⑦ 管**唯一性**——三条一起才堵住"判据自己成为新的漂移源"。
 
 ### 5.1 立即可脚本化（无需运行程序）
 

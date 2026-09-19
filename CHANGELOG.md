@@ -2,6 +2,230 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-36: assert the operator's *property*, not a frozen hash)
+
+The lead's proposal, implemented as a check: **a property assertion is the mechanical form of
+"the documented operator equals the implemented operator"** — no reader has to parse prose.
+
+- **C-36 (template channel, FAIL)**: take any template `.py`, assert
+  `sha256_text(LF) == sha256_text(CRLF) == sha256_text(CR)` **and** that it differs from a naive
+  `split("\n")` control. Two clauses, both required:
+  - the three-way equality is the *definition property* (**EOL-insensitivity**), independent of
+    which sample file is used (freezing a literal hash would false-alarm the moment that file
+    legitimately evolves);
+  - the control is the **discriminating power** clause — without it, an operator that returns a
+    constant would pass the first clause.
+  Scan surface (discipline ⑥) prints operator name + sample file + all three variant hashes + the
+  control value. Samples: the real operator must pass, and a **mutated operator**
+  (`splitlines()` → `split("\n")`) must **fail** — that sample *is* the proof of discriminating
+  power.
+- **Why it exists**: the same口径 was described in prose twice, **incompletely both times** (first
+  missing "trailing newline or not", then "normalize EOLs or not"). Each omission made a
+  conscientious verifier compute a **false red** (`49b778fc7b26`, `e636cb41bf50`) while the
+  copies were in fact correct. Prose and code are **two descriptions** of one rule, and the prose
+  drifts first (the twin of discipline ⑦). Registered as **CONFORMANCE §4.1.24**; the first
+  defence is `ALIGNMENT.md §0` now pointing at the single implementation.
+- **Also in this batch: C-30's leg B was widened** after the lead reported fixed-name scratch
+  dirs being missed. The old signature demanded "**exactly one** subdirectory", which is a
+  *coincidental feature of the calibration sample*, not the invariant: synthetic shapes proved
+  `log/{config.json,app.log}` hits while **“+ `ui-icons/`”** and **“`config.json` at top level”**
+  both missed. New signature = `config.json` at depth ≤1 + any `*.log` under the top. Measured on
+  the same day's 93 top-level dirs: old 4 hits → new 7, and the **3 new ones (`marker-e2e-*`) are
+  previously invisible residue, not false positives**. Selftest samples updated (`two-subs` and
+  `config-at-top` must now hit). Registered in **§4.1.17**.
+- **And the batch's own accident, kept on the record**: while patching `_SHAPE_RULE` I used
+  `read_text()` + `write_bytes()` and turned the 2968-line checker **LF-only** — the exact pair
+  the §J row warns about, caught by byte read-back and repaired byte-wise. Third occurrence today,
+  first one caused by me. Discipline did not stop it; reading the bytes did.
+
+## 2026-09-19 (§B4 and §J each gain a positive example, and a naming discipline)
+
+A rule that records only failures leaves behind deterrence and nothing else. Two edits, both
+prompted by the lead after a reader **took a generic phrase personally**:
+
+- **§B4's mirror counter-example now names the copiers** (dsh-helper and opencodex-helper, with
+  the evidence that was already in the same paragraph: file mtime 16:09 vs my 16:06 edit, HEAD
+  still `188bbcc`, eight files ` M`). The generic "实现者" was replaced because **a generic
+  attribution of a fault makes every reader self-identify**: the tool that had done nothing
+  wrong spent a round writing a rebuttal (l-s2t's evidence: its `log_kit.py` is still `VER
+  1.0.2` with `def log(message)`, and `sync_check` reports `[lag] 1.0.2 -> 1.0.3` — i.e. the lag
+  report is proof it *did not* copy), while the ones actually involved may read past it.
+  **Discipline written in: name the fault or don't write it as a fault.**
+- **And the same block now records the positive counterpart**: l-s2t **twice stopped at
+  "uncommitted" and waited** (once before the i18n re-copy, once for `log_kit`) — exactly the
+  behaviour the rule is meant to produce. Counter-example and positive example are a pair; a
+  reader can now see **which step differs** between the two behaviours.
+- **§J's stand-in signature row gains its positive half**: l-s2t's local `def log(*parts)`
+  compatibility layer satisfies **both** 1.0.2 (single-arg closure) and 1.0.3 (print form)
+  **without breaking anything to satisfy a check** — when the contract itself is evolving, the
+  right move is **the union of the widths, not either one of them**.
+- Byte evidence: `STANDARDS.md` CRLF=876 / LF-only=0 / TAB=0 / `sha256 83871832dd09313b`; C-28 `[ok]`.
+
+## 2026-09-19 (design discipline ⑦: one rule, one implementation)
+
+The lead turned a near-miss into a standing rule, and it closes a family this file has been
+building all night:
+
+- **⑦ "One matter, one check — never build a second, 'strengthened' copy."** Two implementations
+  of the same rule **drift independently, each with its own false positives**, and end at "nobody
+  knows which one to believe" — i.e. **the check itself becomes the new source of drift**. Sits
+  beside the same family's "an index missing an entry is itself a blind spot" (§4.1.18).
+- **The evidence is a refusal, not an accident**: while the reviewer's C-30 enhancement draft was
+  still in flight, I declined to write my own "strengthened" prefix check — not to save effort, but
+  because **two implementations of one rule give the contract two different rulers**. When the draft
+  arrives it must be **merged into the single check**, not run alongside it.
+- **Same family, second shape** (corrected by the lead the same day): mixing **a check's mechanism**
+  with **a piece of forensic method** in one sentence. C-30 has read source from v1 (does the
+  assignment's RHS contain `mkdtemp(`); "enumerate prefixes, then re-scan `%TEMP%`" is a
+  **one-off measurement**, and the two belong in different documents — not in one sentence spoken
+  in the voice of a second check.
+- Landing rule: before adding anything, first ask **"does this already have an implementation or a
+  draft?"** — if yes, extend that one (or wait for it); never run two side by side.
+- Both copies updated: `CONFORMANCE.md` §5 (disciplines ①–⑦ in order, with the expansion) and this
+  checker's docstring list, whose own first line says the index and the body must agree.
+
+## 2026-09-19 (anchors: content hash *or* commit; §J gains the injection-lock row)
+
+Three doc-level refinements, all from the lead, plus one row I earned the hard way.
+
+- **§B4: the "copy the committed version" rule was a means stated as an end.** Replaced with the
+  precise form: a declaration's **anchor is either a content hash (file sha256; normalized for
+  `.py`, bytes for `.md`) or a commit sha (strictest: the `git rev-parse HEAD:<path>` blob id)**,
+  and what actually holds the rule up is **anchor + drift detection** — `sync_check` is the drift
+  detector, so reproducibility is guaranteed by *that*, not by the act of committing. Consequence
+  written in: with a content-hash anchor and `sync_check` in place, **copies need not wait for the
+  template to commit** (this is what unblocked #39); the strict form still stands, i.e. when the
+  template does commit, the declaring side adds a line pointing the content anchor at that commit.
+  The old wording in the same block ("the source must be the announced commit, not the disk at
+  some moment") was updated too — leaving it would have contradicted the new paragraph.
+- **§D7 item 10 (new): anchors and drift detection.** Three legal anchors, ordered by how absolute
+  they are: revision + (when the worktree is dirty) file sha256 → answers "what was this repo at
+  some moment"; **content hash** → git-independent and the best choice **across repos for the same
+  template file**; **blob id** → strictly more absolute than "commit + line number" (it separates
+  different worktrees of the same commit, makes the whole class of line-number drift disappear, and
+  **equal content means an equal blob id across repos** — measured: dsh/ocx `update_helper.py` are
+  both `fdc9f1b`). Plus the **`&&` discipline**: read the revision and take the evidence **in one
+  shell invocation** — two invocations mean the revision and the evidence come from two different
+  moments, which is just "evidence without a timestamp" written differently. And the pairing rule:
+  **an anchor without drift detection is a sentence that will expire.**
+- **§J: "the injection's precondition must be the one you meant to inject".** ls2t-dev caught
+  himself: to reproduce "cannot delete" he locked the marker file, first with `share=0` — which
+  **blocks reads too**, so the case actually measured "read fails" (something the real path never
+  does). Correct: `FILE_SHARE_READ | FILE_SHARE_WRITE` (readable, not deletable; `FILE_SHARE_DELETE`
+  is the permission bit that matters). Rule written as: **proving a failure was injected requires
+  first proving that only the intended path is blocked** (the control read must succeed) —
+  otherwise the red light points at the wrong repair target. Same family as "a stand-in must copy
+  the production signature, no wider and no stricter".
+- **And the §J escape row grew two new carriers, because I hit both while writing the row above.**
+  ① Writing text that contains backticks through `python -c "…"` in a double-quoted shell string:
+  the shell treats the backticks as **command substitution**, executes them and swallows the
+  result — the line landed with **eight code spans silently emptied**, looking merely mis-formatted.
+  ② `Path.read_text()` + `write_bytes()` **normalised the whole 867-line file from CRLF to LF-only**
+  (read normalises, write does not restore). Both were caught by reading the bytes back, which is
+  the only thing that does catch them — and the same session had already written "the only defence
+  is mechanical read-back" into that very row. Five instances of this pit in one day now.
+- Byte evidence: `STANDARDS.md` CRLF=867 / LF-only=0 / TAB=0 / `sha256 1954399b66638586`; template
+  channel re-run: C-28 `[ok]` (`0 FAIL, 0 WARN`).
+
+## 2026-09-19 (design discipline ⑥: "0 hits" and "nothing to hit" must look different)
+
+The lead promoted a defect I hit while writing C-30 into a standing rule, and it is the third
+face of a family this file already carries:
+
+- **⑥ "A check reporting ok / not-applicable / 0 hits must print its scan surface"** (which
+  paths, how many candidate sites, how many hits). **"I found nothing" and "I did not look"
+  are indistinguishable in the output** — the shape this family keeps tripping over.
+  ④ covers the **input shape** ("unrecognised ≠ violation"), §4.1.18 covers the **scope**
+  ("the check exists ≠ the object is in range"), ⑥ covers the **coverage** ("no hit ≠ fine").
+  Together they are the whole output side of a check.
+- **The evidence is mine, and it is a near-miss worth keeping**: C-30 v1 only recognised the
+  bare call `X = mkdtemp(...)`, so reme's `root = Path(tempfile.mkdtemp(...))` was **silently
+  skipped** — **the one file that most needed checking was reported as "this check does not
+  apply"**. After switching to "the assignment's right-hand side contains `mkdtemp(`" plus
+  wrapper call sites, the real tree went to **reme 1 / l-s2t 9 / dsh 6 / ocx 6**.
+- Landing requirements written into the rule: ① ok/not-applicable branches must print the scan
+  surface (`--temp-leak` is the model: `%TEMP%` path / top-level dir count / prefix count /
+  per-leg hit count / union); ② **samples must assert that number**, otherwise "scanned 0 files"
+  disguises itself as green; ③ **a first run reporting "not applicable / 0 hits" is a suspicious
+  signal, not a green light.**
+- Both copies updated in the same edit — `CONFORMANCE.md` §5 (disciplines ①–⑥ in order, with the
+  expansion) and this checker's module docstring list (the index there says of itself: "索引缺条目
+  本身就是文档说谎", so leaving it at ①–⑤ would have been the very defect it describes).
+
+## 2026-09-19 (freeze wave: the four LF files, `update_helper` 1.4.3, `autostart` 1.1.2)
+
+Three defects that a *copy* amplifies, plus the CRLF conversion they have to travel with.
+This is the **template side** of the wave only — the four tools are re-copied in the same
+wave (change everything → freeze → announce; an announcement followed by another template
+edit has to be re-issued naming what changed).
+
+- **C-31's first-run finding is fixed, not just reported.** The four LF-only dispatched files
+  (`modules/autostart/autostart.py`, `modules/icons/icons.py`,
+  `modules/service_link/{README.md,service_link.py}`) were converted to CRLF **byte-wise**:
+  `read_text()`/`write_text()` would have "fixed" the file while silently rewriting the very
+  bytes under comparison (that pair normalises on read and translates `\n` on write — the
+  exact mechanism that corrupted two files earlier tonight). C-31 now reports **27/27
+  dispatched `.py`/`.md` CRLF**; before the conversion it was 4/27.
+- **`update_helper` 1.4.3 — the sweeper could not see one of its two products.**
+  `TEMP_PREFIX` carried a trailing `-` (`f"{APP_ID}-update-"`), so `glob(…-update-*)` never
+  matched the replacement script `…-update.bat` (fixed name), and the cleanup branch only
+  handled `is_dir()`. Every interrupted update therefore left one more `*-update.bat` in
+  `%TEMP%` **permanently, and silently**. The prefix now stops at `-update`; the sweeper
+  unlinks files as well as removing trees, age gate unchanged. Positive/negative control with
+  a redirected `TMPDIR`: 3 stale artefacts removed, 2 fresh ones untouched.
+- **`autostart` 1.1.2 — self-heal was silent where it should speak, and blind where it should
+  see.** ① A missing `Run` entry and a failed registry read were swallowed by the same
+  `except (FileNotFoundError, OSError): pass`, so "the user turned autostart off" and "we
+  cannot read the key" printed exactly the same thing — nothing. *Not* creating an entry stays
+  the rule (creating one would re-enable autostart the user disabled); each case now logs its
+  own line, and neither writes to the registry. ② The dead-link test was
+  `value != wanted and not os.path.exists(value.strip('"'))` — the `value == wanted` half
+  short-circuits, and `strip('"')` can never resolve a **source-form** command line
+  (`"…\pythonw.exe" "…\main.py"`), so *any* difference between the registered and the current
+  command meant a pointless registry write on every start. The judgement is now "does every
+  path in the command line exist" (`_cmd_targets` / `_cmd_alive`), and after rewriting we
+  **re-read** the new target: if that is missing too, we say so instead of claiming
+  `migrated`. Evidence: `H:\Tools\_verify-scratch\autostart_migrate_test.py` (fake `winreg`,
+  the real registry is never touched) — **14/14 on 1.1.2**, and the same harness pointed at the
+  pre-fix revision (`git show 33e99ff:…`) fails the silent / spurious-write cases. That
+  difference is what makes this a measurement rather than a claim.
+- **`service_link/README.md`**: the opencodex-helper "exit-signature kill" is recorded as a
+  **historical** counter-example (already fixed) — ocx uses a checkbox, unchecked by default.
+- Registered as **CONFORMANCE §4.1.21** (sweeper prefix) and **§4.1.22** (autostart self-heal);
+  the `autostart.py` version row in §1 went 1.1.1 → 1.1.2 so C-04 stays honest.
+- **CONFORMANCE §1 (L1) was audited against disk and was wrong in 6 of 9 rows** — the table
+  declares "对外接口（稳定承诺）" and carries a version column, but **no check has ever watched
+  that column** (C-04 only reads the tools' B2 table; the template channel only runs
+  C-28/C-31/C-32/C-33). Worst offenders: `update_helper` **1.0.1 vs 1.4.3** and `tray_kit`
+  **2.0.1 vs 2.2.0** — a reader would interpret the interface by the semantics of a version
+  that is three releases old (1.0.1 is exactly the "two silent failures" revision from the B4
+  arbitration rule). All rows now carry the on-disk `TEMPLATE-VER`, a `conformance_check.py`
+  row was added (the table listed `sync_check` but not the checker that runs the table), and
+  `paths.process_pending_update()` is marked deprecated. Registered as **§4.1.23**, with a
+  proposed **C-34** (assert table version == file header) so the column cannot drift again —
+  proposed, not implemented, so this batch stays scoped.
+- **§J gained the read-only-bit row** (lead's re-measurement, after his own misstatement): the
+  read-only attribute is **partial insurance, not a structural guarantee**. Measured: it stops
+  `os.remove` / `del` / `shutil.rmtree` (`PermissionError`), but **not** `rmdir /s /q <parent>`
+  (rc=0, directory gone) and **not** `robocopy /e /purge` (overwrites and clears the R bit,
+  mode → `0o100666`). Positioning: it protects the delete-the-stand-in path only, and **cannot
+  replace** R1 (stand-in always exists) + the `start` existence guards + the timeout-is-red
+  rule. The row also records ls2t-dev's two implementation details: use `os.chmod(...S_IREAD)`
+  rather than spawning `attrib.exe` (a console child flashes a black box — the family's own
+  accident class), and clear the R bit recursively before cleanup because **robocopy copies it
+  into snapshot/backup dirs** (they really went red on this once — hardening that introduces a
+  new failure, so hardening needs its own self-proof).
+- **Same row, self-applied**: my first wording said `_readonly_selfproof()` turns the whole
+  boundary table into an executable control. Reading the function back showed it asserts **only
+  the `del`/`unlink` row**; the `rmdir /s /q` and `robocopy` rows are measured once and
+  documented, i.e. **evidence, not guarantee**. Corrected in place — claiming full coverage
+  from a one-row control is exactly "partial coverage described as a structural guarantee",
+  which is the lesson the row exists to record.
+- One near-miss worth keeping: I "tidied" `service_link`'s `.spectators` into `.spectators()`
+  out of habit; reading the source back showed it is a **plain attribute** (`self.spectators
+  = []`), so the cell was restored with an explicit "(属性，非方法)" note. Same rule as §D7
+  item 8 — enumerate the signature, never guess it.
+
 ## 2026-09-19 (identity line; `conformance_check` 1.9.1)
 
 One line, printed by the tool about itself:

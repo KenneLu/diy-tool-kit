@@ -21,13 +21,20 @@
 #      `src/main.py:7405` 的 `prefix=f"{APP_ID}-update-"` 未登记）**，其余三工具 ok。
 #   ③ 运行期取证改成**两条腿**（task #43，lead 裁定）：腿 A 生成器派生（前缀枚举 + 登记表；
 #      裸 `mkdtemp()` → 系统默认前缀 `tmp`，列为**弱前缀**并单独 WARN，因为它会撞上无关目录）、
-#      腿 B **形态派生**（`_SHAPE_RULE`：顶层目录下恰好一个子目录 + 该子目录内有 config.json
-#      + 顶层下至少存在一个 `*.log`，**不看名字、不要求 log 非空**）。**必须打印扫描面**——
+#      腿 B **形态派生**（`_SHAPE_RULE`：**顶层或其一层子目录**内有 `config.json` + 顶层下
+#      至少存在一个 `*.log`，**不看名字、不要求 log 非空**）。**必须打印扫描面**——
 #      实测：112 个顶层目录上腿 A = **0**、腿 B = **20**，20 个全在腿 A 命中之外；若把签名
 #      写成"log 非空"则只覆盖 11/20。那 20 个的名字（`icon-probe-*`/`smoke-proof-*`/
 #      `reme-gate-2.2.0`/`tmp*`）**在四个工具源码里一个字都搜不到**（裸 mkdtemp 的默认前缀、
 #      或扫描范围之外的探针脚本）——"前缀法 0 命中"与"真没泄漏"在输出上完全同形，这就是
 #      "判据可以自己假绿"。20 个已登记为负样本回归集 `_TEMP_REGRESSION_20260919`。
+#      ⚠️ **2026-09-19 放宽**（lead 报固定名 scratch 目录漏检后，用合成形状实测发现）：
+#      旧签名多写了一条"**恰好一个子目录**"，而那是**形状的偶然特征、不是不变量**——
+#      任何多一个子目录（如 `ui-icons/`）的数据根都会隐身。合成形状实测：`log/{config.json,
+#      app.log}` HIT、**加一个 `ui-icons/` → MISS**、**config 摆在顶层 → MISS**（后两者都是真实形态）。
+#      放宽后当日 93 个顶层目录实测：旧 4 命中 / 新 7 命中，**新增的 3 个是 `marker-e2e-*`**
+#      （此前完全不可见的残留，不是误报）；FP 的残余风险 = 任何"带 config.json 与 log"的
+#      外来程序临时目录（`tmp*` 是 Python `mkdtemp()` 的默认前缀，故弱前缀仍单独 WARN）。
 #   ④ 新增运行期取证/验收（只读）：`--temp-leak`（列出 %TEMP% 命中，**永远 exit 0**——
 #      历史存量会让它恒红，那是取证不是判据）、`--temp-leak-save` / `--temp-leak-baseline`
 #      （**增量断言**：只对"跑测试期间新增"报红，残留免疫）。这才是 lead 定的验收口径
@@ -123,7 +130,7 @@
   sync_check.py        只管「拷贝件与模板正本是否一致」（哈希级）
   conformance_check.py 管「条款是否落地」（语义级，但仍要求可机械判定）
 
-设计纪律 ①–⑤（来自 2026-09-19 首轮审计的教训；**索引与正文必须一致**——索引缺条目本身
+设计纪律 ①–⑦（来自 2026-09-19 首轮审计的教训；**索引与正文必须一致**——索引缺条目本身
 就是"文档说谎"）：
   ① 只写**能给出证据**的检查；判不了的宁可 WARN，不硬判 FAIL——误判会让人不再信任工具；
   ② 每条检查的输出必须带 `文件:行号` 或实际值，否则等于没说；
@@ -144,6 +151,23 @@
      加"同一语句块"→ 漏掉正典、命中 0；加"最近一条赋值"→ 落在 `except` 里的 `detail = ""`
      上，命中 4、**漏了 reme**；改成"遍历所有先前赋值"才 5/5 全真。**"收紧条件"不能靠加限定词
      的直觉**。推论：**样本必须抄真实现场的形状**——用想象的形状写样本，会得到"全绿但漏真案"。
+  ⑥ **判据报"ok / 不适用 / 0 命中"时，必须同时给出它的扫描面**（2026-09-19 加，lead 依
+     tpl-keeper 的实证升级）：**"只报 0 命中"与"确实没有"在输出上不可区分**——本族反复栽
+     的形状。**"没命中 ≠ 没问题"**。实证（C-30 首版自犯）：只认裸调用 `X = mkdtemp(...)`，
+     于是 reme 的 `root = Path(tempfile.mkdtemp(...))` **被静默跳过**——**最该被检的文件被判成
+     "本条不适用"**；改按"赋值右侧含 `mkdtemp(`"+认包装调用点后 → reme 1 / l-s2t 9 / dsh 6 /
+     ocx 6。落地：ok/不适用分支必须打印"扫了哪些路径、候选几个、命中几个"（`--temp-leak` 是
+     范例），**样本要断言这个数字**，否则"扫了 0 个文件"会伪装成绿。
+     同族三条各管一面：④ 管**输入形态**（不认识 ≠ 违规）、§4.1.18 管**适用范围**（判据存在 ≠
+     在范围内）、⑥ 管**覆盖**（没命中 ≠ 没问题）。
+  ⑦ **同一件事只允许一份判据：禁止自造第二套"加强版"**（2026-09-19 加，lead 裁定后立）：
+     两份判据会各自漂移、各自误报，最后由"**没人知道该信哪个**"——**判据自己成为新的漂移源**，
+     与 §4.1.18"索引缺条目本身就是盲区"并列。实证：复核员的 C-30 增强草案未到时，本文件作者
+     **拒绝**并行自造一版"加强版前缀判据"；后到的草案必须**合并进同一个检查**，不并存。
+     同族第二形态（lead 当日更正）：**"判据的机制"与"取证的方法"不能混成一句话**——C-30 从
+     第一版起就是**读源码判定**，而"枚举前缀再回查 `%TEMP%`"是**一次性的取证方法**。
+     落地：新增检查前先问"这条是否已有实现/草案"；有则扩展那一个（或等它）。
+     与 ④⑥ 的分工：④ 输入形态、⑥ 覆盖、⑦ 唯一性——三条一起堵住"判据自己变成漂移源"。
 
 用法：
   python my-diy-tool-template/conformance_check.py                  # my_diy_tools 下全部工具
@@ -168,6 +192,31 @@ try:  # Windows 控制台默认 GBK，中文检查标题会变乱码
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
     pass
+
+def repo_identity(path) -> str:
+    """`repo=<name> rev=<short sha> dirty=<yes|no>` —— **被检仓库**的修订与脏净。
+
+    为什么必须逐仓库打一行（lead 2026-09-19，采用 ls2t-dev 的形态）：只印 checker 自身
+    身份，仍看不出"这条结论建立在哪个修订、是否建立在**未提交**改动上"——有人贴过工作区态
+    的 `[ok]` 却没声明，复核者无从判断。`dirty=yes` 一栏**一行暴露**"结论建立在未提交改动上"。
+    取不到 git 就印 `?`（非 git 目录 / 无 git / 超时都不许让判据崩）。
+    """
+    import subprocess as _sp
+    path = Path(path)
+    rev, dirty = "?", "?"
+    try:
+        r = _sp.run(["git", "-C", str(path), "rev-parse", "--short", "HEAD"],
+                    capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            rev = r.stdout.strip()
+            s = _sp.run(["git", "-C", str(path), "status", "--porcelain"],
+                        capture_output=True, text=True, timeout=5)
+            if s.returncode == 0:
+                dirty = "yes" if s.stdout.strip() else "no"
+    except Exception:
+        pass
+    return "repo=%s rev=%s dirty=%s" % (path.name, rev, dirty)
+
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = Path(__file__).resolve().parent
@@ -1770,19 +1819,34 @@ _TEMP_REGRESSION_20260919 = {
 #   * 若把签名写成"`log/*.log` **非空**"则只覆盖 **11/20**——漏掉的全是 log 为 0 字节的
 #     那一批（dsh 3 + ocx 5 + tmp2k2z1nt2）。**空文件/空目录同样是残留**，
 #     这正是 C-30 从第一版起就坚持的口径（"清理跑过了 ≠ 清理成功了"）。
-_SHAPE_RULE = ("顶层目录下**恰好一个子目录**，该子目录内有 `config.json`，"
-               "且该顶层目录下**至少存在一个 `*.log`**（不要求非空）")
+_SHAPE_RULE = ("顶层目录**或其一层子目录**内有 `config.json`，且该顶层目录下**至少存在一个 `*.log`**"
+               "（不要求非空；**不要求「恰好一个子目录」**——那是形状的偶然特征，"
+               "2026-09-19 合成形状实测漏掉两种真实形状，见 `_shape_hits`）")
 
 
 def _shape_hits(T: Path):
-    """腿 B：按**结构签名**找残留（不看目录名，免疫命名猜测）。"""
+    """腿 B：按**结构签名**找残留（不看目录名，免疫命名猜测）。
+
+    签名 = "**隔离数据根**"的不变量：`config.json` 在**顶层或它的一层子目录**里，
+    且顶层下**至少存在一个 `*.log`**（不要求非空）。
+
+    2026-09-19 放宽（lead 报"固定名 scratch 目录被漏掉"后**用合成形状实测**）：
+    **旧签名要求"恰好一个子目录"——那是形状的偶然特征，不是不变量**。任何多写一个子目录的
+    数据根都会隐身。四种合成形状上的旧签名结果：
+      A `log/{config.json,app.log}`                     → HIT（当时标定用的基准形状）
+      B A + `ui-icons/a.png`（**两个子目录**）           → **MISS**
+      C `{config.json}` + `log/app.log`（config 在顶层）→ **MISS**
+      D `log/app.log`（无 config）                       → MISS（**正确**：不是数据根）
+    真实案例：lead 报的四个 reme 固定名残留里有两个带 `ui-icons\\*.png` ⇒ **旧签名抓不到**；
+    而"它们曾被写进回归集"**不等于**"腿 B 抓到了它们"（当时写的是两腿**并集**）。
+    """
     hits = []
     for d in sorted(T.iterdir()):
         if not d.is_dir():
             continue
         try:
-            subs = [e for e in d.iterdir() if e.is_dir()]
-            if len(subs) != 1 or not (subs[0] / "config.json").is_file():
+            if not (d / "config.json").is_file() and not any(
+                    (s / "config.json").is_file() for s in d.iterdir() if s.is_dir()):
                 continue
             if not any(f.is_file() for f in d.rglob("*.log")):
                 continue
@@ -1843,8 +1907,11 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
     all_prefs = sorted(set(all_prefs))
     T = Path(tempfile.gettempdir())
 
+    print(identity_line())   # 取证输出也要自证身份
     print("== 扫描面 ==")
-    print("  目录: %s" % T)
+    # 扫描面必须**可比对**：`%TEMP%` 经环境变量常是 8.3 短名（`ADMINI~1`），
+    # 两个人各贴一份输出会对不上"是不是同一个根"。故同时打印解析后的规范长路径。
+    print("  目录: %s   （解析后: %s）" % (T, Path(T).resolve()))
     print("  腿 A 前缀 %d 个（从源码枚举 + 登记表；其中弱前缀 %d 处来自裸 mkdtemp）"
           % (len(all_prefs), len(all_weak)))
     print("  腿 B 规则: %s" % _SHAPE_RULE)
@@ -2070,6 +2137,64 @@ def c33(c: Ctx):
 def c33_template(c: Ctx):
     """模板侧只扫 `modules/**`——那是会被拷进工具的正本代码（含渲染 bat 的 `.py` 模板）。"""
     return check_ping_tick(c.dir / "modules")
+
+
+# ---------------------------------------------------------------- C-36
+# 归一化算子的**性质断言**（lead 提议，2026-09-19）。为什么用性质、不用冻结哈希：
+# 冻结某个文件的哈希，会在那个文件正常演进时误报；而**"行尾不敏感"是算子的定义性质**，
+# 与样本文件无关。另外必须有**判别控制**——否则"恒返回常数"的实现也能通过。
+#
+# 背景（复核员用自己的实现算出假红 `e636cb41bf50`）：同一份内容的三种行尾（LF/CRLF/CR）
+# 必须得到**同一个**哈希；而 naive 的 `split("\n")` 会给出不同的值（CRLF 的行尾会带 `\r`）。
+# ⚠️ 下面那个 `_naive_split_hash` 是**判别控制**，不是"第二套判据"（设计纪律 ⑦）：
+#    它的职责是**必须算出不同的值**，用来证明本条判据有区分力。
+_NAIVE_META = re.compile(r"^\s*#\s*TEMPLATE-")
+
+
+def _naive_split_hash(text):
+    """判别控制：与 `sha256_text` 只差一个算子（`split("\\n")` 而非 `splitlines()`）。"""
+    import hashlib
+    return hashlib.sha256("\n".join(
+        l for l in text.split("\n") if not _NAIVE_META.match(l)).encode("utf-8")).hexdigest()
+
+
+def eol_insensitive_ok(fn, text):
+    """性质：`fn` 对同内容的 LF/CRLF/CR 三种行尾给出**同一个**哈希，且**不等于** naive 控制值。"""
+    base = text.replace("\r\n", "\n").replace("\r", "\n")
+    got = {"LF": fn(base),
+           "CRLF": fn(base.replace("\n", "\r\n")),
+           "CR": fn(base.replace("\n", "\r"))}
+    naive = _naive_split_hash(base.replace("\n", "\r\n"))
+    uniq = set(got.values())
+    ok = len(uniq) == 1 and list(uniq)[0] != naive
+    detail = "三种行尾 %s | 判别控制(naive split) %s -> %s" % (
+        "/".join("%s=%s" % (k, v[:12]) for k, v in got.items()), naive[:12],
+        "行尾不敏感且有区分力" if ok else "**不满足**（或与 naive 同值 ⇒ 无区分力）")
+    return ok, detail
+
+
+@template_check("C-36", "FAIL", "归一化算子必须行尾不敏感（性质断言 + 判别控制）")
+def c36_template(c: Ctx):
+    """模板侧性质判据：**断言性质，不描述算子**——这样收方不必读懂散文，改坏了会先响。
+
+    扫描面（设计纪律 ⑥）：算子名 + 样本文件 + 三种变体的哈希 + 控制值，全部打印。
+    """
+    import importlib.util
+    mods = c.dir / "modules"
+    samples = sorted(p for p in mods.rglob("*.py") if p.is_file()) if mods.exists() else []
+    if not samples:
+        return False, "扫描面：模板 modules/ 下 0 个 .py，取不到样本（判据不适用）"
+    sc_path = Path(__file__).resolve().parent / "sync_check.py"
+    try:
+        spec = importlib.util.spec_from_file_location("_tpl_sync_check_c36", sc_path)
+        sc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sc)
+    except Exception as exc:                       # noqa: BLE001
+        return False, "扫描面：import sync_check 失败：%r" % (exc,)
+    text = samples[0].read_text(encoding="utf-8", errors="replace")
+    ok, detail = eol_insensitive_ok(sc.sha256_text, text)
+    return ok, ("扫描面：算子=sync_check.sha256_text（%d 个候选 .py 取第 1 个）样本=%s | %s"
+                % (len(samples), samples[0].relative_to(c.dir).as_posix(), detail))
 
 
 # ---------------------------------------------------------------- C-31
@@ -2588,7 +2713,9 @@ def selftest() -> int:
             ("icon-probe-077hxtaw", True, True, 1),    # 回归集真名 → 必须命中
             ("smoke-proof-nl6gj9kf", True, True, 1),   # log 为 0 字节也算（宽松口径）
             ("plain-scratch", True, False, 1),         # 有 config.json 无 log → 不命中
-            ("two-subs", True, True, 2),               # 子目录不唯一 → 不命中
+            # 2026-09-19 放宽后 `two-subs` **必须命中**：两个子目录的数据根（如多了
+            # `ui-icons/`）是 lead 报的真实形态，旧签名"恰好一个子目录"会把它漏掉。
+            ("two-subs", True, True, 2),               # 子目录不唯一 → **命中**（契约放宽）
             ("no-config", False, True, 1),             # 无 config.json → 不命中
         )
         for dirname, cfg, log, nsubs in cases:
@@ -2600,9 +2727,15 @@ def selftest() -> int:
                     (sub / "config.json").write_text("{}", encoding="utf-8")
                 if log:
                     (sub / "log" / "app.log").write_bytes(b"")   # 0 字节：仍算残留
+        # `config.json` 直接摆在顶层（另一种真实形状）→ 也必须命中。
+        _ct = fake_tmp / "config-at-top"
+        (_ct / "log").mkdir(parents=True)
+        (_ct / "config.json").write_text("{}", encoding="utf-8")
+        (_ct / "log" / "app.log").write_bytes(b"")
         (fake_tmp / "just-a-file.txt").write_bytes(b"x")
         got_shape = set(_shape_hits(fake_tmp))
-        want_shape = {"icon-probe-077hxtaw", "smoke-proof-nl6gj9kf"}
+        want_shape = {"icon-probe-077hxtaw", "smoke-proof-nl6gj9kf",
+                      "two-subs", "config-at-top"}
         good = got_shape == want_shape
         failed += 0 if good else 1
         print("[selftest] %s  C-30/shape %s: got=%s want=%s"
@@ -2671,6 +2804,30 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-33 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-36：归一化算子的性质断言。样本 2 条——
+        #   ① 真算子（sync_check.sha256_text）→ 必须 ok；
+        #   ② **变异算子**（把 `splitlines()` 换成 `split("\n")`）→ 必须**不 ok**。
+        # 第 ② 条就是"判别力"的自证：少了它，一个恒返回常数的实现也能让 ① 通过。
+        import hashlib as _hl
+        import importlib.util as _ilu
+        _sc_path = Path(__file__).resolve().parent / "sync_check.py"
+        _spec = _ilu.spec_from_file_location("_tpl_sc_c36_selftest", _sc_path)
+        _sc = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_sc)
+        _c36_text = "# TEMPLATE-MODULE: demo | TEMPLATE-VER: 1.0.0\nalpha = 1\nbeta = 2\n"
+
+        def _mutated_split(text):        # 只改算子：splitlines() -> split("\n")
+            return _hl.sha256("\n".join(
+                l for l in text.split("\n") if not _NAIVE_META.match(l)).encode("utf-8")).hexdigest()
+
+        for name, fn, want in (("real_operator_eol_insensitive", _sc.sha256_text, True),
+                               ("mutated_split_lacks_power", _mutated_split, False)):
+            ok, detail = eol_insensitive_ok(fn, _c36_text)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-36 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-31：派发件行尾。正 / 负样本各一，另加一条"范围"样本——
         # 模板专属目录（build_release/）里的 LF 不算，防止判据扩成"模板全仓"后误伤。
@@ -2782,6 +2939,7 @@ def main() -> int:
     if trows:
         print("=" * 78)
         print("%s  (模板正本, 只跑 TEMPLATE_CHECKS)" % TEMPLATE_DIR.name)
+        print("  " + repo_identity(TEMPLATE_DIR))   # 被检仓库的修订与脏净（dirty=yes 一行暴露）
         print("=" * 78)
         fails, warns = _print_rows(trows, fails, warns)
         print()
@@ -2794,6 +2952,7 @@ def main() -> int:
         c, rows = run_tool(name, only)
         print("=" * 78)
         print("%s  (APP_ID=%s)" % (name, c.app_id))
+        print("  " + repo_identity(tool_dir))   # 每个 --roots 仓库各一行：rev + dirty
         print("=" * 78)
         fails, warns = _print_rows(rows, fails, warns)
         print()

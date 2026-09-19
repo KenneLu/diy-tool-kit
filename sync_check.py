@@ -1,4 +1,4 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.2
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.3
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
 # 1.8.2：E 组补第二条可达路径——**回铺源为空**（SNAPSHOT 没内容）+ 替换失败：真跑一场
@@ -114,6 +114,48 @@ LEGACY_ALIAS = {
     "tray_kit.py": "modules/tray_kit/tray_kit.py",
     "log_kit.py": "modules/log_kit/log_kit.py",
 }
+
+
+def repo_identity(path) -> str:
+    """`repo=<name> rev=<short sha> dirty=<yes|no>` —— **被检仓库**的修订与脏净。
+
+    只印 checker 自身身份，看不出"这条结论建立在哪个修订、是否建立在**未提交**改动上"
+    （lead 2026-09-19，采用 ls2t-dev 的形态）。取不到 git 就印 `?`：非 git 目录 / 无 git /
+    超时都不许让判据崩。两个 checker（本件与 conformance_check）都打这一行。
+    """
+    import subprocess as _sp
+    path = Path(path)
+    rev, dirty = "?", "?"
+    try:
+        r = _sp.run(["git", "-C", str(path), "rev-parse", "--short", "HEAD"],
+                    capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            rev = r.stdout.strip()
+            s = _sp.run(["git", "-C", str(path), "status", "--porcelain"],
+                        capture_output=True, text=True, timeout=5)
+            if s.returncode == 0:
+                dirty = "yes" if s.stdout.strip() else "no"
+    except Exception:
+        pass
+    return f"rev={rev} dirty={dirty}"
+
+
+def identity_line() -> str:
+    """checker 自身身份：`# sync_check <VER> sha256:<raw> norm:<norm>`（运行时自算）。
+
+    写死的哈希会自己过期——那正是它要解决的问题；两种口径都给（`.py` 比对用 norm、
+    `.md` 用逐字节，见 ALIGNMENT §0），只印一种迟早被人拿另一种去对。
+    """
+    import hashlib
+    import re as _re
+    raw = Path(__file__).read_bytes()
+    text = raw.decode("utf-8", "replace")
+    norm = "\n".join(ln for ln in text.splitlines()
+                     if not _re.match(r"^\s*#\s*TEMPLATE-", ln))
+    m = _re.search(r"TEMPLATE-VER:\s*([\d.]+)", text[:2000])
+    return ("# sync_check %s  sha256:%s  norm:%s"
+            % (m.group(1) if m else "?", hashlib.sha256(raw).hexdigest()[:12],
+               hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12]))
 
 
 def sha256_text(text: str) -> str:
@@ -828,11 +870,15 @@ def main() -> int:
             missing.append((name, tool_file, rel))
             print(f"[MISS ] {name}/{leaf} -> {TEMPLATE_DIR.name}/{rel} 不存在")
 
+    print(identity_line())   # checker 自身身份（VER + 两种哈希）
+
     for name in args.roots:
         tool_dir = ROOT / name
         if not tool_dir.is_dir():
             print(f"[skip]  {name}: no such dir")
             continue
+        # 被检仓库的修订与脏净：`dirty=yes` 一行暴露"这条结论建立在未提交改动上"
+        print(f"[repo] {name}: {repo_identity(tool_dir)}")
         is_blueprint = name in BLUEPRINTS
         if is_blueprint:
             print(f"[bp  ] {name}: blueprint —— 逐文件比对，落后报 [lag]（不阻断）")

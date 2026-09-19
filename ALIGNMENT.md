@@ -384,6 +384,20 @@ CONFORMANCE §4.1.5 的"模板回退"已闭环）——l-s2t 的 `_CONFIG` OVERR
 
 ### T-service_link · service_link.py（模板 0.1.0）
 
+> **状态块（2026-09-19 复核，防止每轮把它当新待办重问）**
+> - **reme-helper：整文件夹已采纳**（`src/modules/service_link/{service_link.py,__init__.py,README.md}`，
+>   与正本归一化一致），但**仍未接线**——状态不是记在本文里，而是**记在代码旁边**：
+>   该目录下的 **`NOT-WIRED.md`**（reme 本地文件、无模板对应物，明文写"全仓库没有任何调用点，
+>   不要把它当成活代码；接线完成之日删除本文件"）。**要判断"在不在役"，读那个文件，别读本文。**
+> - **l-s2t / dsh / ocx：`MISSING-MODULE`，按 §B4 属于"待裁定"而非"已接受差异"**——
+>   **不能**登记进 §3"不应对齐"清单：那条路要求两条前提之一（业务冲突 / 可验证的更优方案），
+>   而现状是 dsh 与 ocx **确有**"托管服务"业务（现内联在各自 `main.py` 的 start/stop 菜单里），
+>   按前提 ① 的口径**"没有功能"才算缺失**、有功能而不接是**未获允许的缺口**；l-s2t 无服务托管业务，
+>   属"**模板件不适用**"，与"缺口"是两回事（这条区分本身也该由 lead 落成口径）。
+>   ⇒ `sync_check` 报的这三条 `[MISSING-MODULE]` **是已登记的在册项，不是新发现的待办**；
+>   它们随 REVIEW 发现 #8 / §G4.2 能力落地一起裁定。
+> - 本文下面两条（"散文件 + 未接线"、"`MISSING` 待裁定"）写于文件夹化之前，**散文件**一句已过期。
+
 - **reme-helper `SAME` 但散文件 + 未接线（典型"SAME ≠ 在役"）**
   - 精确位置：`reme-helper/src/modules/service_link.py`（散文件，正确布局应为
     `src/modules/service_link/service_link.py` + `__init__.py`）；`main.py` 全文**无** `import service_link`、
@@ -756,3 +770,31 @@ per-app"的接口设计。按 B4 记 `[decl]`：**差异已知、理由充分、
 （含 rc 判定/证据保留/marker），**不动 paths**；② 再让 l-s2t 改调它并删 fork（单工具、可回退）；
 ③ 最后删 `paths` 里的旧函数并做 5 份级联。**②③ 之间不要交叉**，避免"模板已改、工具未改"
 的中间态被误判为漂移。
+
+### 7.5 `icons` 形态差异（l-s2t / dsh / ocx 为**构建期脚本形态**；已评估，接受）
+
+**登记（ls2t-dev 起草、lead 核对、tpl-keeper 按其口径复核数值）**：三个工具（l-s2t / dsh / ocx）的
+`icons` 是**构建期脚本形态**——`src/icons.py`，由 `build.bat` 以 `"%PY%" src\icons.py` 执行，
+**没有任何模块 import 它**；模板是**包形态**（`modules/icons/`，`__init__.py` 提供
+`from .icons import *`，服务的是"包内导入"这种用法）。
+
+**代码本体除第 2 行申报头（工具 `TEMPLATE-FROM` / 模板 `TEMPLATE-MODULE`）外逐字节一致，
+归一化哈希相等**——**四方归一化 sha256 均为 `4294a7a9ba8e86a8`**（2026-09-19 现场复算：
+模板 + dsh + l-s2t + ocx 四方同值）。`sync_check` 的 `[MISSING-FILE]` 是**形态副产物，不是缺口**。
+迁移成包会改动 `build.bat` 的调用路径与 `py_compile` 清单，**为纯形态收益承担破坏构建的风险，不值**。
+
+> ⚠️ **本登记刻意不引用 raw sha256 作锚点，理由要留住**（否则下一个人会"复核对不上"而重开此格）：
+> ① **raw 值逐副本不同**（每个副本的申报头不一样，内容本身相同）——实测 l-s2t/ocx `83d0e87aabba7b3f`、
+> dsh `756de8b408bd526c`，三者就不一致；② **raw 值会随行尾波次整体变化**：模板 `icons.py` 在本轮
+> CRLF 转换前是 `298b447af163…`、转换后是 `98b21c55c4a0d806`，而**归一化哈希两次都不变**（行尾归一 + 剔头，
+> 正是 `sync_check` 的算子）；三份副本重拷 CRLF 版后 raw 也会再变一轮。
+> **结论：本格的可复核锚点是"归一化 sha256 = `4294a7a9ba8e86a8`"，不是任何 raw 值。**
+> 与 STANDARDS §D7 第 10 条同源：**锚点要选"能唯一识别那一份、且不随无关改动漂移"的那个。**
+
+**后续义务**：下一轮由 tpl-keeper 评估"模板是否该把 `icons` 的包门面简化掉"——目前**无消费方
+以包方式导入它**（三工具的用法都是"构建期执行脚本"，reme 侧整模块未采纳）。评估结论落回本格。
+
+> **与 `[MISSING-MODULE]` 的关系（避免每轮把它当新待办）**：`sync_check` 对 l-s2t/dsh/ocx 报的
+> `modules/icons/{__init__.py,README.md}` 缺失 = **本格已登记的形态副产物**；
+> reme 报的 `modules/icons/` 整模块缺失 = **§7.3 已关格**（reme 走内联，语义 diff 已逐项对齐）。
+> 两者都**不是**待办。
