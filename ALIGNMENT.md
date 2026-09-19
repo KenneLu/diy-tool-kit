@@ -33,9 +33,10 @@ CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__
 > `# TEMPLATE-FROM:` 静默吞掉，使"带头/不带头"都判相等。故 `.md`：要么 `[ok]`，要么 `[DIFF]`，
 > **绝不产生 `[NOHDR]`**，也不参与头/VER 判定。
 > **唯一例外（模块级 OVERRIDE）**：同模块任一 `.py` 已申报 `TEMPLATE-LOCAL-OVERRIDE` 时，
-> 整模块属有意分叉，其 README 不可能一致 → 记 `[decl]`（已申报），不记 `[DIFF]`
-> （实例：reme 重形态 `i18n/`）。输出带**申报来源**（如 `(declared via __init__.py)`），
-> 让"有意分叉"与"漏拷"一眼可分。`[NOHDR]` **仅保留给 `.py`**。
+> 整模块已申报差异，其 README 不可能一致 → 记 `[decl]`（已申报），不记 `[DIFF]`
+> （实例：reme 重形态 `i18n/`）。**注意：`[decl]` 只表示"差异已留痕"，不表示"差异获准"**
+> （获准只有两条前提，见 §3 首段）；输出带**申报来源**（如 `(declared via __init__.py)`），
+> 让"已申报差异"与"漏拷"一眼可分。`[NOHDR]` **仅保留给 `.py`**。
 >
 > **反向自证（已固化为可重复执行的回归样本）**：`python my-diy-tool-template/sync_check.py --selftest`
 > —— A 带头 `.md` → `[DIFF]`；B 逐字节相同 → `[ok]`；C 模块 `.py` 带 OVERRIDE 且 README 不同
@@ -75,7 +76,8 @@ python my-diy-tool-template\conformance_check.py --roots reme-helper
 `0 undeclared drift, 0 blueprint lag(s), 3 declared override(s), 4 param file(s),`
 `0 doc byte-diff(s), 0 no-header mismatch(es), 9 missing module(s), 6 missing file(s)`。
 3 条 `[decl]` = reme `i18n/` 整模块（`i18n.py`、`__init__.py`、`README.md`）
-——重形态有意分叉，README 随模块一并 `[decl]`；6 条 `MISSING-FILE` = dsh/l-s2t/ocx
+——reme 重形态 `i18n`（**方案差异，依据见 §3.2**），README 随模块一并 `[decl]`；
+6 条 `MISSING-FILE` = dsh/l-s2t/ocx
 各缺 `icons/README.md` 与 `icons/__init__.py`（icons 包化波次的已知缺口，保持黄灯）。
 `[DIFF]`、`[NOHDR]` 均归零。
 模板升位瞬间曾出现 **4 条红灯**（dsh/ocx 各 2 条：`paths` 1.1.2→**1.1.3**、`tray_kit`
@@ -357,43 +359,63 @@ CONFORMANCE §4.1.5 的"模板回退"已闭环）——l-s2t 的 `_CONFIG` OVERR
   - 改动清单：**待 lead 裁定**各工具是否接 `ServiceLink`；若接，属新能力开发，另立任务。
   - 风险：**高**（进程生命周期）。负责人：lead 决定。
 
-## 3. 明确**不应**对齐的清单（合法分叉）与 OVERRIDE 文案
+## 3. "不应对齐"清单（**必须逐条给依据**，2026-09-19 用户裁定后重判）
 
-以下差异是设计意图，不收敛；但必须**头部申报**，否则 sync_check 视为未申报漂移（蓝本记 `[lag]`）。
+> **允许不一致的前提只有两条**（STANDARDS B4 / CONFORMANCE §4.4）：
+> ① **业务冲突**（前提是**双方都有该功能**；"没有功能"是缺失、必须补齐）；
+> ② **有更好的方案**（须给**可验证的**更优理由）。
+> 两条的共同义务：**事后必须评估"能否优化模板以吸收该差异"**。
+> `TEMPLATE-LOCAL-OVERRIDE` 是**留痕**、**不是豁免理由**；**排期（波次）不是许可**。
+> **没有依据的条目必须移出本清单**——清单外的差异一律记"未获允许的缺口"。
 
-### 3.1 appconfig.py —— 参数文件（豁免机制，非 OVERRIDE）
+| 条目 | 判定 | 依据 |
+|---|---|---|
+| `appconfig.py` 参数文件 | 保留 | **设计上的一致形态**（模板机制本身允许：T1 就为每工具一份参数而设，D6/D15）——**不是**"允许不一致" |
+| reme 重形态 `i18n` | 保留（前提 ②） | 双方**都有** i18n 功能 → 属**方案差异**；reme 需 `pairs.json`（中文即键）+ 整句最长片段替换（百条级）。**吸收评估：暂不吸收**（模板内并存两套查表引擎，成本>收益）；义务保留 |
+| ~~dsh `ICON_ASSET`~~ | **移出清单** | 模板 `icons` 2.0.0 **已原生支持** `ICON_ASSET` → **差异已被模板吸收**，不存在"不对齐" |
+| ~~l-s2t `updater` 稳定位变体~~ | **移出清单，改记"未采纳缺口"** | 实测**不构成业务冲突**：同为 `INSTALL_DIR` 目标的"查→下→校验→换"三段式（含 sha256），差异仅签名与 repo 来源（后者**模板可吸收**）→ 按原则③应收敛，当前记 `[MISSING-MODULE]` |
+
+### 3.1 appconfig.py —— 参数文件（**设计豁免**，非"业务冲突"）
 `appconfig.py` 是 D6/D15 唯一的"可改文件"，四份取值本就不同。`sync_check` 对 `appconfig.py`
-命中 `[param]`（先于 `[decl]` 判定），**无需**写 OVERRIDE。唯一要求：差异**只**是参数，
-不得塞逻辑（reme 的 `ICON_DRAW 不启用` 已用 OVERRIDE 说明，属边界情况，保留）。
+命中 `[param]`（先于 `[decl]` 判定），**无需**写 OVERRIDE。依据是**模板机制本身允许**
+（T1 即为"每工具一份参数"而设计），**不是**"业务冲突/更好方案"这两条前提。
+唯一要求：差异**只**是参数，不得塞逻辑（reme 的 `ICON_DRAW 不启用` 已用 OVERRIDE 说明，属边界情况）。
 l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计。
 
-### 3.2 reme-helper i18n —— 重形态
-- 分叉性质：词表 = `pairs.json`（中文即键），模板为轻量 `zh/en` 双表。
-- 依据：STANDARDS §E4 明示许可；`conformance_check.py` C-20 对 `pairs.json` 直接放行。
+### 3.2 reme-helper i18n —— 重形态（**前提 ②：更好的方案**，附吸收评估）
+- 判定依据：**双方都有 i18n 功能**，故**不是**"业务冲突"；属**方案差异**，走前提 ②。
+- 分叉性质：词表 = `pairs.json`（中文即键）+ 整句最长片段替换；模板为轻量 `zh/en` 双表。
+  量级差异是硬事实（reme 百条级文案），STANDARDS §E4 亦明示许可两种形态。
+- **模板能否吸收（必答项）**：**暂不吸收**——吸收需在模板内并存两套查表引擎（键查 + 片段替换），
+  复杂度与维护成本大于收益；**义务保留**：reme owner 持续提供可验证的更优理由，模板侧持续评估。
 - 所需 OVERRIDE 文案（加到 `src/modules/i18n/i18n.py` 头部）：
   ```
-  # TEMPLATE-LOCAL-OVERRIDE: 重形态（词表 = pairs.json 中文即键，STANDARDS §E4 许可）；
-  #   模板轻量双表形态不适用于 reme 的整句最长片段替换语义
+  # TEMPLATE-LOCAL-OVERRIDE: 重形态（词表 = pairs.json 中文即键 + 整句最长片段替换，
+  #   STANDARDS §E4 许可）；属方案差异（前提②），模板吸收评估=暂不吸收，义务保留
   ```
 
-### 3.3 local-speak2text updater —— 稳定位变体
-- 分叉性质：`update.pending.json` + 退出后换目录（延迟），模板 `apply.cmd` 立即换。
-- 所需 OVERRIDE 文案（加到 `src/updater.py` 头部）：
-  ```
-  # TEMPLATE-LOCAL-OVERRIDE: 稳定安装位变体——下载后写 update.pending.json 由退出流程换目录，
-  #   与模板 apply.cmd「退出后 robocopy /MIR」时序不同；签名 check_update(config_path, force) 亦不同
-  ```
+### 3.3 ~~local-speak2text updater —— 稳定位变体~~ → **已移出：这是未采纳的缺口**
+- 实测证据（`local-speak2text/src/updater.py`）：目标同为 **`INSTALL_DIR`**（稳定安装位），
+  流程同为"查 GitHub Releases → 下载 zip + sha256 校验 → 暂存 → 退出后整目录替换"，
+  **与模板 `update_helper` 不构成业务冲突**。
+- 真实差异只有两点：① 签名 `check_update(config_path, force)` vs `check_update(current_version, force)`；
+  ② repo 来源 = 运行时 `config.update_repo` vs appconfig 固定 `REPO_OWNER/REPO_NAME`。
+  其中 ② **是模板可吸收的一条**（让 `REPO` 可被 config 覆盖）→ 按原则③应**收敛**。
+- 当前状态：`sync_check` 记 `[MISSING-MODULE]`（黄灯缺口），**不是**"不应对齐"。
+- 若 l-s2t owner 仍主张"更好方案"，须给出**可验证**理由（如"运行时换源是交付需求"），否则应采纳模板件。
 
-### 3.4 dsh-helper ICON_ASSET
-- 分叉性质：图形来源是手工 png（`resources/img/dsh-helper-icon.png`），非纯代码绘制。
-- 现状：`dsh-helper/src/icons.py` **已**带 `TEMPLATE-LOCAL-OVERRIDE`，`appconfig.ICON_ASSET` 生效。
-- 结论：保持，**不动**。
+### 3.4 ~~dsh-helper ICON_ASSET~~ → **已移出：差异已被模板吸收**
+- 事实：模板 `icons` 2.0.0 **已原生支持** `ICON_ASSET`（`appconfig.ICON_ASSET` → `base_image()`
+  统一缩放 256 基图），dsh 只是把参数指向手工 png——**这正是模板设计的两种图形来源之一**。
+- 结论：不存在"不对齐"，**移出清单**；`dsh/src/icons.py` 与模板 `[ok]`，`ICON_ASSET` 属 `appconfig` 参数。
 
-### 3.5 reme-helper paths / tray_kit 现有 OVERRIDE
-- `log_kit.py`：已回基为 `SAME` 1.0.2，**不再有 OVERRIDE**（§T12）。
-- `paths.py`（dev `RUN_DIR`=仓库根）：已回基 1.1.2，该分叉继续以 OVERRIDE 保留（§T2）。
-- `tray_kit.py`（互斥体名显式传入）：2.0.1 正文已内置 `mutex_name` 参数，**复核后可撤销 OVERRIDE**
-  （撤销 = 直接对齐，属收敛收益）；当前因 VER 落后报 `[lag]`。
+### 3.5 reme-helper paths / tray_kit 现有 OVERRIDE（**逐条给依据**）
+- `log_kit.py`：已回基为 `SAME` 1.0.2，**不再有 OVERRIDE**（§T12）——差异已消灭。
+- `paths.py`（dev `RUN_DIR`=仓库根）：已回基 1.1.3。**判定**：前提 ②（更好方案）**待举证**——
+  reme 的诊断输出/图标需跟随"这次跑的那个包"，故 dev 态 `RUN_DIR` 与 `APP_DIR` 分离；
+  owner 须给出可验证理由，并回答"模板能否吸收（如把 dev `RUN_DIR` 变成可配置项）"。
+- `tray_kit.py`（互斥体名显式传入）：2.0.2 正文已内置 `mutex_name` 参数 → **差异已被模板吸收**，
+  **应撤销 OVERRIDE 直接对齐**（收敛收益）；当前因 VER 落后报 `[lag]`。
 
 ## 4. 执行顺序建议（低风险先做，力求一次编译通过）
 
