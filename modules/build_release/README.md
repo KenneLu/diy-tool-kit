@@ -15,6 +15,23 @@
    `tests.yml` 对所有分支的 push/PR 跑编译与测试。手动 `workflow_dispatch` 只出
    工件不发布。
 
+## 版本解析（阶段 0.1，**两步式**，改这里之前先看）
+
+```bat
+for /f "tokens=2 delims==" %%a in ('findstr /b /c:"VERSION = " <源文件>') do set VERSION=%%a
+if defined VERSION for /f "tokens=1" %%a in ("%VERSION:"=%") do set VERSION=%%a
+```
+
+- **禁用 `"tokens=2,*"`**：它把**行尾剩余全部**交给变量，于是
+  `VERSION = "1.4.0"  # 发版时才改` 会把注释一起吞进版本号（再经 cmd 代码页变乱码），
+  令 `RELEASE_DIR` 变垃圾路径、构建坏掉。两步式：先按 `=` 切，再去引号取首个空白分隔 token。
+- **端到端回归**：`python verify_build_bat.py`（模板专属，不派发）。它把本目录 `build.bat`
+  按文档填好占位符、放进临时工具骨架，用 cmd.exe **真实执行整个脚本**，四个样本断言：
+  两步式 + 行尾注释 → `1.4.0`；预置 `release\<APP>-1.4.0` → 按**这个解析出来的名字**拒绝；
+  换回旧写法 → 版本号里带上注释、且预置目录认不出（反向，防断言空转）。
+  为什么不做片段级测试：cmd 行为依赖上下文（setlocal/变量/代码页），抠两行单独跑通
+  **不能**证明它在脚本里也对。
+
 ## 采纳步骤
 
 1. 拷 `build.bat` / `release.bat` 到工具根；`workflows\` 拷到 `.github\workflows\`；

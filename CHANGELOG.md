@@ -2,6 +2,35 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (build.bat VERSION parse: end-to-end evidence, and a repeatable harness for it)
+
+Asked to swap the template's VERSION parse for the form that has **end-to-end** evidence
+(l-s2t's real `build.bat` run) rather than fragment-level evidence. The swap had already
+happened in the D1 round — the template's `build.bat`/`release.bat` have used the two-step
+form since `7da61e7`, and no `delims=^"` shape remains anywhere. What was missing was the
+**evidence level**, so this round adds it as an asset:
+
+- **`modules/build_release/verify_build_bat.py`** — the template `build.bat` is
+  instantiated per its documented usage (fill `<APP_ID>`/`<APP_ID_UC>`), dropped into a
+  throwaway tool skeleton under `%TEMP%`, and **executed for real by cmd.exe**; only phase 0
+  output is observed. Four samples, and the harness exits non-zero if any fails:
+  * **A** two-step parse + a `VERSION` line carrying a trailing CJK comment →
+    `[VERSION] 1.4.0  release: release\e2etool-1.4.0`;
+  * **B** pre-create `release\e2etool-1.4.0` → the script refuses **by that parsed name**,
+    so the parsed value provably drives a real filesystem judgement (phase 0.2);
+  * **C / B2** reverse: put the recorded old `"tokens=2,* delims=="` back → the version
+    becomes `"1.4.0"  # 发版时才?` (the comment swallowed, then mangled by the code page)
+    and the pre-created directory is **not** recognised. Without this pair the forward
+    assertions could pass vacuously.
+- **Why not a fragment test**: cmd behaviour depends on context (setlocal, variable state,
+  code page, `for /f` environment). The 1.2.0 `findstr`-prefix episode was exactly a
+  fragment that "looked right and was wrong in both branches". This harness runs the real
+  file, not an excerpt.
+- `modules/build_release/README.md` now documents the two-step form, why `"tokens=2,*"` is
+  banned, and the harness. Template-only directory (excluded from `sync_check`) — **no
+  cascade**; the two-step lines in the tools already match (l-s2t points at
+  `src\modules\appconfig\appconfig.py`, template at `src\main.py`: same shape, one source).
+
 ## 2026-09-19 (arbitration rule + update_helper rewritten to reme semantics, 1.1.0 → 1.3.0)
 
 The user set the rule for common-module conflicts, and it immediately changed a verdict:
