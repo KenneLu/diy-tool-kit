@@ -2,6 +2,32 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (ALIGNMENT: icons closed as [decl]; the second update path assessed)
+
+Two verdicts the lead asked for; **no code changed** for either.
+
+- **`icons` (7.3): closed as `[decl]`.** Function-by-function semantic diff against reme's
+  three inlined functions. The build-time half is **identical** — generation timing, artefact
+  names, `TRAY_SIZES`, `TASKBAR_SIZES` (value-for-value; the template source already cites
+  reme as the origin of that list), and the multi-frame `save(sizes=[...])` write. The
+  difference is the graphic itself: reme hardcodes its "R" mark, while the template injects
+  it per app via `ICON_DRAW(size)` / `ICON_ASSET` — that is the *definition* of the T6
+  extraction, so "make the template match reme" does not apply (it would bake one tool's
+  trademark into a shared module). Residual absorbable item, low priority: `icon_font()`'s
+  font fallback chain (only useful to tools that draw text).
+- **`paths.process_pending_update()` (7.4): assessed, not touched.** Template copy at
+  `paths.py:82-96` does destroy evidence (`os.system(robocopy /MIR)`, rc never read, then
+  unconditional `unlink` + `rmtree`). **One correction to the working assumption**: l-s2t does
+  **not** call that copy — `main.py:33` imports it from its own `updater.py:320`, a fork that
+  already implements everything the lead asked for (rc checked, `subprocess.run([...])`,
+  `/e /purge`, and on rc>=8 it keeps `pending` + staged files and writes the marker). dsh/ocx/
+  reme never call it at all. So the harm today is not "actively destroying" but "a landmine
+  shipped inside four copies plus a documented API". Absorption cost: 5-way `paths` cascade,
+  the `RUN_DIR`-based `UPDATE_PENDING` needs a data-dir home, and the two update paths
+  (startup catch-up vs exit-time bat) must be ordered or made mutually exclusive, otherwise
+  one update can be applied twice. Proposed order: land the stable-install entry in
+  `update_helper` → switch l-s2t and delete its fork → only then remove the `paths` copy.
+
 ## 2026-09-19 (tray_kit 2.2.0 — one validity criterion for all three; C-10 now AST-based)
 
 The lead's review of the 2.1.0 delivery asked for two things that were genuinely missing, so

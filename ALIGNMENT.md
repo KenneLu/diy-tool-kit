@@ -679,3 +679,66 @@ dsh/ocx 之所以采纳 1.0.x，是因为模板当时只有 1.0.x。
 `C-24` 的范围**刻意收窄**（只认模块级容器）：函数式读取（`service_is_healthy()`）与类属性状态
 看不住，宁可窄也不误报——首版正则曾因 `def f() -> tuple:` 里没有 `):` 而吞到另一个函数体，
 把 reme 误报成"签名不含 HELPER_UPDATE_STATE"，**修法已写进代码注释**（假红灯比漏报更伤信任）。
+
+### 7.3 `icons`：语义 diff（reme 三内联函数 vs 模板 `modules/icons/icons.py`，2026-09-19 裁定后关格）
+
+**裁定（lead）**：保留模板抽件形态，不回退成内联。对齐的是**语义**，不是文件布局。
+下面按"入参/返回/资源路径解析/字号尺寸默认值"逐项比对，用于**关掉这一格**。
+
+| 语义维度 | reme（`main.py:6523-6580` 内联） | 模板 `modules/icons/icons.py`（2.0.0） | 判定 |
+|---|---|---|---|
+| 生成时机 | 构建期（build 脚本产 ico） | 同（`GATE: python src\icons.py`） | **一致** |
+| 产物命名 | `<APP_ID>.ico` / `<APP_ID>-taskbar.ico` | 同 | **一致** |
+| 托盘帧表 | 16/24/32/48/64/256 | `TRAY_SIZES` 同 | **一致** |
+| 任务栏帧表 | 15 档（16…256，覆盖 100%~200% DPI） | `TASKBAR_SIZES` **逐值相同**（源码注释已标注"reme-helper 同款清单"） | **一致** |
+| 多档写入方式 | PIL `save(sizes=[...])` 由外壳缩放 | 同 | **一致** |
+| 图形来源 | **内置写死**（绿/灰圆底 + "R" + 黄隧道点） | **外部注入**：`ICON_DRAW(size)` 或 `ICON_ASSET`（png，相对仓库根解析，向上找 `main.py` 所在 `src/` 定根） | **有意不同构**（T6 的定义：图形 per-app，模板不可能内置某个工具的商标） |
+| 返回 | `Image.Image`（两个函数各自返回） | `make_icons(base_dir) -> (tray_path, taskbar_path)`；`base_image() -> Image` | 接口形状不同，**非同一职责**（见下） |
+| 字号/字重 | `icon_font(size)`：`WINDIR\Fonts` 依次试 `seguisb.ttf`→`segoeuib.ttf`→`arialbd.ttf`，全失败退 `load_default(size)`，再退 `load_default()`；字号 = `max(9, round(size*0.67))` | **无字体逻辑**（模板不渲染文字） | 属"图形外部化"的派生结果，**不是缺口**；但 `icon_font` 是通用小件，**列为可吸收候选（低优先）** |
+| 运行态变体 | `make_icon(running, tunnels)`：状态着色 + 隧道点 | 不在 T6 范围：运行态由工具用 `ICON_DRAW(size)` 自绘（模板 README 明示参考 l-s2t `draw_mic`） | **职责不同**，不判缺口 |
+| 关键几何默认值 | `margin=max(1, round(size*0.035))`、`ring=max(1, round(size*0.04))`、点 `max(4, round(size*0.26))`、色 `#26a269`/`#6c757d`/`#f5c211` | 不适用（无绘制） | 随图形外部化 |
+
+**结论（关格）**：**构建期那一半语义完全一致**（时机/命名/帧表/多档写入），差异只在"图形内容"——
+那是 T6 抽件的**定义本身**（模板是"代码生成双 ico 的流程"，reme 是"ReMe 自己的图形"）。
+"以 reme 语义为准修正模板"在这里**不适用**：照做等于把 `"R"` 商标硬编进公共件，违背"图形来源
+per-app"的接口设计。按 B4 记 `[decl]`：**差异已知、理由充分、无需继续承担改动义务**；
+唯一残留的"可吸收项"是 `icon_font()` 的**字体回退链**（低优先：目前只有画文字的工具有用）。
+
+### 7.4 `paths.process_pending_update()` —— 模板缺件 + 与 l-s2t 分支的收敛评估（**只评估，未改代码**）
+
+**裁定（lead）**：不删，要加固；正确终态是并进 `update_helper` 的"稳定安装位"模式；先只做评估。
+
+#### 现状取证（与 lead 描述有一处重要出入）
+
+| 事实 | 证据 |
+|---|---|
+| 模板副本**确实销毁证据** | `modules/paths/paths.py:82-96`：`os.system('robocopy … /MIR …')` **不看 rc**，随后**无条件** `UPDATE_PENDING.unlink()` + `shutil.rmtree(UPDATE_DIR)`——失败时把暂存源与失败证据一起清掉 |
+| **l-s2t 并不用这一份** | `local-speak2text/src/main.py:33` 是 `from updater import (…, process_pending_update, …)`，`:1001` 调的是**它自己的加固 fork**（`src/updater.py:320-358`），**不是** `modules.paths` 的副本 |
+| l-s2t 的 fork 已实现 lead 要的全部加固 | 同文件：`subprocess.run([...])` 无 shell 插值、`/e /purge`（不用 `/MIR`）、`rc >= 8` 时**保留 pending + 暂存 + 写 marker**、成功才 unlink+rmtree |
+| 其余三个工具**不调用** | `grep -rn process_pending_update dsh-helper/src/main.py opencodex-helper/src/main.py reme-helper/src/main.py` → 均无命中 |
+
+**因此修正一处判断**：模板那份**今天没有任何在役调用方**（l-s2t 走 fork，其余不调）。
+它的危害不是"正在破坏"，而是"**随四份副本一起发货的地雷** + 文档承诺（README 接口表写了它）"。
+——这不改变结论（仍要收敛），但**降低紧急度**，也说明真正的问题是**分支已经出现**。
+
+#### 收敛评估（按 lead 指定的终态：并进 `update_helper`）
+
+**吸进去要动的调用点**：
+1. l-s2t `main.py:33` 的 import 与 `:1001` 的调用要改指新入口（**唯一在役调用方**，1 处）；
+2. `modules/paths/` 里删掉该函数 + `UPDATE_PENDING` 常量（**paths 是四工具字节级消费 → 级联 5 份**）；
+3. `modules/paths/README.md` 接口表删行（同上 5 份）；
+4. l-s2t `src/updater.py` 的 fork 删除，改调模板（否则又留一份孤儿实现——正是这次要消灭的形状）；
+5. l-s2t `tests/test_startup_path.py:106` 打桩的是 `M.process_pending_update`，入口换名后要同步。
+
+**风险**：
+- **paths 级联 5 份**是本次最大成本；且 `UPDATE_PENDING` 位于 `RUN_DIR`（exe 旁），
+  与"更新要整目录替换"的约束相邻——搬迁时要一并确认新落点（建议同 `update.failed` 放数据区）。
+- l-s2t 的 pending 语义与模板 `update_helper` 的"退出后 bat 替换"是**两条路径**：
+  前者是"下次启动补做"，后者是"退出后立刻做"。并进时必须明确**谁先谁后/是否互斥**，
+  否则同一次更新可能被做两遍（bat 做完后 pending 仍在 → 启动再 mirror 一次）。
+- l-s2t 已发版在即：改它的 import 属**行为面改动**，需它自己的门禁重跑（`GATE 2d` 已覆盖该路径）。
+
+**建议顺序（给 lead 决策用）**：① 先在模板 `update_helper` 里落"稳定安装位模式"的入口
+（含 rc 判定/证据保留/marker），**不动 paths**；② 再让 l-s2t 改调它并删 fork（单工具、可回退）；
+③ 最后删 `paths` 里的旧函数并做 5 份级联。**②③ 之间不要交叉**，避免"模板已改、工具未改"
+的中间态被误判为漂移。
