@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.19
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.20
+# 1.9.20：**新增 C-48（FAIL）**= 自建 Tk 控件不得用**中文字面量**做文案（R1 §3 T3 的守卫）。
+#   由来：reme 的退出确认框 6 处硬编码中文，**英文模式下整框中文**，而当时三层判据全绿 ——
+#   C-20（"词表外中文"）对**重形态** i18n 直接跳过（rem 是「中文即键」，中文不算"词表外"）。
+#   判据形态：**只看函数体**（剔签名默认值 —— 模板 `confirm_text="退出"` 是向后兼容默认，
+#   其 docstring 明说"不传则用中文默认值"，调用方经 `t()` 传词条 ⇒ 不是缺陷）、
+#   只看**控件构造处的 `text=` 中文字面量**。两条合法通道都放行：
+#   ① `translate_tree(w)` 事后递归替换（reme 修后用这条）；② **参数注入** `text=body_text`
+#   （模板 `tray_kit.confirm_quit_dialog` 走这条）。另附：`.title(` 不得传裸 `APP_NAME`。
+#   自证 3 腿（红格 = reme 修前真身；两条反向格 = translate_tree / 参数注入都必须放行）。
 # 1.9.19：**W6 独立复核后的三处判据修正**（登记见 CONFORMANCE §4.1 F）：
 #   ① **新增 C-47（FAIL）**= 派发件头不得用被禁形态 `TEMPLATE-MODULE` —— C-19 的 `and` 链
 #      反把它列为合法形态 ⇒ R1 §2.1 那 13 处 `MODULE→FROM` 修复**没有任何守卫**（回归不会红）。
@@ -989,6 +998,59 @@ def c47(c: Ctx):
         return False, ("仍用被禁形态 `TEMPLATE-MODULE`（应改为 `TEMPLATE-FROM`，§2.1）: "
                        + ", ".join(hits))
     return True, "无被禁头形态"
+
+
+_TK_TEXT_CN = re.compile(r"text\s*=\s*[\"']([^\"']*[\u4e00-\u9fff][^\"']*)[\"']")
+
+
+@check("C-48", "FAIL", "自建 Tk 控件不得用**中文字面量**做文案（须走 t()/translate_tree）")
+def c48(c: Ctx):
+    """R1 §3 T3：reme 的退出确认框有 6 处硬编码中文，**英文模式下整个框仍是中文**，
+    而当时**三层判据全绿** —— C-20（"词表外中文"）对**重形态** i18n 直接跳过
+    （rem 是「中文即键」，中文本身不算"词表外"）。⇒ 重形态工具缺的正是这条腿。
+
+    **判据只看"控件构造处的 `text=` 是不是中文字面量"**（不是"有没有 translate_tree"）：
+    合法通道有两条 —— ① `translate_tree(w)` 事后递归替换（reme 修后用的就是它）；
+    ② **参数注入**（`text=body_text`，词条在调用点经 `t()` 传入；模板
+    `tray_kit.confirm_quit_dialog` 走这条，见 R1 §2.1 第 2 项）。两条都放行，
+    只有"中文字面量写死在控件构造处"才报。
+    另附一条：`.title(` 不得传裸 `APP_NAME`（常量，不随语言走）。
+    """
+    problems = []
+    for p in c.py_files():
+        src = c.read(p)
+        if "tk.Toplevel" not in src:
+            continue
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        rel = p.relative_to(c.dir).as_posix()
+        lines = src.splitlines()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not node.body:
+                continue
+            # ⚠ **只取函数体，不含签名默认值**：模板 `tray_kit.confirm_quit_dialog` 的
+            # `confirm_text="退出"` 是**向后兼容的默认值**（其 docstring 2.0.2 明说
+            # "不传则用中文默认值，老调用点行为不变"），调用方经 `t()` 传词条 ⇒ **不是缺陷**。
+            # 用 body 首末语句的行号切出（`get_source_segment(node)` 会把签名一起带上）。
+            first = min(getattr(s, "lineno", 1) for s in node.body)
+            lasts = [getattr(s, "end_lineno", None) or getattr(s, "lineno", None)
+                     for s in node.body]
+            last = max(x for x in lasts if x) if any(lasts) else first
+            body = "\n".join(lines[first - 1:last])
+            if "tk.Toplevel" not in body:
+                continue
+            hit = _TK_TEXT_CN.search(body)
+            if hit and "translate_tree(" not in body:
+                problems.append("%s:%d %s() 控件文案写死中文字面量且无 translate_tree()（例：%s）"
+                                % (rel, node.lineno, node.name, hit.group(1)[:24]))
+            if re.search(r"\.title\(\s*APP_NAME\s*\)", body):
+                problems.append("%s:%d %s() 的 title() 用裸 APP_NAME（不随语言变）"
+                                % (rel, node.lineno, node.name))
+    return (not problems), ("；".join(problems) if problems else "自建 Tk 框的中文字面量均有本地化通道")
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -4821,6 +4883,35 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-06 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-48（R1 §3 T3 的守卫）：自建 Tk 框没有本地化通道 ⇒ 必须红。
+        # 红格 = 判别力自证（= reme 修前的真身：Toplevel + 裸 APP_NAME、无 translate_tree）；
+        # 反向格 = 同一个框补上两条通道 ⇒ 必须放行。
+        _cn = "\u786e\u5b9a\u9000\u51fa\uff1f"
+        c48_cases = (
+            # 红格（= reme 修前的真身）：中文字面量写死在控件构造处、又无 translate_tree。
+            ("pos_cn_literal_without_translate",
+             "import tkinter as tk\n\n\ndef dlg():\n    w = tk.Toplevel(None)\n"
+             "    tk.Label(w, text=\"%s\").pack()\n    return w\n" % _cn, False),
+            # 反向格 1：同一段文本 + translate_tree ⇒ 放行（reme 修后就是这形态）。
+            ("neg_translate_tree_ok",
+             "import tkinter as tk\n\n\ndef dlg():\n    w = tk.Toplevel(None)\n"
+             "    tk.Label(w, text=\"%s\").pack()\n    translate_tree(w)\n"
+             "    return w\n" % _cn, True),
+            # 反向格 2：**参数注入** ⇒ 放行（模板 tray_kit 走这条，别误伤）。
+            ("neg_injected_text_ok",
+             "import tkinter as tk\n\n\ndef dlg(body_text):\n    w = tk.Toplevel(None)\n"
+             "    tk.Label(w, text=body_text).pack()\n    return w\n", True),
+        )
+        for name, body, want in c48_cases:
+            d = base / ("c48_" + name)
+            (d / "src").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "main.py").write_text(body, encoding="utf-8")
+            ok, detail = c48(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-48 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
