@@ -138,7 +138,7 @@
 |---|---|---|---|---|---|
 | reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.5` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
 | local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.0` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
-| dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.8.1` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\` |
+| dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.8.1` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\`<br>⚠️ **孤儿版本（2026-09-19 实测）**：版本列仍是本表的定义值 = **源码单一事实源** (`src/main.py:33 VERSION = "1.8.1"`)，但 **`release\dsh-helper-1.8.2\` 目录仍在，且 `HKCU\...\Run\dsh-helper` **正指着它**——`1.8.2` 是临时升号构建后按 G3.7 回滚留下的**被引用的孤儿版本**。**部署版本 ≠ 源码 VERSION**，属**必须处理**状态（判定口径见 CONFORMANCE §4.1.34）。 |
 | opencodex-helper | `opencodex-helper` | 多目标 SSH 反向隧道 + opencodex 服务控制 | `1.2.1` | `%LOCALAPPDATA%\opencodex-helper\config.json` | `%LOCALAPPDATA%\opencodex-helper\log\` |
 
 新工具追加一行；登记表是"这类问题该看哪个工具"的索引。**版本列 = 磁盘当前值**（含尚未发版的本地版本；2026-09-18 起，此前滞后于源码实况——发版状态以各仓库 CHANGELOG/Release 为准）。
