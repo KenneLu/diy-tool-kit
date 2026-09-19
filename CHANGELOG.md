@@ -2,6 +2,23 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (update_helper 1.4.0 → 1.4.1: the failure paths now preserve the scene alike)
+
+The lead's task text asked for "不启动 + 写 marker + **保留现场**". Re-reading my own
+`:stage_invalid` path against that wording found a real inconsistency: it wrote the marker but
+went to `:cleanup`, which **deletes the staged package** — while `:install_failed` keeps it.
+Same failure class, two different treatments, and the one that discarded the evidence was the
+one where the evidence is most interesting ("what exactly was staged?").
+
+- **`:stage_invalid` now goes to `:cleanup_keep`** (1.4.1): the staged package survives for a
+  human; only the poll file and the script itself are removed. The 1-hour
+  `sweep_stale_update_dirs()` still reclaims it, so this costs disk for at most an hour.
+- **E group follows** (`sync_check.py` 1.8.1): the runtime assertion flips from "work removed"
+  to "**work preserved**", and a static keypoint pins `goto cleanup_keep` inside the
+  `:stage_invalid` block. Reverse sample still reports it as missing.
+- VER bumped because the bytes changed; the previous "no change, keep 1.4.0" announcement is
+  superseded by this commit (file-level, see the hand-off list).
+
 ## 2026-09-19 (update_helper: the empty-stage reverse proof now runs the bat for real)
 
 The lead's review asked for a runtime reverse sample for the two `start` sites (empty stage ⇒

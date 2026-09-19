@@ -1,6 +1,8 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.1
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
+# 1.8.1：E 组跟随 update_helper 1.4.1——空暂存包如今**保留现场**（`:cleanup_keep`），
+#   真跑断言从"暂存已删"翻成"暂存还在"，并加静态要点"stage_invalid 走 cleanup_keep"。
 # 1.8.0：`--selftest` E 组新增**真跑反例**（`_apply_bat_runtime_cases`）：把生成的 apply.bat
 #   放进 %TEMP% 沙箱、以**空暂存包**执行，断言"秒级退出（模态框会挂死）/ 写 update.failed
 #   marker / **安装目录没被动过**（/purge 没跑）/ 暂存被收尾删除 / 脚本自删"。
@@ -368,6 +370,9 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         ("失败回铺快照", idx('robocopy "%SNAPSHOT%" "%TARGET%"') > rc_i),
         ("回铺也失败则不启动", dead_i > rc_i and not any(
             ln.startswith("start") for ln in cmds[dead_i:keep_i if keep_i > dead_i else len(cmds)])),
+        ("stage_invalid 保留现场（goto cleanup_keep）",
+         idx(":stage_invalid") >= 0 and ":cleanup_keep" in text
+         and text.split(":stage_invalid")[1].split(":install_failed")[0].find("goto cleanup_keep") >= 0),
         ("失败 marker", has('> "%FAILED%" echo')),
         ("cleanup 删暂存", has('if exist "%WORK%" rmdir /s /q "%WORK%"')),
         ("脚本自删", has('del "%~f0"')),
@@ -580,8 +585,8 @@ def _apply_bat_runtime_cases():
         out.append(("E-runtime 空暂存包：安装目录没被动过（/purge 没跑）",
                     (install / "sentinel.txt").is_file(),
                     "sentinel %s" % ("在" if (install / "sentinel.txt").is_file() else "被清掉了")))
-        out.append(("E-runtime 空暂存包：末了进 :cleanup（暂存已删）", not work.exists(),
-                    "work %s" % ("还在" if work.exists() else "已删")))
+        out.append(("E-runtime 空暂存包：**保留现场**（走 :cleanup_keep，暂存还在）",
+                    work.exists(), "work %s" % ("保留" if work.exists() else "被删了！")))
         out.append(("E-runtime 脚本自删（收尾走到 cleanup_tail）", not bat.exists(),
                     "bat %s" % ("还在" if bat.exists() else "已删")))
     except Exception as exc:
