@@ -2,6 +2,37 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (whitelists become switches with two mandatory fields; C-33 measured at zero)
+
+- **Every whitelist / registry entry now needs two mandatory fields: `why` (why it is not a leak —
+  who declared it, at which line) and `reverify` (what must trigger a re-check).** The reviewer
+  flagged the underlying hazard first: `TMP_DECLARED_PATHS` is **the only thing that can stop the
+  shape leg from reporting**, so **a stale entry silently switches off one piece of coverage — and
+  switching it off has no symptom at all** (indistinguishable from "0 hits" vs "never scanned").
+  Same disease as the one discipline ⑥ covers, one level up: ⑥ says a reading needs its
+  denominator; **⑩ says the denominator must be visible along with whoever turned it off.**
+  * Worked example: `reme-helper-builddata` earns its place because `scripts/build.bat:22` declares a
+    fixed path and the directory is rebuilt automatically — so its **re-verification trigger is
+    "when that line changes"** (path moved, or no longer auto-rebuilt, or a cleanup was added ⇒ the
+    entry is stale and the coverage it suppresses is already gone without anyone noticing).
+  * Mechanical form: entries are structs (`{why, reverify}` for declared paths, `{prefix, why,
+    reverify}` for `TMP_PREFIX_REGISTRY`), and **a missing field is now a red** (the old bare-string
+    form counts as malformed). The failure message carries a paste-ready three-field sample instead
+    of the old one-liner. `--temp-leak` prints **the number of active entries** and, for each,
+    **both fields** — and it prints **all** of them, not only those currently present on disk,
+    because an entry filters whether or not the directory exists right now.
+  * New self-test legs with their own reverse cell: the real table must produce **0** problems (the
+    validator is not just biting everything), a missing `reverify` must be caught, and the old
+    bare-string form must be caught. Registry samples were updated to the three-field shape, with
+    two new negative legs (`registry_bare_string_form_flagged`, `registry_missing_reverify_flagged`).
+- **C-33 measured at zero red across the whole tree** (template channel + all four tools, and even
+  the artificial `--roots my-diy-tool-template` invocation). Recorded in §4.1.20's evidence column
+  together with both readings of the earlier batch — **the lead's "6 FAIL" and my measurement of
+  "2 FAIL / 2 WARN by default, 5 self-hits under `--roots`"** — because readings must carry the
+  ruler (§4.1.36) and because a later reader seeing "there were 6 FAILs" would otherwise conclude
+  six real violations existed. **They were false reds: a mis-drawn exemption boundary, not tool
+  defects.** None of them was a real finding.
+
 ## 2026-09-19 (C-38 changes shape: anchor at the startup line, one-shot lines do not count)
 
 - **The first draft of C-38 would have gone green in the wrong place.** "The first N lines of the

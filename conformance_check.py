@@ -1894,14 +1894,38 @@ def enumerate_mkdtemp_prefixes(root: Path):
                     problems.append((rel_file, "登记键不是字符串字面量"))
                     continue
                 key = k.value.strip().replace("\\", "/")
-                items = val.elts if isinstance(val, (ast.List, ast.Tuple)) else [val]
+                # **三栏结构是必填**（lead 2026-09-19）：白名单/登记表是**关掉覆盖**的开关，
+                # 只写"等价前缀"等于只写结果、不写**它为什么可以豁免**与**什么时候过期**——
+                # 一条过期登记会**静默关掉一处覆盖且没有任何症状**（同"0 命中"与"没扫"不可区分）。
+                if not isinstance(val, ast.Dict):
+                    problems.append((rel_file,
+                                     "登记 `%s` 必须是三栏结构 "
+                                     "`{\"prefix\": \"…\", \"why\": \"…\", \"reverify\": \"…\"}`"
+                                     "（当前是%s）——`why` 与 `reverify` 是**必填**："
+                                     "登记表是**关掉覆盖**的开关，没有这两栏就无法判断它何时过期"
+                                     % (key, _expr_kind(val))))
+                    continue
+                fields = {}
+                for fk, fv in zip(val.keys, val.values):
+                    if isinstance(fk, ast.Constant) and isinstance(fk.value, str):
+                        fields[fk.value] = fv
+                for field in ("prefix", "why", "reverify"):
+                    fv = fields.get(field)
+                    if not (isinstance(fv, ast.Constant) and isinstance(fv.value, str)
+                            and fv.value.strip()):
+                        problems.append((rel_file, "登记 `%s` 的必填栏 `%s` 缺失或不是"
+                                                   "非空字符串字面量（是%s）"
+                                         % (key, field, _expr_kind(fv) if fv is not None else "缺失")))
+                pv = fields.get("prefix")
+                items = (pv.elts if isinstance(pv, (ast.List, ast.Tuple))
+                         else ([pv] if pv is not None else []))
                 got = []
                 for item in items:
                     if isinstance(item, ast.Constant) and isinstance(item.value, str) and item.value:
                         got.append(item.value)
                     else:
-                        problems.append((rel_file, "登记 `%s` 的值不是非空字符串字面量（是%s）——"
-                                         "判据与 %%TEMP%% 取证都读不到，等于没登记"
+                        problems.append((rel_file, "登记 `%s` 的 `prefix` 不是非空字符串字面量（是%s）"
+                                         "——判据与 %%TEMP%% 取证都读不到，等于没登记"
                                          % (key, _expr_kind(item))))
                 if got:
                     registry.setdefault(key, [])
@@ -1980,9 +2004,17 @@ def c30(c: Ctx):
     if bad:
         return False, ("；".join(bad)
                        + "。【正确形态①】前缀写字面量，或让包装函数的**每个调用点**都传字面量；"
-                         "确实推不出的（如 f-string 拼 APP_ID）在 %s 登记等价前缀，例如\n"
-                         "    %s = {\"src/main.py:7405\": \"reme-update-\"}   "
-                         "# 键 = 站点「相对路径:行号」，值 = 该处前缀的等价字面量（可为列表）\n"
+                         "确实推不出的（如 f-string 拼 APP_ID）在 %s 登记等价前缀。"
+                         "**登记值是三栏结构，`why` 与 `reverify` 是必填**（登记表是"
+                         "**关掉覆盖**的开关：没写\"为什么可豁免\"与\"什么时候重验\"的条目，"
+                         "过期后不会被任何人发现）——贴下面这段，别自创变体：\n"
+                         "    %s = {\n"
+                         "        \"src/main.py:7405\": {\n"
+                         "            \"prefix\": \"reme-update-\",   # 该处前缀的等价字面量（可为列表）\n"
+                         "            \"why\": \"prefix 由 f-string 拼成，APP_ID 在本文件有唯一字面量定义\",\n"
+                         "            \"reverify\": \"APP_ID 改名/改成变量，或该站点行号位移时\",\n"
+                         "        },\n"
+                         "    }   # 键 = 站点「相对路径:行号」\n"
                          "【正确形态②】删 mkdtemp 根目录前先释放日志句柄（logging.shutdown() / "
                          "关 FileHandler），删后**回读确认目录已不存在**，失败即红"
                        % (_REGISTRY_NAME, _REGISTRY_NAME))
@@ -2055,11 +2087,42 @@ _SHAPE_RULE = ("**任意深度**存在名为 `log` 的**目录**（里面的 `*.
 # 数据根**——所以形态本身不构成"泄漏"判定，位置与声明才构成）。
 # 白名单只豁免**报告与增量判定**，不改判据：这里不登记就永远红，登记了就永远有出处可查。
 # ⚠️ **为什么"自动重建类"必须走白名单、而不是要求清理**（lead 2026-09-19 定）：声明过、且**下次构建会自动重建**的位置（如 reme `scripts/build.bat:22` 明写的固定路径），对它做"清理"**既不持久、又制造虚假的进展感**——看起来清干净了，下次门禁它又长出来。**正确处置是承认它是设计的一部分并登记出处**；"清理清单"只收**不该存在的残留**。
+#
+# ⚠️ **两条必填字段（lead 2026-09-19 定，复核员先提醒"它是**关掉覆盖**的开关"）**：
+#   ① `why`     = **为什么它不算残留**（谁声明的、在哪一行）；
+#   ② `reverify`= **什么情况下必须重验它**（触发条件）。
+# **为什么必须两栏**：白名单条目是**唯一能让"形态腿"停止报警**的东西 ⇒
+# **一条过期条目会静默地关掉一处覆盖，而且关掉之后没有任何症状**
+# （与"0 命中"和"没扫"不可区分是同一个病）。所以每条都必须写出**它的失效条件**。
+# **缺任一栏 = 仪器自身的表坏了** ⇒ 按 `[BROKEN]` 语义报（见 `_declared_problems`）。
 TMP_DECLARED_PATHS = {
-    "reme-helper-builddata":
-        "reme-helper/scripts/build.bat:22 set \"REME_HELPER_DATA_DIR=%TEMP%\\reme-helper-builddata\""
-        "（固定名、全文无清理）",
+    "reme-helper-builddata": {
+        "why": "reme-helper/scripts/build.bat:22 "
+               "`set \"REME_HELPER_DATA_DIR=%TEMP%\\reme-helper-builddata\"`"
+               "（固定名、该 bat 全文无清理）⇒ 是**构建数据位**，不是残留",
+        "reverify": "**该行被改动时**——路径变了、或它不再自动重建、或加了清理语句，"
+                    "此条即过期（届时它退化成一处被静默关掉的覆盖）",
+    },
 }
+
+# 两栏缺一即"仪器的表坏了"。返回 `[(名字, 问题描述)]`；空列表 = 表是完整的。
+_REQUIRED_DECL_FIELDS = ("why", "reverify")
+
+
+def _declared_problems():
+    out = []
+    for name, entry in sorted(TMP_DECLARED_PATHS.items()):
+        if not isinstance(entry, dict):
+            out.append((name, "条目不是 `{why, reverify}` 两栏结构（当前是 %s）" % type(entry).__name__))
+            continue
+        for field in _REQUIRED_DECL_FIELDS:
+            if not str(entry.get(field, "")).strip():
+                out.append((name, "缺必填栏 `%s`——白名单是**关掉覆盖**的开关，"
+                                  "没有它就没法判断这条什么时候过期" % field))
+        extra = set(entry) - set(_REQUIRED_DECL_FIELDS)
+        if extra:
+            out.append((name, "有未使用的栏：%s（要么用起来，要么删掉）" % ", ".join(sorted(extra))))
+    return out
 
 
 def _shape_hits(T: Path):
@@ -2122,12 +2185,16 @@ def _shape_histogram(names) -> str:
 
 
 def _declared_present(T: Path):
-    """白名单里**确实存在于 %TEMP%** 的那些（只报出来，不计入并集/增量）。"""
+    """白名单里**确实存在于 %TEMP%** 的那些（只报出来，不计入并集/增量）。
+
+    返回 `[(名字, entry)]`；`entry` 是 `{why, reverify}` 两栏。**打印由调用方负责把两栏都说全**
+    （"为什么不算残留" + "什么时候重验"）——只打印名字等于把开关藏起来。
+    """
     out = []
-    for name, why in sorted(TMP_DECLARED_PATHS.items()):
+    for name, entry in sorted(TMP_DECLARED_PATHS.items()):
         try:
             if (T / name).is_dir():
-                out.append((name, why))
+                out.append((name, entry))
         except OSError:
             pass
     return out
@@ -2232,10 +2299,18 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
           "前者**源码里没有调用点**，只能靠形态腿，且要改的是**进程规则**而不是代码")
     declared = _declared_present(T)
     if TMP_DECLARED_PATHS:
-        print("== 已声明位置（**不算泄漏**，不计入并集与增量）现场命中 %d / 登记 %d =="
-              % (len(declared), len(TMP_DECLARED_PATHS)))
-        for n, why in declared:
-            print("        %-30s %s" % (n, why))
+        print("== 已声明位置白名单：**生效 %d 条**（全部参与过滤）/ 其中现场命中 %d 条 =="
+              % (len(TMP_DECLARED_PATHS), len(declared)))
+        # **全部条目都打印，不只打印"现场命中"的那些**（lead 2026-09-19）：白名单是
+        # **关掉覆盖**的开关——开关藏起来，就没人能发现它过期了；而且**不在盘上时它照样生效**
+        # （过滤发生在判定阶段，与当前有没有残留无关）。
+        present = {n for n, _ in declared}
+        for n, entry in sorted(TMP_DECLARED_PATHS.items()):
+            print("        %-30s %s" % (n, "现场命中" if n in present else "（当前不在盘上，条目仍生效）"))
+            print("        %-30s [为什么不算残留] %s" % ("", entry.get("why", "?")))
+            print("        %-30s [重验触发条件]   %s" % ("", entry.get("reverify", "?")))
+        for name, why in _declared_problems():
+            print("        [BROKEN] 白名单条目本身不合规：%s —— %s" % (name, why))
     reg = {n for v in _TEMP_REGRESSION_20260919.values() for n in v}
     print("== 并集 %d 个；其中 %d 个在腿 A 命中之外（腿 B 独有）；"
           "命中已登记回归集 %d/%d =="
@@ -3149,20 +3224,35 @@ def selftest() -> int:
              "import tempfile\nTMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n", False, None),
             # 登记表放**文件后半段**也能被认（判据按模块级常量找，不按位置猜）；
             # 键必须与站点 `相对路径:行号` **逐字对上**——对不上就是过期 WARN。
+            # 2026-09-19 起值是**三栏结构**：`why` / `reverify` 是必填（白名单 = 关掉覆盖的开关）。
             ("fstring_prefix_registered_ok",
              "import tempfile\n"
              "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n"
              "\n"
              "TMP_PREFIX_REGISTRY = {\n"
-             "    'src/main.py:2': 'app-update-',\n"
+             "    'src/main.py:2': {'prefix': 'app-update-',\n"
+             "                      'why': 'APP_ID 在本文件有唯一字面量定义',\n"
+             "                      'reverify': 'APP_ID 被改名或改成变量时'},\n"
              "}\n", True, None),
+            # 旧形态（裸字符串/变量）= **不合规**：只写结果不写"为什么"与"何时过期"。
+            ("registry_bare_string_form_flagged",
+             "import tempfile\n"
+             "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n"
+             "TMP_PREFIX_REGISTRY = {'src/main.py:2': 'app-update-'}\n", False, None),
+            ("registry_missing_reverify_flagged",
+             "import tempfile\n"
+             "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n"
+             "TMP_PREFIX_REGISTRY = {'src/main.py:2': {'prefix': 'app-update-',\n"
+             "                                         'why': 'APP_ID 有唯一字面量'}}\n", False, None),
             ("registry_value_not_literal_flagged",
              "import tempfile\n\n"
-             "TMP_PREFIX_REGISTRY = {'src/main.py:4': PREFIX}\n\n"
+             "TMP_PREFIX_REGISTRY = {'src/main.py:4': {'prefix': PREFIX,\n"
+             "                                         'why': 'x', 'reverify': 'y'}}\n\n"
              "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n", False, None),
             ("registry_stale_entry_warn",
              "import tempfile\n\n"
-             "TMP_PREFIX_REGISTRY = {'src/main.py:99': 'app-old-'}\n\n"
+             "TMP_PREFIX_REGISTRY = {'src/main.py:99': {'prefix': 'app-old-',\n"
+             "                                          'why': '历史站点', 'reverify': '站点位移时'}}\n\n"
              "TMP = tempfile.mkdtemp(prefix='app-test-')\n", False, "WARN"),
         )
         for name, body, want, want_sev in _prefix_cases:
@@ -3176,6 +3266,32 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-30/prefix %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:100]))
+
+        # 白名单**两栏必填**的自证（2026-09-19，lead 定；复核员先提醒"它是关掉覆盖的开关"）。
+        # 判别力靠**两格对照**：真表必须 0 问题（否则校验器在乱咬），坏样本必须被抓住。
+        _real_problems = _declared_problems()
+        _saved = dict(TMP_DECLARED_PATHS)
+        try:
+            TMP_DECLARED_PATHS.clear()
+            TMP_DECLARED_PATHS["bad-missing-reverify"] = {"why": "只有为什么"}
+            _bad1 = _declared_problems()
+            TMP_DECLARED_PATHS.clear()
+            TMP_DECLARED_PATHS["bad-bare-string"] = "旧的裸字符串形态"
+            _bad2 = _declared_problems()
+        finally:
+            TMP_DECLARED_PATHS.clear()
+            TMP_DECLARED_PATHS.update(_saved)
+        for label, got, want_empty in (("real_table_clean", _real_problems, True),
+                                       ("missing_reverify_caught", _bad1, False),
+                                       ("bare_string_form_caught", _bad2, False)):
+            good = (not got) if want_empty else bool(got)
+            if want_empty:
+                good = good and not TMP_DECLARED_PATHS.get("bad-missing-reverify")
+            failed += 0 if good else 1
+            print("[selftest] %s  C-30/declared %s: problems=%d want_%s | %s"
+                  % ("PASS" if good else "FAIL", label, len(got),
+                     "0" if want_empty else ">0",
+                     (got[0][1][:90] if got else "（无）")))
 
         # C-30 下半：只有"mkdtemp 根目录被 ignore_errors 吞掉"才报；子目录/固定路径要放行。
         _cleanup_ok = ("import shutil, logging, tempfile\n"
