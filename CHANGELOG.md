@@ -2,6 +2,26 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (paths deprecation notice; i18n 2.2.0 — LANG becomes a derived read)
+
+Both rulings from the lead, executed.
+
+- **`modules/paths/README.md`: `process_pending_update()` marked deprecated** with the reason
+  spelled out (no rc check; on failure it `unlink`s the pending file and deletes `UPDATE_DIR`,
+  destroying the staged source *and* the evidence) and the three-step disposal plan
+  (notice → land the stable-install mode in `update_helper` and switch l-s2t off its fork →
+  delete the function and `UPDATE_PENDING`, 5-way cascade; steps 2 and 3 do not interleave).
+  The audit stands: zero live callers today, so urgency is low — but it ships inside four
+  copies and the document used to promise it.
+- **`i18n` 2.1.1 → 2.2.0: `LANG` is no longer a rebindable module global.** State moved into
+  `_STATE` and `LANG` is now **derived by a module-level `__getattr__`** — there is no scalar to
+  rebind, and `from .i18n import *` cannot carry it (`import *` does not move derived names), so
+  the defect that cost us a menu that never refreshed **cannot be reproduced structurally**.
+  This is the same shape `update_helper` 1.4.0 adopted; C-23 flagging all four tools is what
+  showed it was a *template-level* form problem rather than one tool's slip.
+  Reverse proof: `LANG in vars(package)` → False, `LANG in vars(submodule)` → False, and
+  `init('en')` still flips `LANG`/`current_lang()`/`t()` immediately.
+
 ## 2026-09-19 (C-25/26/27: three clauses for the day's defects; update_helper 1.4.2)
 
 Four defects surfaced today that **none of the 76 existing clauses could catch**, so three of
