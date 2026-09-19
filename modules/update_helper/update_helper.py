@@ -1,10 +1,22 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.4.2
+# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.4.3
 """T4｜在线更新三段式：查（GitHub Releases）→ 下（zip + sha256）→ 换（退出后铺目录并重启）。
 
 **基准**：本件按用户仲裁规则（STANDARDS B4）以 reme-helper 的**已验证更新链**为准
 （`reme-helper/src/main.py` 7098-7345；语义清单见 `reme-helper/UPDATE-CHAIN-REFERENCE.md`），
 不以"用的人多"为准。
+
+1.4.3（2026-09-19）：**两处修复**（都可机械判据化，见 conformance_check C-32/C-33）：
+
+  * **等待节拍不再用 `ping`**：`ping -n 2 127.0.0.1` 看着像"睡 1 秒"，在**丢弃 loopback ICMP**
+    的机器上实测 **9.0s/拍**（两次 4.5s 超时）——名义 120s 的等待变成 ~18 分钟，而 `:giveup`
+    还打印 `after 120s`（**日志说谎**）。改成 `powershell -NoProfile -Command "Start-Sleep
+    -Milliseconds {tick_ms}"`（ICMP-free；DETACHED 进程无 console，子进程不弹窗），常量拆成
+    `UPDATE_WAIT_LIMIT`（**轮询次数**）× `UPDATE_WAIT_TICK_MS`（每拍毫秒），超时行报告
+    `%tries% polls x {tick_ms}ms (...) lower bound`——**不再打印没人量过的"秒"**。
+  * **`pop_failed_update_note` 改成"先报告、最后删证据"**（C-32）：旧顺序在 `unlink` 抛
+    OSError 时走 except 直接 `return ""`，detail 明明读到了用户却看不到提示；调用边界上的
+    错误（arity/签名不符）更是连 `except OSError` 都拦不住。删不掉就留给下次再报。
 
 1.4.2（2026-09-19）：补**第三处** `start` 的守卫（`:install_failed` 回铺之后）。前三轮只盯了
 "暂存包为空"与"拷完缺 exe"两条路，而**回铺成功（rc<8）也可能没铺出 exe**（快照本身就缺）——
