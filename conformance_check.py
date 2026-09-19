@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.4
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.5
+# 1.9.5 三条：
+#   ① **新增 C-39**（工具通道 + 模板通道，FAIL）=**派生值必须取自本次调用的实参**：默认参数不得取“会被重绑的模块级名字”或可变字面量，**良性常量必须放行**（三档判别，否则就是噪音判据）。
+#   ② **判据读散文两例已修**（§4.1.37）：`_strip_docstrings` 挖 AST 裸字符串表达式、`_masked_code_text` 就地掩码保行号、扫描面排除仪器自身并打印排除项（C-33 / C-30）。
+#   ③ **C-38 改形态**：锚在 `startup` 行之后 20 行内 + 一次性行不计入
+#      （原“文件前 N 行”按字面会假绿）；“判不了”按 WARN 报。
 # 1.9.4 两条（都来自复核员的实测）：
 #   ① **身份行加 `at:` 时点**——"任何「命中 N 个」的转述都必须自带时点"（同一族：扫描面说「扫了什么」、时点说「什么时候」）。实证：reme 残留我广播成 8、**当前是 5**（消失 4、新增 1）——**残留集是活的**，本轮第二次栽在这上面。
 #   ② **`TMP_DECLARED_PATHS` 的口径写清**：**声明过的、且会随下次构建自动重建的位置**，正确处置是**进白名单**，**不是要求清理**——清理既不持久，又会产生**虚假的进展感**（看起来清干净了，下次门禁又长出来）。# 1.9.3：① **新增 C-37（模板通道，FAIL）= C-2 拒绝删除句柄**：静态半（`paths.py` 提供
@@ -2620,6 +2625,112 @@ def check_ping_tick(root: Path):
     return True, "没有把 ping 当等待节拍。%s" % span
 
 
+# ---------------------------------------------------------------- C-39
+# **派生值必须取自"本次调用的实参"，不能取自"模块级当前值 / 定义时的快照"**（lead 2026-09-19 立）。
+# 一族两例，都是"用了另一个时刻/另一个来源的值去代替本次输入"：
+#   ① `AsrEngine.__init__(self, model_dir=MODEL_DIR)`——默认参数在**定义时**求值，
+#      运行期 `load_config()` 重绑 `MODEL_DIR` 也传不进去（l-s2t #46，用户改了配置却不生效）；
+#   ② `_APPLY_BAT` 的 `budget_s` 曾取模块常量 `UPDATE_WAIT_BUDGET_S`（按 `UPDATE_WAIT_LIMIT=120`
+#      算），调用方 `limit=2` 时渲染出 `2 polls x 1000ms (nominal budget 120s)`——
+#      **拼出了一个不可能的组合**（1.4.4 已修）。
+# **可判的那一半**（本条）：**函数默认值是模块级名字**。危险与否**有判别准则**，不是"看到就报"：
+#   * 该名字在模块里**被重绑过**（模块级多次赋值 / 任何 `global` 重绑）⇒ **快照必然失真** ⇒ 红；
+#   * 默认值是**可变字面量**（`[]`/`{}`/`set()`）⇒ 跨调用共享同一对象 ⇒ 红（经典坑）；
+#   * 只赋值一次、且是不可变字面量、无 `global` 重绑 ⇒ **良性**（今天全家族 13 处全属此类）。
+#   ⚠️ 第三档**必须放行**，否则就是"看到默认参数就报"的噪音判据——那正是 C-33 那族错误的翻版。
+_DEFAULT_SNAPSHOT_OK_NOTE = ("良性：模块级常量只赋值一次、不可变、无 global 重绑 ⇒ "
+                             "默认值 == 当前值，不会失真")
+
+
+def _module_bindings(tree):
+    """模块级名字的**赋值次数** + 被 `global` 重绑的名字集合。"""
+    counts = {}
+    globals_rebound = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Global):
+            globals_rebound.update(node.names)
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    counts[t.id] = counts.get(t.id, 0) + 1
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            t = node.target
+            if isinstance(t, ast.Name):
+                counts[t.id] = counts.get(t.id, 0) + 1
+    return counts, globals_rebound
+
+
+def _mutable_default(node) -> bool:
+    return (isinstance(node, (ast.List, ast.Dict, ast.Set))
+            or (isinstance(node, ast.Call) and getattr(node.func, "id", "") in ("list", "dict", "set")))
+
+
+def check_default_snapshot(root: Path, sub: str = "src"):
+    """`root/<sub>/**/*.py`：默认参数不得取"会被重绑的模块级名字"或可变字面量。
+
+    `sub` 默认 `src`（工具侧）；**模板侧传 `modules`**——模板根下没有 `src/`，不传就恒
+    "判据不适用"，而这一类缺陷的活样本（`update_helper.py` 的 `budget_s`）恰恰住在 `modules/` 里。
+    """
+    src = root / sub
+    if not src.is_dir():
+        return True, "扫描面：无 %s/（判据不适用）" % sub
+    bad, benign, scanned = [], 0, 0
+    for f in sorted(src.rglob("*.py")):
+        if any(part in _PY_SKIP_DIRS for part in f.parts):
+            continue
+        try:
+            text = _masked_code_text(f.read_text(encoding="utf-8", errors="replace"))
+            tree = ast.parse(text)
+        except (OSError, SyntaxError):
+            continue
+        scanned += 1
+        rel = f.relative_to(root).as_posix()
+        counts, reb = _module_bindings(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for d in list(node.args.defaults) + [x for x in node.args.kw_defaults if x]:
+                if _mutable_default(d):
+                    bad.append("%s:%d `%s()` 的默认值是**可变字面量**（跨调用共享同一对象）"
+                               % (rel, d.lineno, node.name))
+                    continue
+                if not isinstance(d, ast.Name):
+                    continue
+                name = d.id
+                if name in reb or counts.get(name, 0) > 1:
+                    bad.append("%s:%d `%s(...=%s)` 的默认值是**会被重绑的模块级名字**"
+                               "（%s）——默认值在**定义时**求值，之后的每次重绑都传不进去"
+                               % (rel, d.lineno, node.name, name,
+                                  "有 global 重绑" if name in reb else "模块级赋值 %d 次"
+                                  % counts.get(name, 0)))
+                elif name.isupper():
+                    benign += 1
+    if bad:
+        return False, ("%d 处默认参数取了\"另一个时刻的值\"：%s。【为什么是硬违规】默认参数在"
+                       "**函数定义时**求值一次，之后模块级名字怎么变都传不进去——用户改了配置"
+                       "却不生效（l-s2t #46 就是这个形态）。【正确形态】用 `None` 哨兵 + "
+                       "函数体内解析（`if x is None: x = MODULE_NAME`），把取值推迟到**本次调用**。"
+                       "【说明】模块级常量只赋值一次且不可变时**不算违规**（本扫描面里良性 %d 处）"
+                       % (len(bad), "；".join(bad[:6]), benign))
+    return True, ("扫描面：%s/**/*.py 共 %d 个文件；%s；良性默认参数 %d 处（只赋值一次、不可变）"
+                  % (sub, scanned, _DEFAULT_SNAPSHOT_OK_NOTE, benign))
+
+
+@check("C-39", "FAIL", "默认参数不得取「会被重绑的模块级名字」/ 可变字面量（定义时快照）")
+def c39(c: Ctx):
+    """见上方注释。与 §4.1.41 同条：**派生值必须取自本次调用的实参**。
+
+    两例：`AsrEngine(model_dir=MODEL_DIR)`（#46，导入期快照）、`budget_s` 取模块常量
+    （更新链文案与实参不符，1.4.4 修）。**第三档（良性常量）必须放行**——否则就是噪音判据。
+    """
+    return check_default_snapshot(c.dir)
+
+
+@template_check("C-39", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+def c39_template(c: Ctx):
+    return check_default_snapshot(c.dir, "modules")
+
+
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
@@ -3510,6 +3621,38 @@ def selftest() -> int:
             print("[selftest] %s  C-38 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want,
                      why or ("命中 %d 处" % len(_hits))))
+
+        # C-39（2026-09-19，lead 立）：**派生值必须取自本次调用的实参**。
+        # 四格两红两绿——只报"会被重绑"与"可变字面量"，**良性常量必须放行**
+        # （否则就是"看到默认参数就报"的噪音判据，正是 C-33 那族错误的翻版）。
+        c39_cases = (
+            ("rebound_module_name_flagged",
+             "MODEL_DIR = 'old'\n"
+             "def load():\n"
+             "    global MODEL_DIR\n"
+             "    MODEL_DIR = 'new'\n"
+             "def use(d=MODEL_DIR):\n"
+             "    return d\n", False),
+            ("mutable_default_flagged",
+             "def collect(items=[]):\n    return items\n", False),
+            ("immutable_constant_benign_ok",
+             "SAMPLE_RATE = 16000\n"
+             "def open_mic(sample_rate=SAMPLE_RATE):\n"
+             "    return sample_rate\n", True),
+            ("none_sentinel_ok",
+             "MODEL_DIR = 'm'\n"
+             "def use(d=None):\n"
+             "    return d if d is not None else MODEL_DIR\n", True),
+        )
+        for name, body, want in c39_cases:
+            d = base / ("c39_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(body, encoding="utf-8")
+            ok, detail = check_default_snapshot(base / ("c39_" + name))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-39 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；

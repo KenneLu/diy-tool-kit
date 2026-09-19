@@ -2,6 +2,45 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (the declaration format gets a standing line; C-39 closes the snapshot family)
+
+- **The declaration template now carries the `dirty=yes` explanation permanently** (CONFORMANCE
+  §5.5, four fixed lines + a standing note). The lead's point: that sentence **is needed every
+  single time** an announcement happens to sit next to other in-flight edits — **what needs
+  explaining belongs in the format**, not in the author's memory. The note states it plainly:
+  **`dirty` describes the whole worktree, not the declared files**; it must be read together with
+  the per-path list ("these files have not changed a byte since their freeze commit"), so
+  `dirty=yes` **does not invalidate an announcement** — and the test is simply: check the paths on
+  line 3.
+- **The second hash dialect gets its own section (§5.6) with a reproducible instance.** Same
+  content, two rulers: `norm` for `.py` (strips `# TEMPLATE-*`), byte-for-byte for `.md`. Appending
+  a single `# TEMPLATE-…` line moves `raw 8213f62be793 → f6b5d7711a26` while `norm` stays
+  `0179f3bfda82` — so printing only one of them makes "the header/version moved" invisible, or
+  misaligns with the `.py` comparison. (The historical example the lead quoted for this **does not
+  hold**, and §5.6 says so.)
+- **C-39 (FAIL, tool channel + template channel): a derived value must come from *this call's
+  arguments*, not from a module-level current value or a definition-time snapshot.** Two instances
+  of one family: `AsrEngine(model_dir=MODEL_DIR)` (§#46 — the user changed the config and nothing
+  happened) and `budget_s` taking the module constant (`2 polls x 1000ms (nominal budget 120s)` —
+  **a combination that cannot happen**; fixed in 1.4.4). Same family as "the numbers in the log must
+  be numbers someone measured": that clause governs *unmeasured* numbers, this one governs *numbers
+  taken from another input* — **both forms of a lying log**.
+  * **Only the decidable half is judged**, in three bands: the default is a **rebound** module-level
+    name ⇒ red; the default is a **mutable literal** ⇒ red; assigned once, immutable, never rebound
+    ⇒ **passes** (all 13 such sites in the family are this kind, and their count is printed as the
+    denominator). The third band **must** pass — otherwise it is a "flag every default argument"
+    noise criterion, which is exactly the family of errors C-33 taught us.
+  * Four self-test legs, two red and two green, including the reverse cell
+    `immutable_constant_benign_ok`.
+  * **What it does not cover**: a module constant written into an output string while the function
+    also has an argument of its own (the `budget_s` shape) is **not** a default argument — that needs
+    dataflow analysis. It is covered instead by **behavioural assertions in `sync_check --selftest`
+    group E**, which **did not exist** despite `update_helper.py`'s docstring naming it as the place
+    the criterion lives (§4.1.18's family: *a promised criterion that does not exist is no
+    criterion*). Three legs added, including a real source mutation as the reverse cell.
+- Family reading afterwards: **0 FAIL / 4 WARN / 0 BROKEN** — reme's C-27 is gone (reme-dev wired
+  `hold_exe_delete_guard`), so the four C-38 WARNs are the whole board.
+
 ## 2026-09-19 (the criterion's fingerprint ended up in the product prose)
 
 - **A real instance of "reword the product text so the criterion stops biting", located to a commit.**

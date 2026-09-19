@@ -1,4 +1,5 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.3
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.4
+# 1.8.4：E 组补 **`budget_s` 必须与实参 `limit` 同源**——`update_helper.py` 的 docstring 早就写明“判据落点在 sync_check --selftest 的 update_helper 组”，而这里**此前没有这条腿** ⇒ **承诺的判据不存在，等于没判据**。三条腿：limit=2 ⇒ `budget 2s`；limit=120 ⇒ `budget 120s`（两个输入两个输出）；**反向格 = 真变异**（把源码改回取模块常量，重新加载后 limit=2 **必须不再**出 `budget 2s`）。
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
 # 1.8.2：E 组补第二条可达路径——**回铺源为空**（SNAPSHOT 没内容）+ 替换失败：真跑一场
@@ -603,6 +604,51 @@ def _update_helper_cases():
                                         mod.UPDATE_WAIT_LIMIT))
         missing = sorted(k for k, v in rev.items() if not v)
         out.append(("E 反向：旧合成形态被判缺项", len(missing) >= 6, "缺 " + "、".join(missing)))
+        # 2026-09-19：**`budget_s` 必须与实参 `limit` 同源**（1.4.4 修的缺陷）。
+        # `update_helper.py` 的 docstring 早就写明"判据落点在 sync_check --selftest 的
+        # update_helper 组"，而这里此前**没有这条腿** ⇒ **承诺的判据不存在，等于没判据**
+        # （§4.1.18 的同族：判据存在 ≠ 它真的在跑）。
+        # 判别力靠三格：limit=2 ⇒ budget 2s；limit=120 ⇒ budget 120s（**两个不同输入给出
+        # 两个不同输出** ⇒ 证明它跟着实参走，而不是恒等于某个常量）；再加一格**真变异**。
+        b2 = mod.build_apply_script(tgt, stage, work, bak, r"C:\t\update.log", limit=2)
+        out.append(("E budget_s 取自实参 limit（limit=2 ⇒ budget 2s）",
+                    "budget 2s" in b2,
+                    "budget 片段: %s"
+                    % ([ln.strip() for ln in b2.splitlines() if "nominal budget" in ln][:1] or "无")))
+        b120 = mod.build_apply_script(tgt, stage, work, bak, r"C:\t\update.log",
+                                      limit=mod.UPDATE_WAIT_LIMIT)
+        out.append(("E budget_s 跟着实参走（limit=120 ⇒ budget 120s）",
+                    "budget 120s" in b120, "limit=%d" % mod.UPDATE_WAIT_LIMIT))
+        # **反向格 = 真变异**：把源码改回旧写法（budget 取模块常量），重新加载后渲染
+        # `limit=2` ⇒ 上面那条断言**必须失败**。没有这一格，"渲染里恰好印了 budget"也能过。
+        old_form = "budget_s=limit * UPDATE_WAIT_TICK_MS // 1000"
+        new_form = "budget_s=UPDATE_WAIT_BUDGET_S"
+        src_u = path.read_text(encoding="utf-8")
+        if old_form in src_u:
+            import tempfile as _tf
+            mut_dir = Path(_tf.mkdtemp(prefix="uh-mut-"))
+            try:
+                mut_path = mut_dir / "uh_mut.py"
+                mut_path.write_text(src_u.replace(old_form, new_form), encoding="utf-8")
+                mspec = importlib.util.spec_from_file_location("_tpl_uh_mut_budget", mut_path)
+                mmod = importlib.util.module_from_spec(mspec)
+                mspec.loader.exec_module(mmod)
+                mtext = mmod.build_apply_script(tgt, stage, work, bak, r"C:\t\update.log",
+                                                limit=2)
+                out.append(("E 反向：budget 取模块常量时 limit=2 必须**不再是** budget 2s",
+                            "budget 2s" not in mtext,
+                            "变异后 budget 片段: %s"
+                            % ([ln.strip() for ln in mtext.splitlines()
+                                if "budget" in ln][:1] or "无")))
+            except Exception as exc:
+                out.append(("E 反向：budget 取模块常量时 limit=2 必须**不再是** budget 2s",
+                            False, "变异加载失败: %r" % (exc,)))
+            finally:
+                import shutil as _sh
+                _sh.rmtree(mut_dir, ignore_errors=True)
+        else:
+            out.append(("E 反向：budget 取模块常量时 limit=2 必须**不再是** budget 2s",
+                        False, "找不到待变异的写法 `%s`（判据与实现已脱节，请同步）" % old_form))
     except Exception as exc:
         out.append(("E update_helper script", False, "异常: %r" % (exc,)))
     finally:
