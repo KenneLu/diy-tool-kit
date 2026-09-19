@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.3
-# 1.9.3：① **新增 C-37（模板通道，FAIL）= C-2 拒绝删除句柄**：静态半（`paths.py` 提供
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.4
+# 1.9.4 两条（都来自复核员的实测）：
+#   ① **身份行加 `at:` 时点**——"任何「命中 N 个」的转述都必须自带时点"（同一族：扫描面说「扫了什么」、时点说「什么时候」）。实证：reme 残留我广播成 8、**当前是 5**（消失 4、新增 1）——**残留集是活的**，本轮第二次栽在这上面。
+#   ② **`TMP_DECLARED_PATHS` 的口径写清**：**声明过的、且会随下次构建自动重建的位置**，正确处置是**进白名单**，**不是要求清理**——清理既不持久，又会产生**虚假的进展感**（看起来清干净了，下次门禁又长出来）。# 1.9.3：① **新增 C-37（模板通道，FAIL）= C-2 拒绝删除句柄**：静态半（`paths.py` 提供
 #   `hold_no_delete` / `hold_exe_delete_guard` + README 的 `<!-- MUST-WIRE -->`，否则四家
 #   拷走了也**没人调用**）+ **性质半**（用临时文件实测：持句柄时 `unlink` / `rmtree(父目录)`
 #   **必须失败**，释放后 `unlink` **必须成功**这个判别控制）。自检另加**判别力样本**：
@@ -304,9 +306,14 @@ def identity_line() -> str:
             head = r.stdout.strip()
     except Exception:
         pass
-    return ("# conformance_check %s  sha256:%s  norm:%s  head:%s"
+    # `at:`（lead 2026-09-19 加，"计数必须带时点"）：**任何"命中 N 个"的转述都需要时点**——
+    # 残留集是活的（本轮 reme 从 8 变 5：消失 4、新增 1），缺时点的数字会让接收方去找
+    # 已不存在的东西。**扫描面说"扫了什么"，时点说"什么时候"**，两者齐了读数才可判。
+    import time as _time
+    at = _time.strftime("%Y-%m-%dT%H:%M:%S")
+    return ("# conformance_check %s  sha256:%s  norm:%s  head:%s  at:%s"
             % (ver, hashlib.sha256(raw).hexdigest()[:12],
-               hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12], head))
+               hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12], head, at))
 
 # 蓝本工具（内容以模板正本为准，不按"消费方"判定）
 def load_blueprints() -> set:
@@ -1966,6 +1973,7 @@ _SHAPE_RULE = ("**任意深度**存在名为 `log` 的**目录**（里面的 `*.
 # 与"该按声明长期保留"（复核员对照实验：同规则扫 %LOCALAPPDATA% 命中的恰好是那 4 个**真实
 # 数据根**——所以形态本身不构成"泄漏"判定，位置与声明才构成）。
 # 白名单只豁免**报告与增量判定**，不改判据：这里不登记就永远红，登记了就永远有出处可查。
+# ⚠️ **为什么"自动重建类"必须走白名单、而不是要求清理**（lead 2026-09-19 定）：声明过、且**下次构建会自动重建**的位置（如 reme `scripts/build.bat:22` 明写的固定路径），对它做"清理"**既不持久、又制造虚假的进展感**——看起来清干净了，下次门禁它又长出来。**正确处置是承认它是设计的一部分并登记出处**；"清理清单"只收**不该存在的残留**。
 TMP_DECLARED_PATHS = {
     "reme-helper-builddata":
         "reme-helper/scripts/build.bat:22 set \"REME_HELPER_DATA_DIR=%TEMP%\\reme-helper-builddata\""
