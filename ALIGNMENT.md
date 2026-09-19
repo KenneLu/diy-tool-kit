@@ -96,7 +96,7 @@ python my-diy-tool-template\conformance_check.py --roots reme-helper
 **`__init__.py` 的 VER 必须镜像同模块正本 VER**（本轮已同步 appconfig/paths/tray_kit 三处）。
 各工具 `src/modules/*/__init__.py` 需按此回基（见 §4 序 1a）。
 
-### 0.2 本轮模板升位与级联清单（**下发用**）
+### 0.2 上一轮模板升位与级联清单（**已下发**）
 
 "模板先冻结、工具再收敛"的最后一轮，模板侧 4 处改动 + 版本号：
 
@@ -111,6 +111,25 @@ python my-diy-tool-template\conformance_check.py --roots reme-helper
 dsh-helper、local-speak2text、opencodex-helper 各补一份（`from .icons import *  # noqa: F401,F403`）。
 reme 因 `icons` 整模块未采纳，记 `[MISSING-MODULE]`。
 
+### 0.3 本轮模板升位与级联清单（**下发用**，2026-09-19 第二轮）
+
+本轮按**用户仲裁规则**（STANDARDS §B4：公共件冲突以 reme-helper 的**已验证实现**为基准，
+不看"用的人多"）重写 `modules/update_helper/`，并给 `sync_check.py` 加 E 组回归。
+
+| # | 模板文件 | 旧 → 新 VER | 性质 | 必须重拷的副本 |
+|---|---|---|---|---|
+| 1 | `modules/update_helper/update_helper.py` | 1.1.0 → **1.3.0** | 照 reme 已验证链路补齐**失败回退**：替换前快照且成功才轮转、检查 robocopy rc、失败回铺、失败 marker、sha256 缺失即中止（fail-closed） | **dsh-helper、opencodex-helper（红灯必改）** |
+| 2 | `modules/update_helper/__init__.py` | 1.1.0 → **1.3.0** | 新增导出 `verify_zip_sha256` / `pop_failed_update_note` / `failed_marker_path` | 同上（整夹重拷） |
+| 3 | `modules/update_helper/README.md` | — （逐字节） | 接口表补 3 行；替换脚本语义要点从 2 条扩到 6 条；采纳步骤加"启动 sweep + 读失败 marker" | 同上（整夹重拷） |
+| 4 | `sync_check.py` | 1.4.0 → **1.5.0** | `--selftest` 新增 E 组（替换脚本语义正向 17 项 + 旧形态反向） | **无**（设计不拷贝：门禁按路径调用模板正本） |
+
+**新增采纳动作（不只是重拷）**：dsh/ocx 在启动流程里加两行——
+`sweep_stale_update_dirs()`（清残留）与 `note = pop_failed_update_note(update_dir)`（非空则 notify）。
+不加这两行不会报错，但"上次更新失败"就又变成无声消失（这正是 1.3.0 要消灭的形态）。
+
+**`.sha256` 前置条件**：1.3.0 起缺 `.sha256` 即中止更新。dsh/ocx 的 `release.yml` 均已于
+`gh release create` 时上传 `.zip.sha256`（已核对两仓库 workflow），故不会断更新。
+
 ## 1. 主矩阵（模板件 × 四工具）
 
 行首 VER = 模板正本当前 VER；"收敛中" = 队友当轮正在改、尚未落定。
@@ -120,16 +139,16 @@ reme 因 `icons` 整模块未采纳，记 `[MISSING-MODULE]`。
 | **appconfig.py** (1.0.1) | `PARAM` 参数不同；另申报 VERSION 不入此文件、ICON_DRAW 不启用 | `PARAM` 已建 `src/modules/appconfig/appconfig.py` | `PARAM` 参数不同；ICON_ASSET 手工 png，VERSION 在 `main.py` | `PARAM` 参数不同；ICON_DRAW 自绘，VERSION 在 `main.py` |
 | **paths.py** (1.1.3) | `SAME` 1.1.3（**已跟进**，队友 #2；dev `RUN_DIR` 分叉随 OVERRIDE 保留） | `SAME` 1.1.3（**已跟进**）；模板补 `_CONFIG` 后原 OVERRIDE 已撤 | `SAME` 1.1.3（**已重拷**，红灯自消） | `SAME` 1.1.3（**已重拷**，红灯自消） |
 | **autostart.py** (1.1.1) | `MISSING-MODULE` 内联在 `main.py`（含模板没有的 `sync_autostart_path` 自愈；倾向反向沉淀） | `SAME` 1.1.1（**已抽件**，队友 #3） | `SAME` 1.1.1（**已抽件**，队友 #4） | `SAME` 1.1.1（**已抽件**，队友 #4） |
-| **update_helper.py** (1.0.1) | `MISSING-MODULE` 内联更新链含备份目录 + `robocopy /purge`，与模板时序不同 | `MISSING-MODULE` 变体 `src/updater.py`（稳定位 + `update.pending.json`），**无头** | `SAME` 1.0.1 | `SAME` 1.0.1 |
-| **i18n.py** (2.1.0) | `NOHDR` 重形态 `modules/i18n/i18n.py`(204 行，差 303 行) + `pairs.json`；缺模板头 | `SAME` 2.1.0（含 `locales/zh.json`+`en.json`） | `MISSING-MODULE` | `MISSING-MODULE` |
+| **update_helper.py** (1.3.0) | `MISSING-MODULE` **内联且已验证**（main.py 7098-7345）——模板 1.3.0 的基准就是它，见 §7.1 | `MISSING-MODULE` 变体 `src/updater.py`（稳定位 + `update.pending.json`），**无头** | `[DIFF]` 停在 1.1.0：缺快照/rc/回铺/marker/fail-closed（**红灯**，本轮重拷） | `[DIFF]` 同左 |
+| **i18n.py** (2.1.1) | `NOHDR` 重形态 `modules/i18n/i18n.py`(204 行，差 303 行) + `pairs.json`；缺模板头 | `SAME` 2.1.1 | `MISSING-MODULE` | `MISSING-MODULE` |
 | **icons.py** (2.0.0) | `MISSING-MODULE` 内联 `make_icon`/`make_taskbar_icon`/`icon_font`（运行态着色不同构） | `SAME` 2.0.0（`src/icons.py` 已消费模板）；缺 `icons/__init__.py` → `MISSING-FILE` | `SAME` 2.0.0（`ICON_ASSET`，头部申报）；缺 `icons/__init__.py` → `MISSING-FILE` | `SAME` 2.0.0（`ICON_DRAW`）；缺 `icons/__init__.py` → `MISSING-FILE` |
 | **tray_kit.py** (2.0.2) | `SAME` 2.0.2（**已跟进**，队友 #2） | `SAME` 2.0.2（**已跟进**，队友 #3） | `SAME` 2.0.2（**已重拷**，红灯自消） | `SAME` 2.0.2（**已重拷**，红灯自消） |
 | **log_kit.py** (1.0.2) | `SAME` 1.0.2（**已回基**，队友 #2，root-logger 分叉已并入正文或撤销） | `SAME` 1.0.2（**已收敛**，队友 #3） | `SAME` 1.0.2 | `SAME` 1.0.2 |
 | **service_link.py** (0.1.0) | `SAME`（**已文件夹化**，队友 #2）但**未接线**（`main.py` 无 import） | `MISSING-MODULE` | `MISSING-MODULE` | `MISSING-MODULE` |
 | **`__init__.py`**（各模块） | `i18n/__init__.py` 已申报 OVERRIDE（`[decl]`，重形态）；其余 `SAME` | 全部 `SAME`（已跟进 1.0.1） | `SAME` | `SAME` |
-| **`README.md`**（各模块，1.4.0 起纳入） | `[decl]` ×1（`i18n/README.md`，随重形态模块整包申报）；其余 4 个 `[ok]` | 全部 `[ok]`（已重拷修正后的 paths README） | 全部 `[ok]`（appconfig 已回基） | 全部 `[ok]`（appconfig 已回基） |
+| **`README.md`**（各模块，1.4.0 起纳入） | `[decl]` ×1（`i18n/README.md`，随重形态模块整包申报）；其余 4 个 `[ok]` | 全部 `[ok]`（已重拷修正后的 paths README） | `update_helper/README.md` `[DIFF]`（本轮重拷后回 `[ok]`）；其余 `[ok]` | 同左 |
 | **`icons/` 整夹**（README + `__init__.py`） | `MISSING-MODULE`（整模块未采纳） | `MISSING-FILE` ×2（README + `__init__.py` 未拷） | `MISSING-FILE` ×2 | `MISSING-FILE` ×2 |
-| **sync_check.py** (1.4.0) | `N/A` 设计不拷贝：门禁按路径调用模板正本 | `N/A` 同左 | `N/A` 同左 | `N/A` 同左 |
+| **sync_check.py** (1.5.0) | `N/A` 设计不拷贝：门禁按路径调用模板正本 | `N/A` 同左 | `N/A` 同左 | `N/A` 同左 |
 
 > 矩阵外的 `baseline` / `build_release` 非 `.py` 模板件（README/bat/workflows），不属本文范围，
 > 见 REVIEW.md 对应关系矩阵与 CONFORMANCE §B 基线条款。
@@ -519,3 +538,81 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
    一律走逐字节哈希：`[ok]` / `[DIFF]` / `[decl]`（模块级 OVERRIDE 时）。
    提示语本身也要对：`[NOHDR]` 的"补头"建议**只对 `.py` 成立**，绝不能出现在 `.md` 上
    ——否则会把人教去给 README 加头，而那条路恰好是被禁止的。
+
+## 7. 模块来源清单 vs reme-helper（仲裁规则落地，2026-09-19）
+
+用户仲裁规则（STANDARDS §B4）：**公共模块版本冲突时，以 reme-helper 的已验证实现为准，
+不看"哪个版本用的人多"**。本节是它的执行结果——先回答"reme 到底有没有做过"，再回答
+"是否更可靠"，最后给裁定。**"reme 有"不等于"模板必须换成 reme 的形状"**：前提②（可验证的
+更优方案）仍然有效；但举证责任在偏离方。
+
+| 模板模块 (VER) | reme 是否有对应实现 | 形态 | 模板来源 | 裁定与依据 |
+|---|---|---|---|---|
+| `paths` (1.1.3) | **有**，`src/modules/paths/`，与正本同 VER | 模板件（reme 已拷贝） | reme 运行验证（数据区重定向/稳定位） | **一致**，无需裁定 |
+| `log_kit` (1.0.2) | **有**，`src/modules/log_kit/` | 模板件 | reme 抽件来源 | **一致**（只确认，不重构） |
+| `tray_kit` (2.0.2) | **有**，`src/modules/tray_kit/` | 模板件 | reme 抽件来源（reme 托盘长期在役） | **一致**（只确认，不重构） |
+| `service_link` (0.1.0) | **有**，`src/modules/service_link/` | 模板件 | reme 抽件来源 | **一致**；但 reme **未接线**（`main.py` 无 import）→ `SAME ≠ 在役`，属另一类缺口 |
+| `appconfig` (1.0.1) | **有**，`src/modules/appconfig/appconfig.py` | 参数文件 | 双方 | **设计豁免**（§3.1），非冲突 |
+| `i18n` (2.1.1) | **有**，但是**重形态**（中文即键 + `pairs.json` 片段替换） | reme 自研重形态 | 模板为轻量 T5；reme 已申报 OVERRIDE | 差异获准（前提②，STANDARDS §E4 明示）。**但**"包门面不得复制可变全局"这条**是 reme 的正确形态**，模板 2.1.1 已吸收（i18n 的 LANG 曾是静态副本） |
+| `autostart` (1.1.1) | **有，内联**（`main.py:3501-3570`：`autostart_enabled` / `set_autostart` / `toggle_autostart` / `sync_autostart_path`） | reme 内联 + 自报留痕 | 蓝本 local-speak2text（稳定安装位） | **保留模板形态**（前提②）：模板指向稳定安装位 + `migrate_autostart` 自愈，比 reme 的 `sys.executable` 形态更能扛"版本目录被换掉"；reme 自己的 `sync_autostart_path` 正是为这个坑打的补丁。**理由可验证**，故属获准差异 |
+| `icons` (2.0.0) | **有，内联**（`make_icon` / `make_taskbar_icon` / `icon_font`，含运行态着色） | reme 内联 | 模板 2.0.0 为抽件形态 | **未裁定 / 记缺口**：抽件形态与 reme 内联不同构，尚未做"是否更优"的举证。列入待评估（不阻塞本轮） |
+| `update_helper` (1.3.0) | **有，内联且已验证**（`main.py` 7098-7345） | reme 内联 | 模板 1.0.x 是**合成件** | **按 reme 重写**（接口不变），见 §7.1 |
+| `baseline` / `build_release` | 无（模板专属） | — | 模板 | 不适用 |
+
+> 读法：`MISSING-MODULE`（reme 无目录）**不等于 reme 没做过**——reme 有三件是**内联**在
+> `main.py` 里的（`autostart` / `update_helper` / `icons`，reme 自己在 `main.py:61-63` 申报留痕）。
+> 仲裁规则要求逐件去看**内联实现**，而不是看到"没有目录"就判"reme 没做过"。
+
+### 7.1 `update_helper` 专项审计（1.0.1 → 1.2.0 → 1.3.0）
+
+**审计对象**：模板 `modules/update_helper/`（1.0.1）vs reme `src/main.py` 的更新链。
+
+**结论（先给）**：**rewrite，按 reme 语义重写，接口保持**——不是补丁式修补。理由：
+
+1. 模板 1.0.x 是**合成件**：没有一次端到端跑通的记录，而 reme 的链路**发过版、跑过真实替换**。
+   两处静默失效（`PENDING_CMD` 被 `import *` 复制、`UPDATE_READY` 从不赋值）就出在这个合成件上；
+2. 缺的不是一行两行，而是**整条失败路径**（回退/可见性）。补丁式修补会把"失败时无路可退"
+   这种结构缺陷留成补丁堆；
+3. 重写**不需要改接口**：`check_update(current_version, force=False)` /
+   `download_and_prepare(latest, target_dir, update_dir, log=…)` 签名与语义保持，
+   dsh/ocx 调用点零改动（实测其调用为 `check_update(VERSION, force=True)`、`update_ready()`、
+   `pending_cmd()`、`download_and_prepare(latest, APP_DIR, UPDATE_DIR, log=log)`）。
+
+**反方论据（"模板已被 dsh/ocx 采纳，动它代价大"）为什么不成立**：那是"多数派"思维——
+采纳面是**错误的传播范围**，不是正确性证据（STANDARDS §B4 仲裁规则第 1 条）。
+dsh/ocx 之所以采纳 1.0.x，是因为模板当时只有 1.0.x。
+
+#### 7.1.1 reme 语义要点 → 模板落地状态
+
+| reme 语义要点（`main.py`） | 1.0.1 | 1.2.0 | 1.3.0 |
+|---|---|---|---|
+| `tasklist` 写文件 + `find` 读文件（**不用管道**：DETACHED 下 `tasklist \| find` 永不返回，实测 0.13s vs 挂起） | ✗ | ✓ | ✓ |
+| 等旧进程退出**有上限**（120 ≈ 1 次/秒）→ `:giveup` 记日志 | ✗ | ✓ | ✓ |
+| 备份目录在**目标目录之外**（否则 `/purge` 会连备份一起删，且 `robocopy target target\_backup /e` 会扫到自己） | ✗ | ✓ | ✓ |
+| `robocopy /e /purge` 清上一版残留 + 全流程写 `update.log` | ✗ | ✓ | ✓ |
+| 收尾删暂存（实测每次 ~50MB）+ 脚本自删 | ✗ | ✓ | ✓ |
+| `sweep_stale_update_dirs()`：只清**一小时前**的 %TEMP% 暂存（保护进行中的更新） | ✗ | ✓ | ✓ |
+| `http_error_hint()`：403/429 = GitHub 匿名配额，翻成人话 | ✗ | ✓ | ✓ |
+| **替换前先快照，且只在替换成功后才轮转为 BACKUP**（旧备份是回退源，不得提前删） | ✗ | ✗ | ✓ |
+| **检查 robocopy rc（>=8 失败）→ 绝不启动新 exe，从快照回铺并启动旧版** | ✗ | ✗ | ✓ |
+| **回铺也失败 → 不启动任何 exe，保留快照供人工恢复** | ✗ | ✗ | ✓ |
+| **失败 marker（`update.failed`）+ 下次启动读一次并通知**（托盘已退出，只能下次说） | ✗ | ✗ | ✓ |
+| **sha256 缺失也算失败**（fail-closed，绝不静默放行） | ✗ | ✗（"没 sha 就跳过"=静默放行） | ✓ |
+| 检查与"下载并安装"的**状态与自身版本状态分离**（两个 `UPDATE_STATE` 互相覆盖的教训） | — | ✓（`_STATE` 只服务查） | ✓ |
+
+#### 7.1.2 剩余差异（**明记，不作"已对齐"**）
+
+1. **资产定位方式**：reme 从 Releases API 的 `assets[]` 里按后缀找 zip / `.sha256`；
+   模板按命名约定拼 URL（`<APP_ID>-<版本>-windows-x64.zip`）。约定写法**更简单但更脆**——
+   资产改名即 404。约定已写进 README「打包约定」，四工具 release.yml 均遵守。
+2. **zip 内层结构**：模板期望一层 `<APP_ID>-<版本>/`（release.yml 约定），reme 直接解到
+   `work/stage`。属打包约定差异，不构成语义分歧。
+3. **接口形状**：reme 是 `tuple(bool, str)` + 状态字典；模板是 `dict(latest/current/newer/error)`
+   + 访问器。工具已依赖模板形状，**保持**。
+4. **"启动时 sweep + 读失败 marker"是采纳方义务**：模板只提供函数，工具需在启动流程调用
+   （README 采纳步骤已写）。未接线 = 失败可见性白做——已写入 §0.3 级联清单。
+5. **模板内还有第二条更新路径**：`modules/paths/paths.py: process_pending_update()`
+   （`UPDATE_PENDING = RUN_DIR / "update.pending.json"`，`robocopy /MIR`）。
+   它**无 rc 检查、无回退、/MIR 会删目标多余文件**，与 `update_helper` 的 bat 是两套机制。
+   reme 无对应物 → 按仲裁规则**不是基准**；是否收敛（并入 update_helper 或删除）**待裁定**，
+   本轮不动（改动面大且 l-s2t 可能在用）。

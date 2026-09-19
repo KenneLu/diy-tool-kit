@@ -2,6 +2,63 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (arbitration rule + update_helper rewritten to reme semantics, 1.1.0 → 1.3.0)
+
+The user set the rule for common-module conflicts, and it immediately changed a verdict:
+**when versions of a shared module disagree, reme-helper's implementation is the standard —
+not whichever version has more adopters, because everyone can be wrong together.**
+
+- **STANDARDS B4 gained the arbitration rule with its rationale.** "Majority" is a
+  *bogus judge* here, for a structural reason: this family distributes by **copying files**,
+  not by resolving dependencies. A defect written into the template is copied verbatim by
+  every tool that adopts it, so the more it spreads, the more it looks like consensus —
+  counting adopters means **certifying a mistake by its own propagation range**. The only
+  valid judge is *has it been verified end to end*: reme's update chain has shipped
+  releases, replaced real installations and handled rollback; the template's 1.0.x was a
+  **synthetic** implementation that had never been run once — while dsh/ocx had adopted it.
+  Deviation from reme is still allowed (premise ② of the "allowed inconsistency" rules),
+  but the burden of a *verifiable* better reason lies with the deviating side; the rule
+  also requires the verdict to be mechanised where possible (C-21 came from reme's correct
+  shape — no mutable globals copied into the package namespace).
+- **`modules/update_helper/` rewritten to reme semantics, contract unchanged** (`1.1.0 →
+  1.3.0`). 1.2.0 had already ported waiting/limit/backup/`/purge`/sweep/quota-hint; a full
+  read of reme's bat (this time reading it *whole*) showed the template was still missing
+  **the entire failure path**, so 1.3.0 adds:
+  * **snapshot before the copy, rotated to backup only after a copy that succeeded** —
+    1.2.0 deleted the old backup *before* the new files landed, i.e. it tore down the
+    rollback source first;
+  * **`robocopy` rc is checked (>=8 = failure)**: on failure **never start the new exe**,
+    restore from the snapshot and start the previous version; if the restore also fails,
+    **start nothing**, keep the snapshot for manual recovery;
+  * **failure marker** (`update.failed`) + `pop_failed_update_note()`, read once on next
+    startup — the tray is already gone, so the next start is the only chance to speak;
+  * **sha256 missing is a failure too** (`verify_zip_sha256`, fail-closed). 1.2.0's
+    "no `.sha256` file, skip verify" was a **silent pass**, which reme already classifies
+    as a security gap. All four tools' `release.yml` upload `.zip.sha256`, so no update
+    breaks.
+  `check_update` / `download_and_prepare` signatures are unchanged — dsh/ocx call sites
+  need no edit (they do need the new startup calls, see below).
+- **`sync_check.py` 1.5.0 — `--selftest` gains group E**: 17 positive assertions on the
+  generated `.bat` (wait loop, no pipe, limit, snapshot-before-copy, rc check, restore,
+  marker, cleanup, ASCII-only) plus a **reverse** sample (the old synthetic shape) that
+  must be *reported as missing* — otherwise the assertions could pass vacuously. Two
+  harness lessons are recorded in the docstring: the script body contains **cmd variables**
+  (`%WORK%`, `%FAILED%`), not the Python-expanded paths; and the comments deliberately
+  contain the literal `"tasklist | find"` as the counter-example, so a whole-file grep
+  would mistake the explanation for a real pipe.
+- **`ALIGNMENT.md` gained §7 (provenance inventory vs reme, per module)** — including the
+  finding that `MISSING-MODULE` does **not** mean reme never did it: `autostart` /
+  `update_helper` / `icons` are **inlined** in reme's `main.py` (declared as such at
+  `main.py:61-63`). Verdicts recorded there: `autostart` keeps the template's stable-install
+  form (premise ②, verifiable: it survives a version-directory swap, which is exactly the
+  bug reme's own `sync_autostart_path` patches); `icons` is **undecided / logged as a gap**.
+  §7.1 is the `update_helper` audit — reme semantic keypoints × landed state (1.0.1 /
+  1.2.0 / 1.3.0) and the **rewrite-not-patch** conclusion with its reasoning, plus five
+  remaining differences recorded as differences, not as "aligned".
+- **Cascade**: dsh/ocx must re-copy `modules/update_helper/` (all three files, `[DIFF]`),
+  and add two startup calls (`sweep_stale_update_dirs()`, `pop_failed_update_note()`);
+  `sync_check.py` itself produces no cascade.
+
 ## 2026-09-19 (public build flow skeleton: STANDARDS D1 + build.bat / release.bat)
 
 User asked for the shared build/test **flow** to be unified across the four tools,

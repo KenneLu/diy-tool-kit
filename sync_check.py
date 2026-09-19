@@ -1,5 +1,11 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.4.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.5.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
+#
+# 1.5.0：`--selftest` 新增 **E 组：update_helper 1.3.0 替换脚本语义回归**。1.3.0 按用户仲裁
+#   规则照 reme 已验证链路补齐"失败回退"（快照先于替换、rc>=8 不启动新 exe、回铺、失败
+#   marker），这些语义**只存在于生成的 .bat 文本里**，py 层测不到；E 组对脚本生成器做
+#   正向断言 + 对"旧合成形态"做**反向断言**（证明断言不是空转）。仅 sync_check 自身变更，
+#   **不产生任何级联**。
 #
 # 1.4.0：扫描范围从 `*.py` 扩到**模块文件夹内全部比对件（.py + .md）**——"整文件夹采纳"
 #   按定义是 **README + __init__.py + 代码** 三件套，而模块 README 此前从未被比对
@@ -283,6 +289,116 @@ def _i18n_state_cases():
     return out
 
 
+def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, failed, limit):
+    """检查一份更新 .bat 是否具备 reme 已验证的语义要点，返回 [(label, ok)]。
+
+    ⚠️ 两条实测教训（1.2.0/1.3.0 自证 harness 都踩过）：
+      * 脚本正文里出现的是 **cmd 变量**（`%SNAPSHOT%` / `%WORK%` / `%FAILED%`），**不是**
+        Python 侧展开后的路径——拿展开路径去 grep 正文必然找不到。路径值只能从
+        `set "X=..."` 行解析后单独断言（"备份在 target 之外"就是这么判的）。
+      * 刻意**按命令行判定**（只取非 `rem` 行），不做全文子串匹配：脚本注释里写着
+        `"tasklist | find" NEVER RETURNS` 这句**反例说明**，全文 grep 会把解释文字当成真管道。
+    """
+    lines = [ln.strip() for ln in text.splitlines()]
+    cmds = [ln for ln in lines if ln and not ln.lower().startswith("rem")]
+
+    def has(frag):
+        return any(frag in ln for ln in cmds)
+
+    def idx(frag):
+        for i, ln in enumerate(cmds):
+            if frag in ln:
+                return i
+        return -1
+
+    def outside(path, tgt):
+        p, t = Path(path).resolve(), Path(tgt).resolve()
+        return p != t and t not in p.parents
+
+    vars_ = {}
+    for ln in cmds:
+        if ln.startswith('set "') and "=" in ln:
+            k, _, v = ln[5:].partition("=")
+            vars_[k.upper()] = v.rstrip('"')
+    tl = [ln for ln in cmds if ln.startswith("tasklist")]
+    fl = [ln for ln in cmds if ln.startswith("find")]
+    snap_i = idx('robocopy "%TARGET%" "%SNAPSHOT%"')
+    copy_i = idx('robocopy "%STAGE%" "%TARGET%"')
+    rc_i = idx("if %RC% geq 8 goto install_failed")
+    rot_i = idx('move /y "%SNAPSHOT%" "%BACKUP%"')
+    delbak_i = idx('rmdir /s /q "%BACKUP%"')
+    dead_i = idx(":install_dead")
+    keep_i = idx(":cleanup_keep")
+    return [
+        ("等待循环 :wait", ":wait" in text and has("ping -n 2 127.0.0.1")),
+        ("tasklist 行不含管道", bool(tl) and all("|" not in ln for ln in tl)),
+        ("tasklist 写文件", any(">" in ln for ln in tl)),
+        ("find 读该文件", bool(fl) and all('"%POLL%"' in ln for ln in fl)),
+        ("等待有上限 %d" % limit, has(f"if %tries% geq {limit} goto giveup")),
+        ("超时放弃路径", ":giveup" in text),
+        ("变量指向约定值", vars_.get("TARGET") == target and vars_.get("STAGE") == stage
+         and vars_.get("WORK") == work and vars_.get("BACKUP") == backup
+         and vars_.get("SNAPSHOT") == snapshot and vars_.get("FAILED") == failed),
+        ("备份在 target 之外", outside(vars_.get("BACKUP", backup), target)),
+        ("替换前先快照", snap_i >= 0 and copy_i > snap_i),
+        ("检查 rc，失败不启动新 exe", rc_i > copy_i),
+        ("成功后才轮转备份（失败时旧备份还在）", rot_i > rc_i and delbak_i > rc_i),
+        ("失败回铺快照", idx('robocopy "%SNAPSHOT%" "%TARGET%"') > rc_i),
+        ("回铺也失败则不启动", dead_i > rc_i and not any(
+            ln.startswith("start") for ln in cmds[dead_i:keep_i if keep_i > dead_i else len(cmds)])),
+        ("失败 marker", has('> "%FAILED%" echo')),
+        ("cleanup 删暂存", has('if exist "%WORK%" rmdir /s /q "%WORK%"')),
+        ("脚本自删", has('del "%~f0"')),
+        ("ASCII-only", text.isascii()),
+    ]
+
+
+def _update_helper_cases():
+    """E 组：update_helper 替换脚本语义（1.3.0，照 reme 已验证链路）。返回 [(label, ok, detail)]。
+
+    正向：模板 `build_apply_script()` 生成的脚本必须逐项具备要点；
+    反向：喂一份"1.0.x 合成形态"（无等待/无快照/无 rc 检查）必须**被判缺项**——否则断言空转。
+    """
+    import importlib.util
+    out = []
+    path = TEMPLATE_DIR / "modules" / "update_helper" / "update_helper.py"
+    if not path.exists():
+        return [("E update_helper script", False, "模板 modules/update_helper/update_helper.py 不存在")]
+    spec = importlib.util.spec_from_file_location("_tpl_update_helper_selftest", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_tpl_update_helper_selftest"] = mod
+    need = str(TEMPLATE_DIR)
+    added = need not in sys.path
+    if added:
+        sys.path.insert(0, need)
+    try:
+        spec.loader.exec_module(mod)
+        tgt, stage, work = r"C:\t\target", r"C:\t\upd\stage", r"C:\t\upd"
+        snap, bak, failed = r"C:\t\_backup.pre", r"C:\t\_backup", r"C:\t\update.failed"
+        text = mod.build_apply_script(tgt, stage, work, bak, r"C:\t\update.log",
+                                      limit=mod.UPDATE_WAIT_LIMIT)
+        kp = _apply_bat_keypoints(text, mod.EXE_NAME, tgt, stage, snap, bak, work, failed,
+                                  mod.UPDATE_WAIT_LIMIT)
+        for label, ok in kp:
+            out.append(("E " + label, ok, "ok" if ok else "缺失"))
+        # 反向：旧合成形态必须被判缺项（证明上面每一条都不是空转）
+        old = ('@echo off\r\nset "STAGE=%s"\r\nset "TARGET=%s"\r\n'
+               'timeout /t 2 /nobreak >nul\r\n'
+               'robocopy "%%STAGE%%" "%%TARGET%%" /e /njh /njs\r\n'
+               'start "" "%%TARGET%%\\%s"\r\n' % (stage, tgt, mod.EXE_NAME))
+        rev = dict(_apply_bat_keypoints(old, mod.EXE_NAME, tgt, stage, snap, bak, work, failed,
+                                        mod.UPDATE_WAIT_LIMIT))
+        missing = sorted(k for k, v in rev.items() if not v)
+        out.append(("E 反向：旧合成形态被判缺项", len(missing) >= 6, "缺 " + "、".join(missing)))
+    except Exception as exc:
+        out.append(("E update_helper script", False, "异常: %r" % (exc,)))
+    finally:
+        if added and need in sys.path:
+            sys.path.remove(need)
+        sys.modules.pop("_tpl_update_helper_selftest", None)
+    return out
+
+
 def selftest() -> int:
     """回归样本（`--selftest`，可重复执行）：锁死本家族两条判据。
 
@@ -290,6 +406,8 @@ def selftest() -> int:
       B 逐字节相同的 .md                → 必须 [ok]
       C 同模块 .py 带 OVERRIDE、README 不同 → 必须 [decl]
       D 模板 i18n 包状态（2.1.1）：init 切换后**从包命名空间**读到的语言必须立即变
+      E 模板 update_helper 替换脚本（1.3.0）：等待/上限/快照/rc/回铺/marker/收尾逐项在位，
+        且旧合成形态被判缺项（反向）
 
     为什么固化成开关而不是跑一次：一次性命令会随会话消失，判据下次被改坏时无人察觉
     ——"已知样本反向验证"必须是可重跑的资产。D 组原先是一个根目录独立脚本，无调用方
@@ -334,6 +452,10 @@ def selftest() -> int:
                   f"got {got}{note!r}, want {want}")
 
         for label, ok, detail in _i18n_state_cases():
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
+        for label, ok, detail in _update_helper_cases():
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
