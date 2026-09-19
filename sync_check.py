@@ -350,7 +350,7 @@ def main() -> int:
         print(f"[MISS ] {name}: {TEMPLATE_DIR.name}/{rel} 不存在（检查头部路径）")
     if lags or nohdr or miss_mod or miss_file or diffs:
         print(f"needs human decision (yellow, non-blocking): "
-              f"lag={len(lags)}, diag-md-diff={len(diffs)}, nohdr={len(nohdr)}, "
+              f"lag={len(lags)}, doc-md-diff={len(diffs)}, nohdr={len(nohdr)}, "
               f"missing-module={len(miss_mod)}, missing-file={len(miss_file)}"
               f" —— 见 my-diy-tool-template/ALIGNMENT.md 对应格子")
     print(f"summary: {len(drift)} undeclared drift, {len(lags)} blueprint lag(s), "
