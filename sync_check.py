@@ -1,6 +1,11 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.6.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.7.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
+# 1.7.0：`--selftest` 新增 **F 组：tray_kit 探针语义**（`mutex_name_is_valid`，2.1.0/D3.3）。
+#   探针要被 `--smoke` 用来覆盖"名字合法"，必须同时满足：非法名判 False、**名字被占用仍判
+#   True**（否则用户实例在跑时冒烟假红）、**探测后不留句柄**（否则探针自己占锁）、内核不可用
+#   时放行。四条各对应一次真实踩坑，故逐条钉住而不是只测"返回 bool"。仅 sync_check 自身变更，
+#   **不产生任何级联**。
 # 1.6.0：E 组再扩 5 条——照 reme 基准文档 §9-1/§9-2 落地后要能**反向自证**：
 #   模块里没有 `global` 重绑、`UPDATE_READY`/`PENDING_CMD` 不是模块全局、
 #   就地改容器即刻对外可见、**`import *` 不搬运派生名**（旧缺陷无法静默复现）、
@@ -434,6 +439,73 @@ def _update_helper_cases():
     return out
 
 
+def _tray_kit_probe_cases():
+    """F 组：`tray_kit.mutex_name_is_valid` 探针语义（2.1.0，D3.3）。返回 [(label, ok, detail)]。
+
+    探针要被 `--smoke` 用来覆盖"互斥体名合法"这条，它必须满足四个性质——**每条都对应一次
+    真实的踩坑**，所以逐条钉住，而不是只测"返回值是 bool"：
+      ① 合法名 → True；
+      ② 非法名（`Local\\` 之后再出现反斜杠，SINGLE-01 的根因）→ False；
+      ③ 名字**已被占用** → 仍 True（`ERROR_ALREADY_EXISTS` 也算内核接受；否则用户实例在跑时
+         冒烟会假红——这正是不能拿 `single_instance_free` 当探针的原因）；
+      ④ 探测完**不留句柄**（否则探针自己把锁占了，用户接下来的托盘会被判"已有实例"）；
+      ⑤ 内核不可用 → 放行（失败方向同守卫：宁可漏判，不可把工具判死）。
+    """
+    import importlib.util
+    import ctypes as _ctypes
+    out = []
+    path = TEMPLATE_DIR / "modules" / "tray_kit" / "tray_kit.py"
+    if not path.exists():
+        return [("F tray_kit probe", False, "模板 modules/tray_kit/tray_kit.py 不存在")]
+    spec = importlib.util.spec_from_file_location("_tpl_tray_kit_selftest", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_tpl_tray_kit_selftest"] = mod
+    try:
+        spec.loader.exec_module(mod)
+        name = r"Local\my-helper-single-instance"
+        bad = r"Local\my-helper\SingleInstance"
+        out.append(("F 合法名 → True", mod.mutex_name_is_valid("my-helper", name) is True, name))
+        out.append(("F 非法名 → False（SINGLE-01 根因）",
+                    mod.mutex_name_is_valid("my-helper", bad) is False, bad))
+        # ③ 自己先占住同名的另一个句柄，探针仍须判 True
+        k32 = _ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.CreateMutexW.restype = _ctypes.c_void_p
+        _ctypes.set_last_error(0)
+        held = k32.CreateMutexW(None, False, name)
+        _ctypes.set_last_error(0)
+        out.append(("F 名字被占用仍算合法（否则冒烟假红）",
+                    mod.mutex_name_is_valid("my-helper", name) is True,
+                    "err=%s" % _ctypes.get_last_error()))
+        if held:
+            k32.CloseHandle(held)
+        # ④ 探针没留下句柄：关掉 held 后再建应拿到 err=0（无人持有）
+        _ctypes.set_last_error(0)
+        again = k32.CreateMutexW(None, False, name)
+        err = _ctypes.get_last_error()
+        if again:
+            k32.CloseHandle(again)
+        out.append(("F 探针不留句柄（不占锁）", err == 0, "err=%s" % err))
+        # ⑤ 内核不可用 → 放行
+        real = mod.ctypes
+
+        class _Boom:
+            @staticmethod
+            def WinDLL(*_a, **_k):
+                raise OSError("simulated: kernel32 unavailable")
+
+        mod.ctypes = _Boom
+        try:
+            out.append(("F 内核不可用 → 放行（失败方向同守卫）",
+                        mod.mutex_name_is_valid("my-helper", name) is True, "True"))
+        finally:
+            mod.ctypes = real
+    except Exception as exc:
+        out.append(("F tray_kit probe", False, "异常: %r" % (exc,)))
+    finally:
+        sys.modules.pop("_tpl_tray_kit_selftest", None)
+    return out
+
+
 def selftest() -> int:
     """回归样本（`--selftest`，可重复执行）：锁死本家族两条判据。
 
@@ -491,6 +563,10 @@ def selftest() -> int:
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
         for label, ok, detail in _update_helper_cases():
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
+        for label, ok, detail in _tray_kit_probe_cases():
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
