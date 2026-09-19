@@ -1,0 +1,100 @@
+# HANDOFF · 交接文件夹索引
+
+> **这个文件夹是什么**：`my-diy-tools` 家族一致性工程的**交接材料汇总**。
+> 把散落的交接文档收在一处，让接手的人**不用满盘找**。
+>
+> **唯一入口**：读本文件 → 按 §二 的顺序读两份文档 → 跑 §三 的复量命令 → 开始干活。
+>
+> ⚠ **本文件夹只放"交接文档"。证据文件不搬进来** —— 见 §四，它们留在原处，
+> 理由是 `STANDARDS.md §D8` 第 11 条：**同一份事实只应有一处正本，手抄副本必然滞后。**
+> （把日志/证据复制进来会立刻产生"两份可能不一致的真相"。）
+
+---
+
+## 一、文件夹内容
+
+| 文件 | 侧重点 | 什么时候读 |
+|---|---|---|
+| **`README.md`**（本文件） | 索引 + 阅读顺序 + 外部证据路径 | **第一个读** |
+| **`HANDOFF-2026-09-19.md`** | **主封存单**：复量命令 / 判据身份 / 四家产物 / Run 键现值 / **已完成（勿重做）** / **待办 T1–T13** / **12 个坑** / **明确未验证项** / 方向 | 第二个读，**并先跑它的 §1.1** |
+| **`HANDOFF-2026-09-19-TASKLEDGER.md`** | **台账附件**：63 条任务索引 + **5 个主题的关系** + 核心思路例程 + **18 条关键决策（带理由）** + 表后注（台账已过期的 4 处） | 第三个读，用来理解"来龙去脉"与"为什么当初这么定" |
+| **`PROMPT-for-next-team.md`** | **可直接粘贴给下一个 AI agent team 的完整交接话术**（自包含：身份/第一步/红线/工作方式/纪律/悬而未决项） | 交给下一个 team 时**原文粘贴** |
+
+---
+
+## 二、阅读顺序（**照这个顺序，不要跳**）
+
+```
+1. 本文件（30 秒）
+2. HANDOFF-2026-09-19.md  §1 + §8         ← 先建立"现场在哪、方向是什么"
+3. ▸ 跑 §1.1 复量命令                     ← **不要相信文档里的数字，以磁盘为准**
+4. HANDOFF-2026-09-19.md  §2 + §4 + §5    ← 已完成(勿重做) / 坑 / 未验证项
+5. HANDOFF-2026-09-19-TASKLEDGER.md  §二 + §四   ← 主题关系 + 关键决策
+6. HANDOFF-2026-09-19.md  §3（T1–T13）    ← 挑活干
+7. 写判据前：STANDARDS.md §D8 + §D7
+```
+
+**为什么这个顺序**：先"现场"再"历史"。
+`HANDOFF` 主单的 §1 数字**几分钟就会旧**，所以第一件事是复量；
+而附件里的"关系 / 思路 / 决策"长期有效，晚一点读不会亏。
+反过来的顺序（先读历史）会让人拿着过期的现场数字去规划。
+
+---
+
+## 三、复量命令（**全队标准命令，带时间戳**）
+
+```bash
+date +%Y-%m-%d_%H:%M:%S
+for r in dsh-helper opencodex-helper local-speak2text reme-helper; do
+  printf '%-20s HEAD=%-9s dirty=[%s]  MODULE=%s\n' "$r" \
+    "$(git -C H:/Tools/my_diy_tools/$r rev-parse --short HEAD)" \
+    "$(git -C H:/Tools/my_diy_tools/$r status --porcelain | tr '\n' ';')" \
+    "$(grep -rl '^# TEMPLATE-MODULE' H:/Tools/my_diy_tools/$r/src 2>/dev/null | wc -l)"
+done
+printf '%-20s HEAD=%-9s dirty=[%s]\n' template \
+  "$(git -C H:/Tools/my_diy_tools/my-diy-tool-template rev-parse --short HEAD)" \
+  "$(git -C H:/Tools/my_diy_tools/my-diy-tool-template status --porcelain | tr '\n' ';')"
+```
+> ⚠ `MODULE=` 列**必须限定 `src/`** —— 模板自己的 18 个正本文件本来就带 `TEMPLATE-MODULE` 头，
+> 跑错范围会得到一整片假红。
+
+**文件夹建立时的读数（2026-09-19 22:0x，仅供参考，务必自己重跑）：**
+```
+dsh-helper         HEAD=361cf2e   dirty=[]   MODULE=0
+opencodex-helper   HEAD=740fc69   dirty=[]   MODULE=0
+local-speak2text   HEAD=e10c967   dirty=[]   MODULE=0
+reme-helper        HEAD=5c2e4aa   dirty=[]   MODULE=0
+template           HEAD=7a732e8   dirty=[]   （本文件夹建立于其后）
+```
+
+---
+
+## 四、不在本文件夹里的（**有意的**）
+
+| 内容 | 绝对路径 | 为什么不搬进来 |
+|---|---|---|
+| 规范正本（§D8 证据与锚纪律） | `H:\Tools\my_diy_tools\my-diy-tool-template\STANDARDS.md` | 它是**活文档**，随工程继续演化；搬进来就成了一份会过期的副本 |
+| 缺陷登记 + 三级对照表（权威） | `H:\Tools\my_diy_tools\my-diy-tool-template\CONFORMANCE.md` | 同上 |
+| 家族对齐表 | `H:\Tools\my_diy_tools\my-diy-tool-template\ALIGNMENT.md` | 同上 |
+| 三轮复审机制 | `H:\Tools\my_diy_tools\my-diy-tool-template\REVIEW.md` | 同上 |
+| 模板索引入口 | `H:\Tools\my_diy_tools\my-diy-tool-template\README.md` | 顶部有指向本文件夹的指针 |
+| **任务台账实体（63 条，描述最详细）** | `C:\Users\Administrator\.claude\tasks\family-alignment\*.json` | **运行期产物**，会被 harness 继续改写；复制会立刻产生分歧 |
+| **T4 的只读施工单** | `H:\Tools\_verify-scratch\UPDATER-SWAP-ls2t.md` | 被任务 `#32` 的 `description` 按路径引用；移动会断引用 |
+| 构建全量输出（各闸行） | `H:\Tools\_verify-scratch\dsh-build-full.log`<br>`H:\Tools\_verify-scratch\ocx-build-full.log` | 体量大；且是"一次性动作"的原始证据，宜留在原地 |
+| Run 键改指脚本（纯 ASCII，可复用） | `H:\Tools\_verify-scratch\repoint_dsh_run.ps1` | 可执行件，属工具不属文档 |
+| 当晚各类判据/字节证据 | `H:\Tools\_verify-scratch\GATE-*.txt` / `BAT-KEYPOINT-*.txt`<br>`LF-RESIDUE-baseline.txt` / `DISPATCH-BYTES-*.txt` / `EOL-criterion-evidence.txt` / `PENDING-REVERIFY.md` | 同上 |
+
+> **读它们的理由**：主封存单 §7「证据文件索引」已按用途分类列出。
+> **读台账的命令**：见 `HANDOFF-2026-09-19-TASKLEDGER.md` §一。
+
+---
+
+## 五、如果这是你第一次接手
+
+1. **先建立不变量**：跑 §三，确认五处都 `dirty=[]`。**不干净就先别动任何东西**，先搞清是谁在改。
+2. **再建立红线**：主封存单 §8 最后一句 —— **构建/测试绝不影响用户正在使用的服务**；
+   用户此刻正在使用 `ocx` 的隧道。**最优的合规方式是"一个字节都不写"。**
+3. **然后才挑活**：`HANDOFF-2026-09-19.md` §3 的 `T1–T13`。
+   `T1`（GUI 目视验证）是唯一需要用户键鼠的一项，三家产物已就绪。
+4. **有疑问一律先读 §4「坑」** —— 它比 §3「待办」更值钱：
+   坑的形态是"**证据是真的，推理是通的，结论是反的**"，接手的人不会怀疑。

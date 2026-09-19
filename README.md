@@ -6,9 +6,14 @@
 > ③ **[CONFORMANCE.md](CONFORMANCE.md)**——做到没有：**76 条原子条款 × 四工具状态矩阵** + 可复现检查命令 + 退出/单实例/服务/命名/文档五张深挖表；
 > ④ **[REVIEW.md](REVIEW.md)**——本轮改了什么：三轮复审机制 + 家族工具对应关系矩阵 + 记录。
 >
-> ⚠ **接手/换班必读**：**[HANDOFF-2026-09-19.md](HANDOFF-2026-09-19.md)** ——
-> 现场封存单：复量命令 + 已完成（勿重做）+ 待办全表（对应任务台账 `#24…#64`）+ **会把人带错方向的坑** +
-> **明确未验证项**。**它的 §4「坑」比 §3「待办」更重要** —— 坑的形态是"证据是真的、推理是通的、结论是反的"。
+> ⚠ **接手/换班必读**：**[HANDOFF/](HANDOFF/README.md)** —— 交接文件夹（全部交接材料收在一处）：
+> - **[HANDOFF/README.md](HANDOFF/README.md)** —— 索引：阅读顺序 + 复量命令 + 哪些证据在哪（**从这里进**）
+> - **[HANDOFF/HANDOFF-2026-09-19.md](HANDOFF/HANDOFF-2026-09-19.md)** —— 主封存单：现场状态 / 已完成（勿重做）/ 待办 T1–T13 / **12 个坑** / **明确未验证项**
+> - **[HANDOFF/HANDOFF-2026-09-19-TASKLEDGER.md](HANDOFF/HANDOFF-2026-09-19-TASKLEDGER.md)** —— 台账附件：63 条任务索引 + 五个主题的关系 + 核心思路例程 + **18 条关键决策（带理由）**
+> - **[HANDOFF/PROMPT-for-next-team.md](HANDOFF/PROMPT-for-next-team.md)** —— 可直接粘贴给下一个 agent team 的交接话术
+>
+> **它的「坑」比「待办」更重要** —— 坑的形态是"证据是真的、推理是通的、结论是反的"。
+> ⚠ 主封存单里的现场数字**几分钟就旧** ⇒ **先跑它的 §1.1 复量命令，不要照着数字规划**。
 >
 > `modules/<模块>/` 是规范对应的**实现件**（模块超详细文档 + 模板代码）。
 > 规范与实现冲突时：以 STANDARDS.md 为准，回改模板并登记 REVIEW；文档与磁盘冲突时改文档或改代码，禁止并存。
@@ -22,6 +27,8 @@ my-diy-tool-template\
   CONFORMANCE.md       ← 逐条对照表：76 条款 × 四工具状态 + 检查命令 + 重点域深挖
   REVIEW.md            ← 三轮复审机制 + 对应关系矩阵 + 复审记录
   sync_check.py        ← T10 漂移检查（构建门禁的一个闸）
+  conformance_check.py ← 机械判据（C-xx 条款的判据本体）
+  HANDOFF\             ← 交接文件夹（接手必读；索引见其 README.md）
   blueprints.txt       ← 蓝本/待对齐工具名单（只减不增）
   CHANGELOG.md / LICENSE / .gitignore
   modules\<模块名>\
