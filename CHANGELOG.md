@@ -2,6 +2,38 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (i18n 2.1.1 — the package no longer copies mutable state)
+
+A real user-visible bug, root cause in the template: `modules/i18n/__init__.py` did
+`from .i18n import *`, which **copies** `LANG` into the package namespace. After
+`i18n.init('en')` the submodule was English and `t()` returned English, but
+`i18n.LANG` read from the package was still `'zh'`. local-speak2text's
+`_menu_signature()` read that stale value, so switching language changed the
+notification but never rebuilt the menu — **the menu stayed Chinese forever**.
+
+- **`modules/i18n/__init__.py` rewritten to not copy state.** Only the *functions*
+  are bound (they read submodule globals at call time); everything else (`LANG`,
+  `TABLES`, `KEY_MIN_SET`) goes through a **PEP 562 module-level `__getattr__`** that
+  delegates to the submodule on every read. `LANG` must therefore never appear in an
+  import here — binding it would recreate the dead copy and silently disable the
+  delegation. This is the shape reme-helper already had (`from . import i18n` plus no
+  mutable globals), which makes the bug structurally impossible.
+- **`modules/i18n/i18n.py` gains `current_lang()`** — the recommended reader. `LANG`
+  stays for compatibility and is documented as internal.
+- **`test_i18n_state.py` (new, repeatable)** — asserts the language read *from the
+  package namespace* flips immediately on `init('en')` / back on `init('zh')`, that
+  `t()` follows, and that `LANG` is not a static copy. Reading only the submodule
+  would not catch this bug. Reverse self-proof: re-adding a `LANG` import to the
+  package makes the test fail with exactly the reported symptom.
+- **VERSION 2.1.0 → 2.1.1**; `modules/i18n/README.md` documents `current_lang()` and
+  the rule "state is read through an accessor, never as a mutable global".
+- **Docs (task #9): release cadence recorded.** STANDARDS **G3 item 7** (+ pointer in
+  B3): development does local commits only and does **not** touch the version number;
+  bump + tag + push happen together as the single "release" action, and unreleased
+  work lives under `## Unreleased`. CONFORMANCE **§4.1.12** records the rule and the
+  currently non-conforming instances (dsh 1.8.2 / ocx 1.2.2 / reme 1.2.6 / l-s2t
+  1.4.1 are bumped-but-unreleased; rollback is the tool owners' task).
+
 ## 2026-09-19 (sync_check 1.4.0 — module READMEs are no longer invisible)
 
 Fourth blind spot, found by the lead's independent full-hash comparison rather than
