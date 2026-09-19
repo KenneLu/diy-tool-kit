@@ -2,6 +2,39 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (tray_kit 2.2.0 — one validity criterion for all three; C-10 now AST-based)
+
+The lead's review of the 2.1.0 delivery asked for two things that were genuinely missing, so
+this round adds them (2.1.0 stays as the historical step; dsh/ocx should re-copy).
+
+- **`tray_kit` 2.1.0 → 2.2.0: the name-validity rule is now a single shared function.**
+  New public **`mutex_name_ok(name)`** — non-empty `str`, `Local` namespace prefix, and no
+  further backslash after the prefix. `acquire_single_instance`, `mutex_name_is_valid` and
+  `single_instance_free` **all call it**; previously the guard did no validation and the
+  probe only asked the kernel, i.e. two criteria for one rule. Consequences:
+  * the guard now rejects an illegal name **before** touching the kernel, logs it, and
+    **fails open** (`return True`, D3.2) — a programming error must not brick the tool; the
+    build-time probe is what turns it red (D3.3);
+  * `_derive_mutex_name()` is the single derivation point (`mutex_name or f"Local\\{app_id}-single-instance"`),
+    so the guard and the probe cannot drift apart;
+  * a docstring escape bug (`\`` inside a non-raw docstring) was caught by importing with
+    `-W error::SyntaxWarning` — it would have printed a SyntaxWarning in every consumer.
+- **`conformance_check.py` C-10 is now AST-based**, as requested: it takes the real
+  `def smoke` body (any nesting), requires a probe call whose result **is consumed** by an
+  `if` / `while` / `assert`, and reports "called but unchecked" separately. A new selftest
+  sample pins the case a substring judge silently accepted: the probe name appearing **only
+  in a comment**.
+- **STANDARDS §D3.3 extended** with the shared-criterion requirement and the AST judgement;
+  §D3.1 now points at it explicitly ("coverage must not be traded away to avoid the hang").
+  The **J 坑 list** gains "modal dialog on an unattended path" — it degrades "turns red" into
+  "hangs forever", and this family has now hit it twice.
+- **`sync_check --selftest` group F grew to 7**: adds the shape matrix (None / "" / no prefix /
+  `Global\` / second backslash / non-str), "the guard fails open on an illegal name and logs
+  it", and keeps the earlier occupied-name and no-stray-handle assertions.
+- **Cascade: all four tools re-copy `modules/tray_kit/` (2.2.0 — three files).** dsh/ocx had
+  already taken 2.1.0 and wired the probe, so for them this is a re-copy only; l-s2t and reme
+  still need the copy plus the probe call in `smoke()`.
+
 ## 2026-09-19 (tray_kit 2.1.0 — the smoke probe; D3.3; C-10 now tells "covered" from "bypassed")
 
 `--smoke` must cover the single-instance guard, but "run the real guard in smoke" is not an

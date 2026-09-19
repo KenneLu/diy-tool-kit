@@ -330,15 +330,49 @@ def c09(c: Ctx):
 
 
 # 探针 = "验名字合法性，不占锁不弹窗"。**不能**认 single_instance_free：用户常驻实例
-# 在跑时它返回 False，拿它当冒烟断言会假红（D3.3 的两条禁忌之一）。
-_SMOKE_PROBE = re.compile(r"mutex_name_is_valid")
-# 真跑守卫的证据：出现即说明冒烟可能弹模态框把构建挂死——但仅在探针缺失时才拿来作提示。
-_SMOKE_GUARD = re.compile(r"acquire_single_instance|single_instance_free|warn_duplicate_instance")
+# 在跑时它返回 False，拿它当冒烟断言会假红（D3.3 的禁忌之一）。
+_PROBE_NAMES = {"mutex_name_is_valid"}
+# 真跑守卫的证据：出现即说明冒烟可能弹模态框把构建挂死——仅在探针缺失时拿来作提示。
+_GUARD_NAMES = {"acquire_single_instance", "single_instance_free", "warn_duplicate_instance"}
+_SMOKE_PROBE = re.compile("|".join(_PROBE_NAMES))
+_SMOKE_GUARD = re.compile("|".join(_GUARD_NAMES))
 
 
-def _smoke_body(text: str) -> str:
-    m = re.search(r"def\s+smoke\b[\s\S]*?(?=\ndef |\Z)", text)
-    return m.group(0) if m else ""
+def _callee_name(node) -> str:
+    """调用表达式取被调名：`f()` / `mod.f()` / `self.f()` 都归一到 `f`。"""
+    if not isinstance(node, ast.Call):
+        return ""
+    fn = node.func
+    if isinstance(fn, ast.Name):
+        return fn.id
+    if isinstance(fn, ast.Attribute):
+        return fn.attr
+    return ""
+
+
+def _guarded_probe_calls(fn) -> tuple:
+    """在函数体里找**被判断过的探针调用**，返回 (命中数, 只调未判数)。
+
+    "判过"= 调用出现在 `if` / `while` / `assert` 的条件里，或参与 `not`/`and`/`or`
+    布尔组合——即**结果被消费**。只出现在表达式语句里的 `mutex_name_is_valid(...)` 不算：
+    覆盖 ≠ 调用（D3.3 的判据要求"能打红构建"）。
+    """
+    guarded = plain = 0
+    for node in ast.walk(fn):
+        if isinstance(node, (ast.If, ast.While)):
+            conds = [node.test]
+        elif isinstance(node, ast.Assert):
+            conds = [node.test]
+        else:
+            continue
+        for cond in conds:
+            for sub in ast.walk(cond):
+                if _callee_name(sub) in _PROBE_NAMES:
+                    guarded += 1
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Expr) and _callee_name(node.value) in _PROBE_NAMES:
+            plain += 1
+    return guarded, plain
 
 
 @check("C-10", "FAIL", "诊断参数不绕过正常启动路径：smoke 须有守卫**探针**并判结果（D3.1/D3.3）")
@@ -347,8 +381,9 @@ def c10(c: Ctx):
 
     * 旧判据（2.0.x）：`smoke()` 里出现 `mutex|single_instance` **任意子串**就算过。
       太松：把 `--smoke` 提前分派、函数体里留一句注释提到 mutex 都能骗过它。
-    * 现判据（D3.3）：`smoke()` 内必须有**探针调用** `mutex_name_is_valid(...)`，
-      **且对结果有判断**（`if not …` / `assert`）。只调用不判断 = 没有覆盖。
+    * 现判据（D3.3）：**AST 取 `def smoke` 的 body 范围**，要求其中有**探针调用**
+      `mutex_name_is_valid(...)`，且该调用**被条件/断言消费**（`if not …` / `assert`）。
+      只调用不判断 = 没有覆盖；写在注释里 = 更不算（子串判据会误收，AST 不会）。
     * 反例（不许当解）：`acquire_single_instance()` **真跑** —— 用户常驻实例在跑时会弹
       **模态**重复启动框，把无人值守的构建挂死（本家族已踩两次）。
     """
@@ -357,19 +392,27 @@ def c10(c: Ctx):
     text = c.read(c.entry)
     if "--smoke" not in text:
         return True, "无 --smoke"
-    body = _smoke_body(text)
-    if not body:
-        return False, "有 --smoke 但没有 smoke() 函数体可查（请让冒烟逻辑落在具名函数里）"
-    if _SMOKE_PROBE.search(body):
-        lines = body.splitlines()
-        i = next(i for i, ln in enumerate(lines) if _SMOKE_PROBE.search(ln))
-        window = "\n".join(lines[i:i + 3])
-        if re.search(r"\bif\b|\bassert\b", window) and \
-                re.search(r"\braise\b|\breturn\b|\bsys\.exit\b", window):
-            return True, "smoke 用探针覆盖了守卫名字合法性并判了结果"
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as exc:
+        return False, "入口文件语法错误，无法判定：%s" % exc
+    smokes = [n for n in ast.walk(tree)
+              if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "smoke"]
+    if not smokes:
+        return False, ("有 --smoke 但没有 `def smoke` 可查（AST 判据要求冒烟逻辑落在具名函数里，"
+                       "这样才判得了'覆盖'与'绕过'）")
+    guarded = plain = 0
+    for fn in smokes:
+        g, p = _guarded_probe_calls(fn)
+        guarded += g
+        plain += p
+    if guarded:
+        return True, "smoke 用探针覆盖了守卫名字合法性，且结果被条件/断言消费"
+    if plain:
         return False, ("smoke 调了 mutex_name_is_valid 但**没判结果**（覆盖 ≠ 调用："
                        "要么 if not … 中止，要么 assert）")
-    if _SMOKE_GUARD.search(body):
+    body_src = "\n".join(c.read(c.entry).splitlines()[smokes[0].lineno - 1:smokes[0].end_lineno])
+    if _SMOKE_GUARD.search(body_src):
         return False, ("smoke 里是**真跑守卫**（acquire_single_instance/…）：用户常驻实例在跑时"
                        "会弹模态重复启动框，把构建挂死。改用探针 tray_kit.mutex_name_is_valid()")
     return False, ("smoke() 没有守卫覆盖（SINGLE-04/D3.1）。把 --smoke 提到守卫之前"
@@ -840,6 +883,10 @@ def selftest() -> int:
              "        return 1\n", False),
             ("neg_probe_unchecked",
              "def smoke():\n    tray_kit.mutex_name_is_valid(APP_ID)\n    return 0\n", False),
+            # 子串判据会**误收**这一条（名字只出现在注释里）；AST 不会。这就是升级判据的理由。
+            ("neg_comment_only",
+             "def smoke():\n    # TODO: should call mutex_name_is_valid(APP_ID) here\n"
+             "    return 0\n", False),
         )
         for name, body, want in c10_cases:
             d = base / ("c10_" + name) / "src"

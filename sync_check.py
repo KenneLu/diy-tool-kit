@@ -467,6 +467,16 @@ def _tray_kit_probe_cases():
         out.append(("F 合法名 → True", mod.mutex_name_is_valid("my-helper", name) is True, name))
         out.append(("F 非法名 → False（SINGLE-01 根因）",
                     mod.mutex_name_is_valid("my-helper", bad) is False, bad))
+        # 2.2.0：形状判据单一化——同一条规则同时约束守卫/探针/空闲探测（不写两份规则）
+        shapes = [(None, False), ("", False), ("helper", False), (r"Global\helper", False),
+                  (r"Local\helper", True), (r"Local\helper-single-instance", True), (123, False)]
+        out.append(("F 形状判据（空/非串/无前缀/多反斜杠）",
+                    all(mod.mutex_name_ok(v) is want for v, want in shapes),
+                    "mutex_name_ok 覆盖 %d 例" % len(shapes)))
+        logs = []
+        guard_ok = mod.acquire_single_instance("my-helper", bad, log=logs.append) is True
+        out.append(("F 守卫遇非法名放行且记日志（D3.2）", guard_ok and bool(logs),
+                    logs[0][:60] if logs else "无日志"))
         # ③ 自己先占住同名的另一个句柄，探针仍须判 True
         k32 = _ctypes.WinDLL("kernel32", use_last_error=True)
         k32.CreateMutexW.restype = _ctypes.c_void_p
