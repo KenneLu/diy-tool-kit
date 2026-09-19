@@ -2,6 +2,32 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C2 landing moved to `tray_kit`; the evidence-swallowed-by-return family, third instance)
+
+- **C2's home changes from `paths.py` to `modules/tray_kit/tray_kit.py`** (the lead withdrew the
+  earlier `paths` decision on helpers-dev's evidence, which is harder than the semantic-ownership
+  argument I had used). Measured here to confirm the premise: `tray_kit.py` **already** has
+  `import ctypes` + `from ctypes import wintypes` and **12** `CreateMutexW` occurrences, whereas
+  `paths.py` would need two new imports. The decisive reason is **cohabitation by family**: C2 and
+  `acquire_single_instance` are both **kernel-object guards with process lifetime, both failing
+  open** — keeping them together makes that family legible at a glance. The implementation still
+  lives in `paths.py` 1.1.4 for now (`hold_no_delete` / `hold_exe_delete_guard`, already measured by
+  C-37); moving it into `tray_kit` is a dispatch event (§4.1.39).
+- **Third instance of "evidence swallowed by an earlier return"**, recorded in §4.1.29:
+  helpers-dev's first `delete_protection_selftest` put the happy path's `return` inside `try`, so
+  **`finally` ran and the function returned immediately, skipping the cleanup below it** — i.e. a
+  **green run leaked one `c2-selftest-*` directory into `%TEMP%` every time**. The corrected version
+  computes `result` first, does the cleanup, and returns once; it also **puts cleanup failure into
+  `problems`** (in the original, a failed cleanup sat in `finally` where the already-computed return
+  value swallowed it). Same family as C-32 and as `marker.unlink` running before `log`.
+- **Retry boundary, recorded with it**: `_rmtree_verified`'s `delay` exists to absorb **transient
+  locks** from Defender/indexers (there is precedent in `tests/_cleanup.py`), and **`tries × delay`
+  exhausted means failure — it is not "retry until it succeeds"**; otherwise "retry" silently
+  becomes "wait forever".
+- The two reserved-semantics lines for the C2 relaxation are already in §4.1.29 and stay there:
+  **what is relaxed is the refusal condition, not cleanliness**, and the handle must be held **by the
+  running instance** (early, to process exit, failing open).
+
 ## 2026-09-19 (C-43: `:~` in an `if` condition aborts the whole script; narrow boundary)
 
 - **C-43 (FAIL, tool + template channel), boundary pinned by ls2t-dev and adopted.** Only **one
