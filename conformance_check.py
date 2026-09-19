@@ -1394,6 +1394,61 @@ def check_md_tabs(root: Path):
     return (not bad), ("；".join(bad) if bad else "手写文档无 TAB")
 
 
+# ---------------------------------------------------------------- C-38
+# "生产者自我标识"：把一条**无法机械检查的纪律**换成一条**可判的性质**。
+# 由来（2026-09-19，复核员定死 3 个无点 tmp 目录的生产者）：那些残留出自 `python -c` /
+# heredoc 探针——**从不落盘**，所以任何"扫源码"的原理都覆盖不到。最后能定死归属，靠的是
+# **残留自带的那行日志**（`config seeded: <仓库出厂> -> …\<残留>\…`）：源是仓库而不是
+# 用户 AppData，一眼就能分辨"导入式探针"与"托盘实例"。
+# ⇒ **把归属依据写进产物自己**，比任何外部扫描都强。
+_SELF_ID_NAMES = ("USER_DATA_DIR", "CONFIG_PATH")
+
+
+def _self_identifying(root: Path):
+    """工具 `src/**/*.py` 里是否存在"把数据根/配置路径打进日志"的那一行。
+
+    返回 `(ok_or_None, [(相对路径, 行号, 行内容)])`；`None` = 无 `src/`（判据不适用）。
+    模板 `paths.py` 的**副本**也在 `src/modules/paths/` 下，所以"在模板里加一行"对四家同时生效。
+    """
+    src = root / "src"
+    if not src.is_dir():
+        return None, []
+    hits = []
+    for f in sorted(src.rglob("*.py")):
+        try:
+            for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                if "log(" not in line and "print(" not in line:
+                    continue
+                if any(n in line for n in _SELF_ID_NAMES):
+                    hits.append((f.relative_to(root).as_posix(), i, line.strip()))
+        except OSError:
+            continue
+    return bool(hits), hits
+
+
+@check("C-38", "WARN", "启动自证：日志里必须能看到解析后的数据根 / 配置文件路径")
+def c38(c: Ctx):
+    """**为什么是 WARN 而不是 FAIL**：缺它不会让用户看到任何异常，只会让**下一次残留归属
+    无据可依**——而那正是本次三个 `tmp*` 目录耗掉一整轮取证的原因（它们出自 `python -c` /
+    heredoc，**不落盘**，外部扫描原理上够不着）。等级由 lead 定（他倾向 WARN；我实测 3/4 家未做，
+    且修复路径是**模板一处**：`paths.seed_config()` 加一行 ⇒ 四家重拷后同时具备）。
+
+    **为什么"扫源码里有没有那一行"就够**：我们不需要判它的格式好不好看，只需要保证
+    **那次解析的结果会落进日志**——这正是"把不可查的纪律换成可查的性质"。
+    """
+    ok, hits = _self_identifying(c.dir)
+    if ok is None:
+        return True, "扫描面：无 src/（判据不适用）"
+    if ok:
+        return True, ("扫描面：src/**/*.py 全部；启动自证行 %d 处（%s）"
+                      % (len(hits), ", ".join("%s:%d" % (h[0], h[1]) for h in hits[:3])))
+    return False, ("扫描面：src/**/*.py 全部；**0 处**把数据根/配置路径写进日志的行。"
+                   "【为什么值得做】`python -c`/heredoc 探针**不落盘**，源码扫描原理上覆盖不到它们；"
+                   "能定死归属的只有**产物自带的那行日志**（如 `config seeded: <源> -> <目标>`）。"
+                   "【正确形态】在 `seed_config()` 或启动早期 `log()` 一行，写出 `USER_DATA_DIR` 与 "
+                   "`CONFIG_PATH` 的**解析结果**（不是常量、不是假设值）")
+
+
 @check("C-28", "WARN", "本仓 .md 不得含 0x09 TAB（只扫手写中文文档）")
 def c28(c: Ctx):
     """**只扫 `.md`，WARN 级**——误报成本低，但能覆盖一类真实事故。
