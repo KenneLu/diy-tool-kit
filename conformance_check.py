@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.11
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.12
+# 1.9.12：**新增 C-34**（WARN，模板通道）= **§1 登记表版本列 == 文件头 TEMPLATE-VER**（手抄副本必然滞后）；自证 2 条腿。
 # 1.9.11：**新增 C-45**（WARN）= **工具侧副本（`src/modules/**` 的 .py/.md）必须全程 CRLF**（`sync_check` 按 read_text 比、行尾被归一化），按字节判；自证 3 条腿。
 # 1.9.10：**新增 C-44**（FAIL）= **bat 里闭集命令（find/findstr/ping/tasklist/robocopy/where/reg/timeout）必须用绝对路径**，与 C-33（ping 当节拍）**独立**；只看命令位置，自证 5 条腿。
 # 1.9.9：**新增 C-43**（FAIL）= **`if` 条件里的 `:~` 子串扩展**（未定义时会中止整个脚本）——**窄版**：嵌套 `if`（无 `:~`）与动作一侧的 `:~` 均判绿，自证 4 条腿。
@@ -3487,6 +3488,61 @@ def c45(c: Ctx):
     return check_tool_copy_eol(c.dir)
 
 
+# ---------------------------------------------------------------- C-34
+# **§1 登记表「版本」列 == 文件头 `TEMPLATE-VER`**（lead 2026-09-19 批准，本波并入）。
+# **为什么**：§1 的列头写着"对外接口（稳定承诺）"，而版本列**从来没有任何东西打过它**
+#   ——C-04 只查四工具的 B2 表、模板通道只跑 C-28/31/32/33（§4.1.18 同族：判据存在 ≠
+#   被检查对象在范围内）。实测：9 行里 **3 行落后**（`paths` 1.1.3→1.1.4、
+#   `update_helper` 1.4.3→1.4.4、`tray_kit` 2.2.0→2.2.1）。**读表的人会按错误的语义
+#   理解接口**——不是排版问题。
+# **同族第五次**：口径文档 / `:giveup` 日志 / `tray_kit` docstring / §1 版本列 / 今天的登记表
+#   ——**文件已自带的事实，不要再手抄一份**。本判据的方向是「**让判据去读产物**」。
+# **形态（最简，按 lead 的许可）**：逐行 regex 取 §1 行里的模块路径与"版本列"，
+#   与**文件头**的 `TEMPLATE-VER` 比；不符 ⇒ WARN。**表格解析脆就退化**——不追求覆盖别的表。
+_C34_ROW = re.compile(r"^\| `(modules/[^`]+)` \|")
+_C34_VER = re.compile(r"\|\s*([\d]+\.[\d.]+)\s*\|\s*$")
+
+
+def check_registry_versions(root: Path):
+    """§1 登记表的版本列 vs 文件头 `TEMPLATE-VER`。返回 `(ok, detail)`。"""
+    doc = root / "CONFORMANCE.md"
+    if not doc.exists():
+        return True, "扫描面：无 CONFORMANCE.md（判据不适用）"
+    bad, checked = [], 0
+    for n, line in enumerate(doc.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+        m = _C34_ROW.match(line)
+        if not m:
+            continue
+        rel = m.group(1)
+        v = _C34_VER.search(line.rstrip())
+        if not v:
+            continue
+        f = root / rel
+        if not f.exists():
+            continue
+        hm = re.search(r"TEMPLATE-VER:\s*([\d.]+)",
+                       f.read_text(encoding="utf-8", errors="replace")[:600])
+        if not hm:
+            continue
+        checked += 1
+        if hm.group(1) != v.group(1):
+            bad.append("CONFORMANCE.md:%d `%s` 表内=%s 文件头=%s"
+                       % (n, rel, v.group(1), hm.group(1)))
+    if bad:
+        return False, ("%d/%d 行登记表版本与文件头不一致：%s。【为什么值得单列】§1 的列头是"
+                       "\"对外接口（稳定承诺）\"，**读表的人会按错误的语义理解接口**；"
+                       "而这一列此前**没有任何判据打过它**（§4.1.18 同族）。"
+                       "【正确形态】以**文件头**为准——**文件已自带的事实不要再手抄一份**"
+                       % (len(bad), checked, "；".join(bad)))
+    return True, "§1 登记表 %d 行的版本列与文件头 `TEMPLATE-VER` 一致" % checked
+
+
+@template_check("C-34", "WARN", "§1 登记表版本列 == 文件头 TEMPLATE-VER（手抄副本必然滞后）")
+def c34(c: Ctx):
+    """见上方注释。**只查 §1 主表**；扩到别的表 = 下轮项（lead 许可的最简形态）。"""
+    return check_registry_versions(c.dir)
+
+
 @check("C-32", "FAIL", "禁「读证据 → 删证据 → 报告」的危险顺序（调用边界一失败就先删了证据）")
 def c32(c: Ctx):
     """**不可逆动作不得排在"调用边界可能失败的语句"之前**（复核员精确化 + lead 裁定）。
@@ -4392,6 +4448,27 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-45 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
+        # 两格：表格版本与文件头不符（红）/ 一致（绿）。
+        c34_cases = (
+            ("registry_version_mismatch_flagged", "1.2.3", False),
+            ("registry_version_match_ok", "9.9.9", True),
+        )
+        for name, table_v, want in c34_cases:
+            d = base / ("c34_" + name)
+            (d / "modules" / "m").mkdir(parents=True)
+            (d / "modules" / "m" / "m.py").write_text(
+                "# TEMPLATE-VER: 9.9.9\nX = 1\n", encoding="utf-8")
+            (d / "CONFORMANCE.md").write_text(
+                "| \u6a21\u5757 | \u63cf\u8ff0 | \u63a5\u53e3 | \u7248\u672c |\n"
+                "|---|---|---|---|\n"
+                "| `modules/m/m.py` | x | y | %s |\n" % table_v, encoding="utf-8")
+            ok, detail = check_registry_versions(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-34 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
