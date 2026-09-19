@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.21
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.22
+# 1.9.22：**修 C-27 假红**（P5 批次暴露）：C-27 遍历 `src/modules/**` 时不认
+#   `NOT-WIRED.md`（sync_check 的"有意不接入"申报口，§4.1.48）⇒ 把**如实申报**的
+#   模块按"已采纳"查 MUST-WIRE，报成 FAIL（l-s2t/reme 的 `update_helper` 各一条）。
+#   修法：该目录下有 `NOT-WIRED.md` ⇒ **跳过**（"不采纳"当然不接线）。
+#   自证 2 腿（红格 = 有声明零引用必报；反向格 = 同一份 + NOT-WIRED 必不报）。
 # 1.9.21：**新增 C-49（FAIL）**= 破坏性动作的守卫探测，**探测自身失败不得判为「不健康」**
 #   （任务 #45 / §D3.2；§4.1.31 立的通用纪律的机械形态）。形态：**四条件同时满足才报** ——
 #   ① 函数有 `except` 且不重新抛出；② 该分支的失败结果是 `False`（分支内 `return False`，
@@ -1607,6 +1612,12 @@ def c27(c: Ctx):
             and p.name != "__init__.py"]
     bad, declared = [], 0
     for d in sorted(x for x in mods.iterdir() if x.is_dir()):
+        # **已申报"有意不接入"的模块不查**（2026-09-19 P5 批次）：`NOT-WIRED.md` 是
+        # sync_check 的申报口（§4.1.48），语义就是"本工具**不采纳**这个模块"——那它的
+        # README 承诺的接线当然不成立。旧实现不认它 ⇒ 把"如实申报"报成 FAIL（假红）：
+        # l-s2t/reme 各报一条 `update_helper 声明必接 … 零引用`，而它们恰恰是**刚申报完**的。
+        if (d / "NOT-WIRED.md").exists():
+            continue
         # 声明取**模板正本**（`TEMPLATE_DIR/modules/<m>/README.md`）优先：要求是模块的属性，
         # 不该等工具把带锚点的 README 拷过去之后才生效——否则锚点加上当天所有工具都"无声明"，
         # 检查空转（首版实测）。工具侧 README 也读，兼容工具自己追加的声明。
@@ -5036,6 +5047,26 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-49 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-27 豁免腿（§4.1.37）：**已申报 NOT-WIRED 的模块不查**。
+        # 红格 = 有声明但零引用 ⇒ 必报；反向格 = 同一份 + `NOT-WIRED.md` ⇒ 不报。
+        # （模板 README 的 MUST-WIRE 来自真身，故这里只造工具侧 + synth 模板名对不上，
+        #  改用「工具侧 README 也读」那条路径：把声明写在工具侧 README 上。）
+        for name, not_wired, want in (("pos_declared_but_not_wired", False, False),
+                                      ("neg_not_wired_exempts", True, True)):
+            d = base / ("c27_" + name)
+            (d / "src" / "modules" / "m").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "main.py").write_text("x = 1\n", encoding="utf-8")
+            (d / "src" / "modules" / "m" / "README.md").write_text(
+                "<!-- MUST-WIRE: some_symbol_xyz -->\n", encoding="utf-8")
+            if not_wired:
+                (d / "src" / "modules" / "m" / "NOT-WIRED.md").write_text(
+                    "有意不接入\n", encoding="utf-8")
+            ok, detail = c27(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-27 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
