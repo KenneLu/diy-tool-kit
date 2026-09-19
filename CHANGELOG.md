@@ -2,6 +2,29 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (sync_check 1.4.0 — module READMEs are no longer invisible)
+
+Fourth blind spot, found by the lead's independent full-hash comparison rather than
+by the checker itself: `scan_tool()` used `rglob("*.py")`, so every module `README.md`
+was outside the comparison. "Adopt the whole folder" means **README + `__init__.py` +
+code**, but only the `.py` half had a gate — module docs could drift forever.
+
+- **`sync_check.py` 1.3.0 → 1.4.0** — scan range widened from `*.py` to the module's
+  full comparison set (`.py` + `.md`), reusing the same `[ok]` / `[NOHDR]` /
+  `[MISSING-FILE]` semantics. Template-only directories (`baseline/`, `build_release/`)
+  are excluded so they don't produce 4×N false MISSINGs, and `__pycache__` (and other
+  generated dirs) are skipped so `.pyc` files don't flood the report.
+  This touches only `sync_check.py` — it is not consumed by the tools, so there is
+  **no cascade**.
+- **ALIGNMENT.md** — documents the fourth blind spot, fixes the formal definition of
+  "adopt the whole folder" (README + `__init__.py` + code, all byte-normalised), and
+  records the measured four-way snapshot: l-s2t 0 DIFF (17 SAME), dsh/ocx 1 DIFF each
+  (appconfig README), reme 7 DIFF (5 READMEs + i18n ×2).
+
+Measured after the change: 0 drift; 9 `[NOHDR]` (reme's 5 module READMEs, dsh/ocx
+appconfig READMEs, reme i18n ×2) and 6 `[MISSING-FILE]` (dsh/l-s2t/ocx each missing
+`icons/README.md` and `icons/__init__.py`). Yellow only; exit code stays 0.
+
 ## 2026-09-19 (template freeze: sync_check 1.3.0 + three module fixes)
 
 This round closes the "one-of-five" blind spots the conformance audit found, then

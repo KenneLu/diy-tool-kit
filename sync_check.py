@@ -1,5 +1,11 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.3.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.4.0
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
+#
+# 1.4.0：扫描范围从 `*.py` 扩到**模块文件夹内全部比对件（.py + .md）**——"整文件夹采纳"
+#   按定义是 **README + __init__.py + 代码** 三件套，而模块 README 此前从未被比对
+#   （CONFORMANCE §4.1.10 第 4 盲区）。模板专属目录 baseline/ build_release/ 排除
+#   （它们不是 src/modules/ 的拷贝源），__pycache__ 等生成目录排除（避免 .pyc 刷屏）。
+#   仅 sync_check 自身变更，**不产生任何级联**。
 #
 # 原理：**双通道扫描**——
 #   ① 头部通道：工具文件带 `# TEMPLATE-FROM: <模板库目录>/<相对路径>` 头时，按该路径比对；
@@ -23,8 +29,8 @@
 #           目录、也无任何文件申报来自该模块 —— 黄灯（§4.1.9 盲区 2）。
 #           是否采纳取决于触发条件，故不阻断。
 #   [MISSING-FILE] 模块已被采纳（目录在，或有文件申报来自该模块），但模板里的某个件
-#           工具侧没有（例：模板新增 `icons/__init__.py` 而四工具未拷；reme 只有散文件
-#           `service_link.py` 而缺 `service_link/__init__.py`）—— 黄灯（复核员实测漏检）。
+#           工具侧没有（例：模板新增 `icons/__init__.py` 或模块 `README.md` 而工具未拷）
+#           —— 黄灯（复核员实测漏检）。
 #
 # 用法：
 #   python my-diy-tool-template/sync_check.py                    # 检查 my_diy_tools 下所有工具
@@ -98,13 +104,22 @@ def has_template_header(head: str) -> bool:
     return bool(FROM_RE.search(head) or MODULE_RE.search(head) or OVERRIDE_RE.search(head))
 
 
+TEMPLATE_FILE_SUFFIXES = {".py", ".md"}   # "整文件夹采纳" = README + __init__.py + 代码（1.4.0）
+# 模板专属目录：只服务模板仓库自身，不作为 src/modules/ 的拷贝源（否则造成 4×N 假 MISSING）
+TEMPLATE_ONLY_MODULES = {"baseline", "build_release"}
+SCAN_SKIP_DIRS = {"__pycache__", ".git", "build", "out", "dist", ".mypy_cache", ".pytest_cache"}
+
+
+def is_scan_target(path: Path) -> bool:
+    """只比对 .py / .md，且跳过 __pycache__ 等生成目录（复核员第一版漏排 .pyc 刷屏）。"""
+    return (path.suffix.lower() in TEMPLATE_FILE_SUFFIXES
+            and not (set(path.parts) & SCAN_SKIP_DIRS))
+
+
 def scan_tool(tool_dir: Path):
     """头部通道：返回 [(tool_file, template_rel, declared, tool_ver)]。"""
     found = []
-    for py in sorted(tool_dir.rglob("*.py")):
-        parts = py.parts
-        if ".git" in parts or "__pycache__" in parts or "build" in parts or "out" in parts:
-            continue
+    for py in sorted(p for p in tool_dir.rglob("*") if p.is_file() and is_scan_target(p)):
         head = read_text(py)[:4096]
         match = FROM_RE.search(head)
         if match:
@@ -113,6 +128,8 @@ def scan_tool(tool_dir: Path):
             mmod = MODULE_RE.search(head)
             if not mmod:
                 continue
+            if py.suffix.lower() != ".py":
+                continue   # TEMPLATE-MODULE 只用于推导 <模块>.py / __init__.py，非 .py 不适用
             mod = mmod.group(1)
             # `TEMPLATE-MODULE: <模块>` 只标模块，不标文件名：__init__.py 必须映射到
             # 模板的同名 __init__.py（1.3.0 起模板 __init__.py 也带此头，否则会拿
@@ -137,17 +154,22 @@ def scan_tool(tool_dir: Path):
 
 
 def template_modules() -> dict:
-    """模板 `modules/<模块>/` 下有 .py 的模块 → [模板 py 路径]（§4.1.9 盲区 2/3 的基准）。"""
+    """模板 `modules/<模块>/` → [该模块的全部比对件]（.py + .md，1.4.0 起）。
+
+    "整文件夹采纳" = **README + `__init__.py` + 代码**；只扫 .py 会让模块 README
+    完全隐身（CONFORMANCE §4.1.10 第 4 盲区）。模板专属目录（baseline/build_release）
+    不是拷贝源，排除；__pycache__ 等生成目录排除。
+    """
     out = {}
     base = TEMPLATE_DIR / "modules"
     if not base.is_dir():
         return out
     for mod_dir in sorted(base.iterdir()):
-        if not mod_dir.is_dir():
+        if not mod_dir.is_dir() or mod_dir.name in TEMPLATE_ONLY_MODULES:
             continue
-        pys = sorted(mod_dir.rglob("*.py"))
-        if pys:
-            out[mod_dir.name] = pys
+        files = sorted(p for p in mod_dir.rglob("*") if p.is_file() and is_scan_target(p))
+        if files:
+            out[mod_dir.name] = files
     return out
 
 

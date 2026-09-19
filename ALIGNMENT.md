@@ -1,6 +1,6 @@
 # ALIGNMENT.md —— 一式五份收敛表（副本 ↔ 模板正本）
 
-> 建立：2026-09-19。对应 `sync_check.py` **1.3.0**（蓝本不再整体豁免，逐文件报 `[lag]`）。
+> 建立：2026-09-19。对应 `sync_check.py` **1.4.0**（双通道 + `.py`/`.md` 全件比对）。
 > 本文只回答一个问题：**每个工具里的每个拷贝件，与模板正本像不像？不像则怎么收敛？**
 > **不做**条款符合度裁定——"能力/条款做没做到"看 [CONFORMANCE.md](CONFORMANCE.md)（76 条 × 四工具矩阵），
 > "本轮改了什么"看 [REVIEW.md](REVIEW.md)。三者边界：
@@ -15,10 +15,17 @@
 
 ## 0. 判定口径与图例
 
-`sync_check.py` 1.3.0 是**双通道**扫描 + 整模块缺失检测，均做归一化哈希（剔除 `# TEMPLATE-*` 元信息行）：
+`sync_check.py` **1.4.0** 是**双通道**扫描 + 整模块缺失检测，均做归一化哈希（剔除 `# TEMPLATE-*` 元信息行）：
 ① 头部通道（工具自报 `TEMPLATE-FROM`）；② 布局通道（`src/modules/<模块>/` 下与模板同名者一律比对，
 **不要求工具侧有头**）；③ 模板 `modules/<模块>/` 有代码而工具既无目录又无申报 → 整模块缺失。
-CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__.py`）已闭环。
+扫描范围 **.py + .md**，排除模板专属目录 `baseline/` `build_release/` 与 `__pycache__` 等生成目录。
+CONFORMANCE §4.1.9 的三类盲区（无头文件 / 整模块缺失 / `__init__.py`）与 §4.1.10 的第 4 盲区
+（模块 README 隐身）均已闭环。
+
+> **「整文件夹采纳」的正式定义（1.4.0 固化）**：一个模块被采纳 =
+> **`README.md` + `__init__.py` + 代码文件**，三者都要与模板**归一化一致**（哈希级）。
+> 只给 `.py` 装闸而让 `README.md` 无闸，等于"模块文档可以无限漂移"——这正是第 4 盲区。
+> 模板专属目录（`baseline/`、`build_release/`）**不适用**本定义：它们不拷贝进 `src/modules/`。
 
 | 状态 | 含义 | sync_check 标签 | 阻断退出码 |
 |---|---|---|---|
@@ -48,10 +55,12 @@ python my-diy-tool-template\sync_check.py --roots reme-helper local-speak2text
 python my-diy-tool-template\conformance_check.py --roots reme-helper
 ```
 
-本次快照的 `sync_check` 摘要（**退出码 0**）：
-`0 undeclared drift, 1 blueprint lag(s), 0 declared override(s), 4 param file(s),`
-`2 no-header mismatch(es), 9 missing module(s), 3 missing file(s), 0 missing template(s)`
-（唯一 lag = l-s2t `appconfig/__init__` 1.0.0→1.0.1）。
+本次快照的 `sync_check` 摘要（**退出码 0**，1.4.0 扫描范围含 README）：
+`0 undeclared drift, 0 blueprint lag(s), 0 declared override(s), 4 param file(s),`
+`9 no-header mismatch(es), 9 missing module(s), 6 missing file(s), 0 missing template(s)`。
+其中 9 条 `NOHDR` = 5 个模块 README（reme）+ 2 个 appconfig README（dsh/ocx）+ reme i18n×2；
+6 条 `MISSING-FILE` = dsh/l-s2t/ocx 各缺 `icons/README.md` 与 `icons/__init__.py`。
+**l-s2t 已 0 DIFF（其模块 README 全部 `[ok]`）**。
 模板升位瞬间曾出现 **4 条红灯**（dsh/ocx 各 2 条：`paths` 1.1.2→**1.1.3**、`tray_kit`
 2.0.1→**2.0.2**），属 §0.2 级联清单的预期中间态；**dsh/ocx 已在同步波次中重拷，红灯自消**。
 数字随队友收敛持续下降——**以实时命令输出为准**。
@@ -92,8 +101,10 @@ reme 因 `icons` 整模块未采纳，记 `[MISSING-MODULE]`。
 | **tray_kit.py** (2.0.2) | `SAME` 2.0.2（**已跟进**，队友 #2） | `SAME` 2.0.2（**已跟进**，队友 #3） | `SAME` 2.0.2（**已重拷**，红灯自消） | `SAME` 2.0.2（**已重拷**，红灯自消） |
 | **log_kit.py** (1.0.2) | `SAME` 1.0.2（**已回基**，队友 #2，root-logger 分叉已并入正文或撤销） | `SAME` 1.0.2（**已收敛**，队友 #3） | `SAME` 1.0.2 | `SAME` 1.0.2 |
 | **service_link.py** (0.1.0) | `SAME`（**已文件夹化**，队友 #2）但**未接线**（`main.py` 无 import） | `MISSING-MODULE` | `MISSING-MODULE` | `MISSING-MODULE` |
-| **`__init__.py`**（各模块） | `i18n` 2 处 `NOHDR`（重形态）；其余 `SAME` | appconfig `LAG` 1.0.0→1.0.1、paths/tray_kit `LAG`；其余 `SAME` | `SAME`（无 VER 头，内容未变） | `SAME`（无 VER 头，内容未变） |
-| **sync_check.py** (1.3.0) | `N/A` 设计不拷贝：门禁按路径调用模板正本 | `N/A` 同左 | `N/A` 同左 | `N/A` 同左 |
+| **`__init__.py`**（各模块） | `i18n` 2 处 `NOHDR`（重形态）；其余 `SAME` | 全部 `SAME`（已跟进 1.0.1） | `SAME` | `SAME` |
+| **`README.md`**（各模块，1.4.0 起纳入） | `NOHDR` ×5（appconfig/i18n/log_kit/paths/tray_kit 均为 reme 自有形态） | 全部 `SAME`（**0 DIFF**） | `NOHDR` ×1（appconfig；余 `SAME`） | `NOHDR` ×1（appconfig；余 `SAME`） |
+| **`icons/` 整夹**（README + `__init__.py`） | `MISSING-MODULE`（整模块未采纳） | `MISSING-FILE` ×2（README + `__init__.py` 未拷） | `MISSING-FILE` ×2 | `MISSING-FILE` ×2 |
+| **sync_check.py** (1.4.0) | `N/A` 设计不拷贝：门禁按路径调用模板正本 | `N/A` 同左 | `N/A` 同左 | `N/A` 同左 |
 
 > 矩阵外的 `baseline` / `build_release` 非 `.py` 模板件（README/bat/workflows），不属本文范围，
 > 见 REVIEW.md 对应关系矩阵与 CONFORMANCE §B 基线条款。
@@ -295,7 +306,7 @@ CONFORMANCE §4.1.5 的"模板回退"已闭环）——l-s2t 的 `_CONFIG` OVERR
 
 ---
 
-### 横切件 · `__init__.py`（模板 1.3.0 起纳入比对）
+### 横切件 · `__init__.py` / `README.md`（模板 1.3.0 / 1.4.0 起先后纳入比对）
 
 **模板侧已统一**（本轮变更）：每个 `modules/<模块>/__init__.py` = 两行
 `# TEMPLATE-MODULE: <模块> | TEMPLATE-VER: <版本>` + `from .<模块> import *  # noqa: F401,F403`
@@ -331,7 +342,7 @@ CONFORMANCE §4.1.5 的"模板回退"已闭环）——l-s2t 的 `_CONFIG` OVERR
 
 ## 3. 明确**不应**对齐的清单（合法分叉）与 OVERRIDE 文案
 
-以下差异是设计意图，不收敛；但必须**头部申报**，否则 sync_check 视为未申报漂移（1.3.0 起蓝本记 `[lag]`）。
+以下差异是设计意图，不收敛；但必须**头部申报**，否则 sync_check 视为未申报漂移（蓝本记 `[lag]`）。
 
 ### 3.1 appconfig.py —— 参数文件（豁免机制，非 OVERRIDE）
 `appconfig.py` 是 D6/D15 唯一的"可改文件"，四份取值本就不同。`sync_check` 对 `appconfig.py`
@@ -396,10 +407,11 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
 **一次编译通过的批次建议**：#1+#1a+#2 都是注释/文件级操作，可合成一个"黄灯清零"commit（不动逻辑）；
 #3–#6 是"抽件/搬家 + 改 import"批；#8 是模板变更，须先于任何副本同步；#10–#14 逐个单独 commit + 人工回归。
 
-## 5. 与 sync_check 1.3.0 的配合
+## 5. 与 sync_check 1.4.0 的配合
 
 1.3.0 做三件事（对应 CONFORMANCE §4.1.9 三类盲区）：蓝本逐文件比对、布局通道（无头也扫）、
-整模块缺失检测。
+整模块缺失检测；1.4.0 把扫描范围从 `*.py` 扩到 `.py + .md`，模块 README 不再隐身
+（对应 CONFORMANCE §4.1.10 第 4 盲区）。
 
 - 蓝本副本内容/VER 落后 → `[lag]`（黄灯，**不阻断**），打印 `副本VER -> 模板VER`；
 - 蓝本副本 VER 相同却仍内容不同 → 未申报分叉，仍 `[DRIFT]` 红灯；
@@ -408,12 +420,12 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
 - 模块已采纳但缺其中某件 → `[MISSING-FILE]`（黄灯，本轮新增，复核员实测漏检）；
 - 默认只扫**家族工具**（有 `src/` 且有门禁 `build.bat`），避免把同目录无关项目刷成缺失。
 
-**R1 基线（模板冻结、同步波次收口后）**：`0 undeclared drift`（升位瞬间的 4 条红灯
-由 dsh/ocx 重拷后自消）、`1 blueprint lag`（仅剩 l-s2t `appconfig/__init__` 1.0.0→1.0.1）、
-`2 nohdr`（reme i18n）、`9 missing-module`、`3 missing-file`（dsh/l-s2t/ocx 缺
-`icons/__init__.py`）。此前 l-s2t `log_kit 1.0.0→1.0.2`、reme `paths 1.1.1→1.1.2`、
-四工具 `autostart` 缺失、`__init__.py` 形态不一、`service_link` 散文件、模板 `_CONFIG` 回退
-均被同一机制暴露并已收敛——**这正是 1.3.0 取代整体豁免 + 补双通道的收益证明**。
+**R1 基线（1.4.0 扫描扩展后）**：`0 undeclared drift`、`0 blueprint lag`、
+`9 nohdr`（5 个 reme 模块 README + dsh/ocx 的 appconfig README + reme i18n×2）、
+`9 missing-module`、`6 missing-file`（dsh/l-s2t/ocx 各缺 `icons/README.md` + `icons/__init__.py`）。
+此前 l-s2t `log_kit 1.0.0→1.0.2`、reme `paths 1.1.1→1.1.2`、四工具 `autostart` 缺失、
+`__init__.py` 形态不一、`service_link` 散文件、模板 `_CONFIG` 回退、模块 README 隐身
+均被同一机制暴露并已收敛——**这正是逐轮补盲区的收益证明**。
 
 **自证（本轮新增）**：临时目录造样本，验证 `__init__.py` 带 `TEMPLATE-MODULE` 头时判 `[ok]`
 （不再假红灯）、无头正文走布局通道判 `[ok]`、缺件判 `[MISSING-FILE]`，退出码 0——见 task#5 命令。
@@ -437,3 +449,24 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
 5. **本文只判形状，不判能力**：例如 dsh autostart 抽件后 `_fold_command` 严口径若丢失，
    文件仍 `[ok]` 但语义变松——那要查 CONFORMANCE §G4.1。
 6. **行号会漂移**：队友并发改工具时 `文件:行号` 证据会失效，定位以函数名为准。
+7. **第 4 盲区：模块 README 曾长期隐身（1.4.0 已补，CONFORMANCE §4.1.10）**。
+   此前 `sync_check` 用 `rglob("*.py")` 扫描，模块文件夹里的 `README.md` **从未进入比对**——
+   于是"代码一致"被误当成"整文件夹一致"，而模块文档可以无限漂移。实测（lead 独立全量哈希）：
+   `modules/appconfig/README.md` 在 dsh/ocx 双 DIFF、reme 有 5 个模块 README DIFF。
+   **`.py` 有哈希闸、`.md` 没有**，是最容易被漏掉的一类漂移。1.4.0 起扫描范围含 `.py + .md`，
+   模板专属目录与 `__pycache__` 排除；这解释了为何本表新增 `README.md` 行与 `icons/` 整夹行。
+   实测快照（lead 独立比对，1.4.0 上线前）：
+
+   | 模板文件 | reme | l-s2t | dsh | ocx |
+   |---|---|---|---|---|
+   | `modules/appconfig/README.md` | DIFF | SAME | DIFF | DIFF |
+   | `modules/log_kit/README.md` | DIFF | SAME | SAME | SAME |
+   | `modules/paths/README.md` | DIFF | SAME | SAME | SAME |
+   | `modules/tray_kit/README.md` | DIFF | SAME | SAME | SAME |
+   | `modules/i18n/README.md` | DIFF | SAME | — | — |
+
+   汇总：**l-s2t 0 DIFF（17 SAME）**；dsh/ocx 各 1 DIFF（appconfig README）；reme 7 DIFF
+   （5 个 README + i18n×2 未申报）。1.4.0 上线后 `sync_check` 的输出与上表逐格吻合。
+8. **README 无模板头 → 差异只能记 `[NOHDR]` 黄灯**：模板与工具的模块 README 都不带
+   `TEMPLATE-FROM/MODULE` 头，故比对走布局通道；要让它具备"版本/申报"语义，需给 README
+   也补头（当前不强制，A/B 级黄灯可见即可）。
