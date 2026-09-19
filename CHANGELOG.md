@@ -2,6 +2,41 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (sync_check 1.9.0: three silent exits become three different observables)
+
+- **`scan_tool` used to have three bare `continue`s, all meaning "treat this file as having no
+  source".** But "no source" is exactly the correct observable for a **tool-owned** file — so a
+  **defective** input (header overwritten / module name typo'd / target missing) and a **legitimate**
+  input landed on the same observable. That is not a missed detection, it is **no criterion at all**:
+  feed it a known-bad input and nothing observable changes. (Found working with ls2t-dev.)
+- **The test question is operational, not circular**: *"feed in a known-defective input — does any
+  observable change?"* The earlier phrasing ("can this fallback only take effect when the input is
+  correct?") is **circular** for a mechanism that supplies its own target: "correct" is defined by the
+  fallback itself.
+- **Now three tiers, each with its own observable**: no header at all (tool-owned; caught by the two
+  new legs below) / **source declared but unresolvable = `[BAD-HDR]` (red)** / resolved, compared as
+  before.
+- **Four legs, each with a reverse unit plus a control unit** (minimal-variable method):
+  * `[BAD-HDR]` (red) — the declared source cannot be resolved. **0 hits across the four tools today.**
+  * `[NO-HDR-COPY]` (red) — no header, yet the normalized content equals some template file, i.e. a
+    **copy whose header was stripped**. This is what makes "no header => report" **quantifiable
+    without flooding**: tool-owned files match no template file and fall outside the criterion by
+    construction, while stripping any header turns it red immediately. **0 hits today.**
+  * `[NO-HDR]` (WARN) — a `.py` under `src/modules/**` with no header: inside the copy namespace
+    "no header" is **ambiguous** (tool-owned marker? forgotten header?). **Measured: exactly one
+    file**, reme `src/modules/__init__.py` (no template counterpart — a genuinely tool-owned file).
+  * **`NOT-WIRED.md` promoted to a declaration port** — a module directory containing this file means
+    "deliberately not wired in" => that module's missing pieces are reported as `[decl]` and no longer
+    count as `missing-module`/`missing-file`. The artifact was **already in use in the wild**
+    (reme `src/modules/service_link/NOT-WIRED.md`) while sync_check did not read it at all:
+    "declared" and "nobody noticed" were **the same observable**. **No behaviour change today**
+    (service_link is fully adopted) — it is a port plus a self-test pair.
+- **Exit-code semantics unchanged**: still only `drift`/`missing` block, plus the two new red legs.
+  Verified `exit=0` for the default roots and for each of the four tools, so the dsh/ocx build gates
+  (which invoke this file by path, never a copy) stay green.
+- **Self-test: 7 new cases** (4 reverse units + 3 controls, including the NOT-WIRED before/after pair);
+  ALL PASS.
+
 ## 2026-09-19 (C-45: the tool-side copies' line endings were invisible to every judge)
 
 - **C-45 (WARN, tool channel): a tool's copies under `src/modules/**` (`.py`/`.md`) must be all-CRLF,

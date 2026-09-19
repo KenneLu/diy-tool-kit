@@ -1,4 +1,22 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.8.4
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.9.0
+# 1.9.0（#57，与 ls2t-dev 往复产出）：**三处静默出口分成三档可观测量** + NOT-WIRED 升格为申报口。
+#   原先 `scan_tool` 有三处 `continue` 都表示"当作这个文件没有出处"，而"没有出处"正是
+#   **工具自有文件**的正确观测量 ⇒ "头被覆盖/模块名写错/目标不存在"这类**缺陷输入**与
+#   合法输入落在**同一个**可观测量上 —— 那不是漏判，是**无判据**（喂进已知缺陷输入，
+#   没有任何可观测量会变）。判准用可执行问法，不用循环问法（"兜底能否只在输入正确时生效"
+#   对"兜底自身供给目标"的装置是循环的）。
+#   现在：无头（工具自有，另有两腿兜底） / **申报了但解析不出 = [BAD-HDR]（红灯）** / 解析得出。
+#   新增四条腿，各有反向单元 + 控制单元：
+#     ① [BAD-HDR]      申报的出处不可解析 ⇒ 红灯（实测四家 0 命中）
+#     ② [NO-HDR-COPY]  无头但归一化内容等于模板件 ⇒ 拷贝被剥了头，红灯（实测 0 命中；
+#                      "缺头⇒报"靠这条**可量化**：工具自有件不匹配任何模板件，天然不刷屏，
+#                      而剥掉任一头立刻变红）
+#     ③ [NO-HDR]       `src/modules/**` 下无任何出处头 ⇒ 黄灯（该命名空间里"无头"是歧义；
+#                      实测仅 reme `src/modules/__init__.py` 一件）
+#     ④ NOT-WIRED.md   模块目录下有此件 = **有意未接入**的申报 ⇒ 该模块缺失项记 [decl]
+#                      而不进 missing-module/file（原先 sync_check 完全不认这份已在野外
+#                      使用的申报件，"申报了"与"没人注意"是同一个可观测量）
+#   退出码口径不变：仍只有 drift/missing（+ 新增 BAD-HDR / NO-HDR-COPY）阻断。
 # 1.8.4：E 组补 **`budget_s` 必须与实参 `limit` 同源**——`update_helper.py` 的 docstring 早就写明“判据落点在 sync_check --selftest 的 update_helper 组”，而这里**此前没有这条腿** ⇒ **承诺的判据不存在，等于没判据**。三条腿：limit=2 ⇒ `budget 2s`；limit=120 ⇒ `budget 120s`（两个输入两个输出）；**反向格 = 真变异**（把源码改回取模块常量，重新加载后 limit=2 **必须不再**出 `budget 2s`）。
 # T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
 #
@@ -262,17 +280,35 @@ def is_script_form_adoption(mod, consumed, consumed_files, has_mod_dir) -> bool:
     return bool(mod in consumed and not has_mod_dir and consumed_files.get(mod))
 
 
+def iter_tool_py(tool_dir: Path):
+    """工具侧参与头解析的 .py（跳过 __pycache__ 等生成目录）。"""
+    return sorted(p for p in tool_dir.rglob("*.py")
+                  if p.is_file() and not (set(p.parts) & SCAN_SKIP_DIRS))
+
+
 def scan_tool(tool_dir: Path):
-    """头部通道：返回 [(tool_file, template_rel, declared, tool_ver)]。
+    """头部通道：返回 `(found, anomalies)`。
+
+    found     = [(tool_file, template_rel, declared, tool_ver)]
+    anomalies = [(tool_file, kind, detail)] —— **申报了出处却解析不出来**的件。
+
+    **为什么把"解析不出来"单列**（2026-09-19，由 ls2t-dev 的往复产出，#57）：
+    本函数原先有三处静默 `continue`，语义都是"当作这个文件没有出处"；而"没有出处"正是
+    **工具自有文件**的正确观测量 ⇒ 缺陷输入（头被覆盖 / 模块名写错 / 目标不存在）与合法
+    输入**落在同一个可观测量上**——那不是"漏判"，是**无判据**（拿已知缺陷输入喂进去，
+    没有任何一个可观测量会变）。现在分成三档，各占一个**不同**的可观测量：
+      ① 无任何出处头          → "工具自有"（由 `no_header_legs` 的两条腿兜底）；
+      ② 申报了出处但解析不出  → `[BAD-HDR]`（阻断，本条）；
+      ③ 解析得出              → 照常比对。
+    判准用的是可执行问法"**拿一个已知缺陷输入喂进去，有没有任何一个可观测量会变？**"
+    而不是循环问法"这条兜底能不能只在输入正确时生效"（对"兜底自身供给目标"的装置是循环的）。
 
     **只收 .py**：头部机制是为**代码副本**设计的（剔掉出处行再比哈希）。模块 README
     按口径不带任何 TEMPLATE 头、与正本逐字节一致（CONFORMANCE §4.1.10a），因此 .md
     一律走布局通道，绝不在这里被头解析。
     """
-    found = []
-    for py in sorted(p for p in tool_dir.rglob("*")
-                     if p.is_file() and p.suffix.lower() == ".py"
-                     and not (set(p.parts) & SCAN_SKIP_DIRS)):
+    found, anomalies = [], []
+    for py in iter_tool_py(tool_dir):
         head = read_text(py)[:4096]
         match = FROM_RE.search(head)
         if match:
@@ -280,7 +316,7 @@ def scan_tool(tool_dir: Path):
         else:
             mmod = MODULE_RE.search(head)
             if not mmod:
-                continue
+                continue          # ① 合法：无出处头 = 工具自有件
             mod = mmod.group(1)
             # `TEMPLATE-MODULE: <模块>` 只标模块，不标文件名：__init__.py 必须映射到
             # 模板的同名 __init__.py（1.3.0 起模板 __init__.py 也带此头，否则会拿
@@ -288,20 +324,74 @@ def scan_tool(tool_dir: Path):
             if py.name == "__init__.py":
                 rel = f"modules/{mod}/__init__.py"
                 if not (TEMPLATE_DIR / rel).exists():
+                    anomalies.append((py, "BAD-HDR",
+                                      f"TEMPLATE-MODULE: {mod} 推导出 {rel}，模板中不存在"))
                     continue
             else:
                 rel = f"modules/{mod}/{mod}.py"
             if not (TEMPLATE_DIR / rel).exists():
-                # 布局兜底：模块文件夹下唯一 py 时按唯一者解析；否则视为无有效出处，跳过
+                # 布局兜底：模块文件夹下唯一 py 时按唯一者解析；不唯一则**出声**（原先静默跳过）
                 mod_dir = TEMPLATE_DIR / "modules" / mod
                 cands = sorted(mod_dir.rglob("*.py")) if mod_dir.is_dir() else []
                 if len(cands) != 1:
+                    anomalies.append((py, "BAD-HDR",
+                                      f"TEMPLATE-MODULE: {mod} → {rel} 不存在，"
+                                      f"且 modules/{mod}/ 下候选 {len(cands)} 个（兜底不唯一）"))
                     continue
                 rel = cands[0].relative_to(TEMPLATE_DIR).as_posix()
         ver = VER_RE.search(head)
         found.append((py, rel, bool(OVERRIDE_RE.search(head)),
                       ver.group(1) if ver else ""))
-    return found
+    return found, anomalies
+
+
+def template_norm_index() -> dict:
+    """模板 .py 的**归一化哈希 → [相对路径]**（`sha256_text` 口径，与副本比对同一把尺子）。"""
+    out = {}
+    for p in sorted(TEMPLATE_DIR.rglob("*.py")):
+        if p.is_file() and not (set(p.parts) & SCAN_SKIP_DIRS):
+            out.setdefault(sha256_text(read_text(p)), []).append(
+                p.relative_to(TEMPLATE_DIR).as_posix())
+    return out
+
+
+def declared_not_wired(mod_dir: Path) -> str:
+    """模块级"有意未接入"申报口：模块目录下的 `NOT-WIRED.md`（存在即有申报）。
+
+    **为什么要有这个出口**（#57）：`NOT-WIRED.md` 是**已在野外使用的申报件**
+    （reme `src/modules/service_link/` 就有一份），而 sync_check 原先完全不认它——
+    于是"申报了"与"没人注意"在输出上是**同一个可观测量**（都表现为缺口）。
+    升格后：缺失项记 `[decl]`（带申报件名）而不进 missing-module/file 计数。
+    """
+    return "NOT-WIRED.md" if (mod_dir / "NOT-WIRED.md").is_file() else ""
+
+
+def no_header_legs(tool_dir: Path):
+    """"缺头 ⇒ 报"的两条腿。返回 `(copies, ns_files)`。
+
+    **腿① `copies`（阻断）**：**无出处头、但归一化内容等于某个模板件**的 .py
+    ⇒ 这是一份**被剥掉头的拷贝**。之所以这条能兑现"缺头 ⇒ 报"而不刷屏：工具自有件
+    （main.py / tests / scripts）**不匹配任何模板件**，天然落在判据之外；只有"本该带头
+    的拷贝"会命中。实测（2026-09-19，四家）命中 **0** ——于是这条腿**今天零噪声**，
+    而**剥掉任一头立刻变红**（拿已知缺陷输入喂进去，可观测量必须变）。
+
+    **腿② `ns_files`（黄灯）**：`src/modules/**` 下**无任何出处头**的 .py——
+    这是模板拷贝的命名空间，"无头"在这里是**歧义**的（工具自有 marker？漏头的拷贝？），
+    必须看得见。实测当前只有 reme `src/modules/__init__.py` 一件（模板无此件，属工具自有）。
+    """
+    idx = template_norm_index()
+    copies, ns_files = [], []
+    for py in iter_tool_py(tool_dir):
+        head = read_text(py)[:4096]
+        if FROM_RE.search(head) or MODULE_RE.search(head) or OVERRIDE_RE.search(head):
+            continue
+        rel_to_tool = py.relative_to(tool_dir).as_posix()
+        if rel_to_tool.startswith("src/modules/"):
+            ns_files.append(py)
+        hit = idx.get(sha256_text(read_text(py)))
+        if hit:
+            copies.append((py, hit))
+    return copies, ns_files
 
 
 def template_modules() -> dict:
@@ -1009,6 +1099,87 @@ def _apply_bat_runtime_cases():
     return out
 
 
+def _header_silence_cases(base: Path):
+    """1.9.0 四条腿的**反向单元 + 控制单元**（最小变量法）。返回 [(label, ok, detail)]。
+
+    四腿各要一个"该红"的样本和一个"看起来像但该绿"的对照——只有一边的样本等于
+    "没有样本的分支"（§4.1.13 同款教训：没有样本的分支等于没有判据）。
+    """
+    cases = []
+    tpl_paths = TEMPLATE_DIR / "modules" / "paths" / "paths.py"
+    if not tpl_paths.exists():
+        return [("1.9.0 样本前置：模板 modules/paths/paths.py 存在", False, "缺模板件")]
+    tpl_text = read_text(tpl_paths)
+    # ① 剥掉出处行 = "拷贝被剥了头"（内容其余部分与模板一致）
+    stripped = "\n".join(l for l in tpl_text.splitlines() if not META_LINE.match(l))
+
+    # 腿① 命中：无头 + 内容等于模板件
+    d1 = base / "leg1copy" / "src" / "modules" / "paths"
+    d1.mkdir(parents=True)
+    (d1 / "paths.py").write_text(stripped, encoding="utf-8")
+    copies, ns = no_header_legs(base / "leg1copy")
+    cases.append(("腿① 无头拷贝 ⇒ 命中 NO-HDR-COPY", len(copies) == 1,
+                  f"copies={len(copies)} ns={len(ns)}"))
+    # 腿① 控制：**只加回出处行**（最小变量），其余一字节不动 ⇒ 不再命中
+    d2 = base / "leg1ctl" / "src" / "modules" / "paths"
+    d2.mkdir(parents=True)
+    (d2 / "paths.py").write_text(
+        "# TEMPLATE-MODULE: paths | TEMPLATE-VER: 1.1.4\n" + stripped, encoding="utf-8")
+    copies2, _ = no_header_legs(base / "leg1ctl")
+    cases.append(("腿① 控制：同内容 + 出处头 ⇒ 不命中", len(copies2) == 0,
+                  f"copies={len(copies2)}"))
+
+    # 腿② 命中：src/modules/ 下无头、内容与模板无一相同（既不是拷贝也必须看得见）
+    d3 = base / "leg2ns" / "src" / "modules" / "zzz"
+    d3.mkdir(parents=True)
+    (d3 / "zzz.py").write_text("MARKER = 'tool-owned'\n", encoding="utf-8")
+    copies3, ns3 = no_header_legs(base / "leg2ns")
+    cases.append(("腿② src/modules/ 下无头 ⇒ 黄灯可见（且不误报成拷贝）",
+                  len(ns3) == 1 and len(copies3) == 0,
+                  f"ns={len(ns3)} copies={len(copies3)}"))
+    # 腿② 控制：同样的文件放到 src/ 之外（工具自有件的地盘）⇒ 两条腿都不响
+    d4 = base / "leg2ctl" / "src"
+    d4.mkdir(parents=True)
+    (d4 / "main.py").write_text("MARKER = 'tool-owned'\n", encoding="utf-8")
+    copies4, ns4 = no_header_legs(base / "leg2ctl")
+    cases.append(("腿② 控制：同内容放 src/（非 modules 命名空间）⇒ 不响",
+                  len(ns4) == 0 and len(copies4) == 0, f"ns={len(ns4)}"))
+
+    # 腿③ BAD-HDR 两种形态：模块名不存在 / MODULE 头推导不出目标
+    d5 = base / "leg3bad" / "src"
+    d5.mkdir(parents=True)
+    (d5 / "a.py").write_text("# TEMPLATE-MODULE: nosuchmod\nX = 1\n", encoding="utf-8")
+    (d5 / "b.py").write_text("# TEMPLATE-FROM: my-diy-tool-template/modules/nope.py\nX = 1\n",
+                             encoding="utf-8")
+    found5, anom5 = scan_tool(base / "leg3bad")
+    # 该目录里还有 b.py（FROM 指向不存在的模板件）：它**应当**进 found 并走原有 [MISS] 出口。
+    # 本条要钉的性质是"坏头的 a.py **既不静默消失、也不混进 found**"——两份文件两种命运。
+    names5 = sorted(p.name for p, _r, _d, _v in found5)
+    cases.append(("腿③ 申报的模块不存在 ⇒ BAD-HDR（且该件不进 found，另一件照常）",
+                  len(anom5) == 1 and names5 == ["b.py"],
+                  f"anom={len(anom5)} found={names5}"))
+    # 腿③ 控制：合法头 ⇒ 无 anomaly、进 found；FROM 指向不存在的模板件走 [MISS]（原有出口）
+    d6 = base / "leg3ok" / "src"
+    d6.mkdir(parents=True)
+    (d6 / "c.py").write_text("# TEMPLATE-FROM: my-diy-tool-template/modules/paths/paths.py\n"
+                             "X = 1\n", encoding="utf-8")
+    found6, anom6 = scan_tool(base / "leg3ok")
+    cases.append(("腿③ 控制：合法出处头 ⇒ 无 anomaly 且进 found",
+                  len(anom6) == 0 and len(found6) == 1,
+                  f"anom={len(anom6)} found={len(found6)}"))
+
+    # 腿④ 申报口：NOT-WIRED.md 存在 ⇒ 认；不存在 ⇒ 不认（最小变量：一个文件）
+    d7 = base / "leg4" / "src" / "modules" / "service_link"
+    d7.mkdir(parents=True)
+    before = declared_not_wired(d7)
+    (d7 / "NOT-WIRED.md").write_text("有意未接入（selftest 样本）\n", encoding="utf-8")
+    after = declared_not_wired(d7)
+    cases.append(("腿④ NOT-WIRED.md：无 ⇒ 空 / 有 ⇒ 认（同一目录，只加一个文件）",
+                  before == "" and after == "NOT-WIRED.md",
+                  f"before={before!r} after={after!r}"))
+    return cases
+
+
 def selftest() -> int:
     """回归样本（`--selftest`，可重复执行）：锁死本家族两条判据。
 
@@ -1085,6 +1256,10 @@ def selftest() -> int:
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
+        for label, ok, detail in _header_silence_cases(base):
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
         print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
         rc = 1 if failed else 0
     finally:
@@ -1121,6 +1296,8 @@ def main() -> int:
     tpl_modules = template_modules()
     drift, declared, missing, params, lags, nohdr, miss_mod, miss_file, diffs = (
         [], [], [], [], [], [], [], [], [])
+    # 1.9.0 新增四条腿的可观测量（详见 scan_tool / no_header_legs 的 docstring）
+    bad_hdr, nohdr_copy, nohdr_ns, not_wired = [], [], [], []
 
     def emit(kind, name, tool_dir, tool_file, rel, note, tool_ver, tpl_ver, is_declared):
         leaf = tool_file.relative_to(tool_dir)
@@ -1170,7 +1347,8 @@ def main() -> int:
         consumed_files = {}
 
         # ① 头部通道：工具自报出处的文件
-        for tool_file, rel, is_declared, tool_ver in scan_tool(tool_dir):
+        scanned, hdr_anoms = scan_tool(tool_dir)
+        for tool_file, rel, is_declared, tool_ver in scanned:
             rel = LEGACY_ALIAS.get(rel, rel)
             compared.add(tool_file.resolve())
             compared_rels.add(rel)
@@ -1181,6 +1359,24 @@ def main() -> int:
             kind, note, tv, pv = compare(tool_file, rel, is_blueprint, is_declared,
                                          tool_ver, True)
             emit(kind, name, tool_dir, tool_file, rel, note, tv, pv, is_declared)
+
+        # ①b **申报了出处却解析不出来**（原先是静默 continue）——缺陷输入必须与"无出处"分开
+        for py, kind, detail in hdr_anoms:
+            bad_hdr.append((name, py, detail))
+            print(f"[{kind}] {name}/{py.relative_to(tool_dir).as_posix()}: {detail}"
+                  f" —— 头部申报的出处不可解析（不是'工具自有'，是**头坏了**）")
+
+        # ①c **缺头 ⇒ 报**的两条腿（见 no_header_legs）
+        hdr_copies, ns_files = no_header_legs(tool_dir)
+        for py, hits in hdr_copies:
+            nohdr_copy.append((name, py, hits))
+            print(f"[NO-HDR-COPY] {name}/{py.relative_to(tool_dir).as_posix()} 无出处头，"
+                  f"但内容等于 {TEMPLATE_DIR.name}/{hits[0]} —— 拷贝被剥掉了头"
+                  f"（补 TEMPLATE-FROM/MODULE 头，或申报 TEMPLATE-LOCAL-OVERRIDE）")
+        for py in ns_files:
+            nohdr_ns.append((name, py))
+            print(f"[NO-HDR] {name}/{py.relative_to(tool_dir).as_posix()} 位于 src/modules/ "
+                  f"命名空间却无任何出处头 —— 是工具自有件还是漏了头？需人判断")
 
         # ② 布局通道：src/modules/<模块>/ 下与模板同名者，**不要求工具侧有头**
         for mod, pys in sorted(tpl_modules.items()):
@@ -1214,6 +1410,8 @@ def main() -> int:
                             and OVERRIDE_RE.search(read_text(f)[:4096])):
                         mod_declared = f.name
                         break
+            # 模块级"有意未接入"申报口（#57）：见 declared_not_wired()
+            not_wired_md = declared_not_wired(mod_dir)
             for tpl_py in pys:
                 tpl_rel = tpl_py.relative_to(TEMPLATE_DIR).as_posix()
                 cand = mod_dir / tpl_py.relative_to(TEMPLATE_DIR / "modules" / mod)
@@ -1224,6 +1422,13 @@ def main() -> int:
                     # **例外：脚本形态采纳**——代码以 `src/<name>.py` 就地使用，
                     # `__init__.py`/`README.md` 不是缺口（[script] 已单独说明）。
                     if script_form:
+                        continue
+                    if not_wired_md:
+                        # 已申报（模块目录下有 NOT-WIRED.md）：不是"漏拷"，是"有意未接入"。
+                        # [decl] 与 [MISSING-*] 必须是**两个不同的可观测量**，否则
+                        # "已批准"与"没人注意"永远分不开（#57）。
+                        print(f"[decl ] {name}: 缺 {TEMPLATE_DIR.name}/{tpl_rel}"
+                              f"（已申报 via {not_wired_md}）")
                         continue
                     if mod in consumed and tpl_rel not in compared_rels:
                         miss_file.append((name, tpl_rel))
@@ -1242,29 +1447,42 @@ def main() -> int:
                     mver.group(1) if mver else "", has_template_header(head))
                 emit(kind, name, tool_dir, cand, tpl_rel, note, tv, pv, decl_here)
 
-        # ③ 模板有、工具没有 → 整模块缺失（黄灯）
+        # ③ 模板有、工具没有 → 整模块缺失（黄灯）；**已申报者除外**
         for mod in sorted(tpl_modules):
-            if mod not in consumed:
-                miss_mod.append((name, mod))
-                print(f"[MISSING-MODULE] {name}: 模板 modules/{mod}/ 有代码，工具无 "
-                      f"src/modules/{mod}/ 且无文件申报来自该模块（可能内联实现或未采纳）")
+            if mod in consumed:
+                continue
+            mod_dir3 = tool_dir / "src" / "modules" / mod
+            if declared_not_wired(mod_dir3):
+                not_wired.append((name, mod, mod_dir3 / "NOT-WIRED.md"))
+                print(f"[decl ] {name}: 模板 modules/{mod}/ 未采纳（已申报 via "
+                      f"src/modules/{mod}/NOT-WIRED.md）—— 不是遗漏，是有意未接入")
+                continue
+            miss_mod.append((name, mod))
+            print(f"[MISSING-MODULE] {name}: 模板 modules/{mod}/ 有代码，工具无 "
+                  f"src/modules/{mod}/ 且无文件申报来自该模块（可能内联实现或未采纳）"
+                  f"；若是有意不接入，放一份 src/modules/{mod}/NOT-WIRED.md 申报")
 
     print()
     for name, tool_file, rel in missing:
         print(f"[MISS ] {name}: {TEMPLATE_DIR.name}/{rel} 不存在（检查头部路径）")
-    if lags or nohdr or miss_mod or miss_file or diffs:
+    if lags or nohdr or miss_mod or miss_file or diffs or nohdr_ns:
         print(f"needs human decision (yellow, non-blocking): "
               f"lag={len(lags)}, doc-md-diff={len(diffs)}, nohdr={len(nohdr)}, "
-              f"missing-module={len(miss_mod)}, missing-file={len(miss_file)}"
+              f"missing-module={len(miss_mod)}, missing-file={len(miss_file)}, "
+              f"no-header-in-modules={len(nohdr_ns)}"
               f" —— 见 my-diy-tool-template/ALIGNMENT.md 对应格子")
     print(f"summary: {len(drift)} undeclared drift, {len(lags)} blueprint lag(s), "
           f"{len(declared)} declared override(s), {len(params)} param file(s), "
           f"{len(diffs)} doc byte-diff(s), {len(nohdr)} no-header mismatch(es), "
           f"{len(miss_mod)} missing module(s), {len(miss_file)} missing file(s), "
-          f"{len(missing)} missing template(s)")
-    if drift or missing:
+          f"{len(missing)} missing template(s), {len(bad_hdr)} bad header(s), "
+          f"{len(nohdr_copy)} stripped-header copy(ies), {len(nohdr_ns)} unheaded-in-modules, "
+          f"{len(not_wired)} declared not-wired")
+    if drift or missing or bad_hdr or nohdr_copy:
         print("fix: 把模板修复同步到该工具（独立 commit + 门禁绿），或在文件头申报 TEMPLATE-LOCAL-OVERRIDE。")
-        print("     [DIFF]/[NOHDR]/[MISSING-MODULE]/[MISSING-FILE]/[lag] 为黄灯：需人判断跟/不跟，不阻断门禁。")
+        print("     [BAD-HDR]（申报的出处不可解析）与 [NO-HDR-COPY]（拷贝被剥掉头）为**红灯**：")
+        print("     它们让'缺陷输入'与'工具自有'落在不同观测量上，不再静默。")
+        print("     [DIFF]/[NOHDR]/[MISSING-*]/[lag]/[NO-HDR] 为黄灯：需人判断跟/不跟，不阻断门禁。")
         return 1
     return 0
 
