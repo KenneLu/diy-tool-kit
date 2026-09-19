@@ -22,14 +22,17 @@ for %%a in (%BUILD_ARGS%) do (
 set PY=python
 set APPNAME=<APP_ID>
 rem Version single source of truth: VERSION in src\main.py (or paths.py).
+rem Parse BETWEEN THE QUOTES: the line may carry a trailing comment, e.g.
+rem   VERSION = "1.4.0"   # only changed at release time
+rem "tokens=2,*" would swallow the comment into VERSION and corrupt
+rem RELEASE_DIR. Rule (B3): nothing after the closing quote but blanks.
 set VERSION=
-for /f "tokens=2,*" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%~b
+for /f tokens^=2^ delims^=^" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%a
 if not defined VERSION (
   echo [ERROR] Cannot read VERSION.
   if not defined NOPAUSE pause
   exit /b 1
 )
-set VERSION=%VERSION:"=%
 set RELEASE_DIR=release\%APPNAME%-%VERSION%
 set FROZEN_EXE=%RELEASE_DIR%\%APPNAME%.exe
 
@@ -39,13 +42,13 @@ if exist "%RELEASE_DIR%" (
   exit /b 1
 )
 
-echo [GATE] running-instance check (prefix match - any version blocks) ...
-tasklist /fo csv 2>/dev/null | findstr /i /c:"%APPNAME%" >/dev/null
-if not errorlevel 1 (
-  echo [ERROR] %APPNAME% is running. Exit the tray app first.
-  if not defined NOPAUSE pause
-  exit /b 1
-)
+rem D1-02 refined (2026-09-19): building into a NEW version dir does not touch a
+rem running instance - the smoke runs from the new dir with an isolated data dir
+rem and takes no mutex. So do NOT block on "some instance is running"; block only
+rem when the running instance lives INSIDE this build's target dir (the one truly
+rem dangerous case: overwriting/deleting a release dir that is in use).
+call :guard_target_not_running
+if errorlevel 1 exit /b 1
 
 echo [GATE] compile check ...
 %PY% -m py_compile src\main.py
@@ -116,4 +119,30 @@ echo.
 echo [DONE] release: %FROZEN_EXE%
 if defined RUN_AFTER start "" "%FROZEN_EXE%"
 if not defined NOPAUSE pause
+exit /b 0
+
+rem ---------------------------------------------------------------------------
+rem D1-02 guard: refuse only when a running instance lives under %RELEASE_DIR%.
+rem MUST be called before ANY action that deletes/overwrites a release dir
+rem (this build, a manual rmdir, or a future --clean switch) - the gate has to
+rem protect the in-use directory, not "any running instance".
+rem Returns errorlevel 1 when blocked.
+rem ---------------------------------------------------------------------------
+:guard_target_not_running
+set "TARGET_ABS=%CD%\%RELEASE_DIR%"
+set "RUN_EXE="
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Process -Name '%APPNAME%' -ErrorAction SilentlyContinue | Where-Object { $_.Path } | Select-Object -First 1 -ExpandProperty Path)" 2^>nul`) do set "RUN_EXE=%%p"
+if not defined RUN_EXE exit /b 0
+echo [GATE] running instance: %RUN_EXE%
+rem Compare the instance's DIRECTORY with the target dir (strip the trailing
+rem backslash %%~dpd adds). Beats string-prefix matching: no quoting pitfalls.
+for %%d in ("%RUN_EXE%") do set "RUN_DIR=%%~dpd"
+set "RUN_DIR=%RUN_DIR:~0,-1%"
+if /i "%RUN_DIR%"=="%TARGET_ABS%" (
+  echo [ERROR] The running instance lives inside %RELEASE_DIR%.
+  echo         Exit it from the tray before touching THIS release dir.
+  echo         (Building another version dir stays allowed - D1-02.)
+  if not defined NOPAUSE pause
+  exit /b 1
+)
 exit /b 0
