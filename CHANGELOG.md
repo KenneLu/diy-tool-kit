@@ -2,6 +2,34 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-22 bat byte hygiene; a generated-bat LF instance found by it)
+
+The lead's byte scan of the family's `.bat`/`.cmd` files turned the "bats are CRLF + ASCII"
+line into a requirement, so it is now a mechanical check rather than a sentence.
+
+- **`conformance_check.py` 1.3.0 — new C-22**: every `.bat`/`.cmd` in a tool repo must be
+  **CRLF, contain no 0x09, and be pure ASCII**, reported per file and per line. Build output
+  and scratch directories are skipped (`release/ out/ dist/ _internal/ .cache/ .verify-scratch/`)
+  because they are neither hand-written nor committed. Five selftest samples pin the three
+  corruptions (TAB, LF-only, non-ASCII) plus a mixed case and a clean file.
+- **State on the real tree**: the three instances from the lead's scan are **already fixed**
+  by their owners — `reme-helper/scripts/build.bat` (was `tests<TAB>est_update_bat.py`),
+  `local-speak2text/release.bat` and `run.bat` (were LF-only) now all report
+  `CRLF/LF=0/TAB=0/nonASCII=0`. C-22's only remaining hit is
+  `reme-helper/.cache/gate_proof.bat` — a **generated, git-ignored** scratch script written
+  by a verification run: the file is not authored source (hence the exemption) but it is
+  still the *evidence* for the J-坑 "a script that writes a .bat silently produces LF".
+- **Template side**: C-22 does not scan the template repo, so
+  `modules/build_release/verify_build_bat.py` gained the same byte check for the template's
+  own bats — the template is the dispatch source, so one TAB here becomes four in the tools.
+- **STANDARDS**: B1's bat line now points at the executable criterion, with the **self-proof
+  obligation** ("after every added/edited bat line, run C-22") and the reason the corruptions
+  are invisible: they never error, they only make *one line* silently stop working — and if an
+  earlier gate stops the build first, that line is never reached. **J 坑 gained two entries**:
+  the escaping/`	`→TAB one, and the console-subsystem fake-exe one (a modal console window
+  pops on the user's desktop, and its cwd makes the cleanup delete fail silently, leaving an
+  empty shell directory — today's user report).
+
 ## 2026-09-19 (ALIGNMENT: icons closed as [decl]; the second update path assessed)
 
 Two verdicts the lead asked for; **no code changed** for either.

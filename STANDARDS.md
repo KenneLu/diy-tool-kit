@@ -112,7 +112,7 @@
    ├─ resources\img\                # 手工美术资产（唯一入库的图像；代码生成图标不入库，G5）
    ├─ config.json                   # 首次运行配置模板（随源码；用户实际配置在 AppData）
    ├─ README.md / README.zh-CN.md / LICENSE / CHANGELOG.md
-   ├─ build.bat / release.bat       # 构建与发版（bat 留一级：CRLF + ASCII-only，J 坑）
+   ├─ build.bat / release.bat       # 构建与发版（bat 留一级：**CRLF + 无 TAB + ASCII-only**，见下）
    ├─ .gitignore / .github\workflows\  # tests.yml + release.yml（T8/T9）
    ├─ asr-modules\ 等大资源          # 不入 git；CI 里下载
    └─ release\<工具名>-<版本>\       # 本机构建产物（G1）
@@ -123,6 +123,14 @@
 **dev 态锚定纪律（W-h 教训）**：src/ 下的模块凡以 `__file__` 锚定"仓库根/exe 旁"语义的，**必须写明锚定层级并配 dev 态自测**——模块搬家会让 `__file__` 深度变化（reme paths 深两级、l-s2t paths 一级，各按实际层级锚定并注释）；frozen 态语义（exe 旁）不受影响，但 dev 态冒烟（`--smoke`）必须实测路径断言。
 
 **最小可运行集合**：`src\main.py`、`config.json`、`README.md`、`build.bat`、`.gitignore`、`LICENSE`。
+
+**bat/cmd 字节纪律（可执行判据，2026-09-19 升级）**：所有 `.bat`/`.cmd` **必须 CRLF、不含 0x09、
+纯 ASCII**。这不是口头约定——`conformance_check.py` 的 **C-22** 逐文件逐行报位置（构建产物与
+脚手架目录除外：`release/ out/ dist/ _internal/ .cache/ .verify-scratch/`）。
+**自证义务**：**每次新增/修改 bat 行后必须跑一次 C-22**（`python … conformance_check.py --only C-22`）。
+理由：这三类损坏**都不会报错**，只会让**某一行静默失效**——`\t` 被当转义写成真 TAB 的那行永远跑
+不起来，若前面还有别的门禁先拦下就永远不暴露（reme `scripts/build.bat:201` 实例：整行测试门禁
+从未执行、无症状）；LF-only 会让 `for`/`goto` 行解析异常；中文按 OEM 码页撕碎后续行。
 
 ### B2 工具登记表
 
@@ -687,6 +695,8 @@ helper 的价值是让服务的启停可视、可控、可更新——而不是�
 | `cache: pip` 但仓库没有 requirements.txt | setup-python 直接硬报错；依赖清单必须入库（2026-09-17 实测） |
 | 把"测试通过"当推送授权、擅自定版本号 | push 与版本变更都是用户决定权；见 ReMe git-commit-discipline 规则 6/7 |
 | **无人值守路径上弹模态对话框** | **从"变红"退化成"卡死"**——构建/CI/测试会永久挂住，比失败更难发现。已踩两次（l-s2t `test_startup_path.py` 真跑单实例守卫、ocx `--smoke` 同款）。纪律：冒烟/测试覆盖守卫只能用**探针**（`tray_kit.mutex_name_is_valid`），要弹框的路径必须先判断"无人值守"或打桩（D3.3） |
+| **驱动 `start` 的假 exe 用了控制台子系统** | 2026-09-19 用户报障：更新链测试里用一个假 exe 当替换目标，`start "" <假exe>` 在**用户桌面弹出控制台窗口**；更坑的是**窗口的 cwd 会让收尾的删除静默失败**，于是留下一个**空壳目录**（删不掉、也没报错）。纪律：给 `start` 喂的替身一律用 **`.vbs`/无窗口** 形式（`WScript.Shell.Run` 或 `CREATE_NO_WINDOW`），并断言"跑完不留残留目录"——否则测试自己成了污染源 |
+| 用带转义的字符串写 `.bat` | `write_text("...\\t...")` 把 `\t` 当**转义**解释 ⇒ 写进 bat 成了**真 TAB**：`"%PY%" tests<TAB>est_update_bat.py` 这种行**永远跑不起来**；而它前面若还有别的门禁先拦下，**坏行就永远不会暴露**（reme `scripts/build.bat:201` 实例：整行测试门禁从未执行，无症状）。同类还有 `\n` 被写成换行导致 LF-only。纪律：写 bat 的内容必须是**已转义/原始**字符串，且**改完 bat 立刻跑字节级自证**（C-22：CRLF + 无 TAB + 纯 ASCII） |
 | 把双语 README 挂在 T1（i18n）触发下 | 锚点错了：README 双语的触发条件是基线 8"**开源/交付他人的工具**"，与界面 i18n 无关（2026-09-18 实测：dsh/opencodex 已公开发版却只交了中文 README） |
 | 执行时只读规范的触发列、不读基线全表 | 定级要对照 A1 全表逐条过；挂在别的触发器上的基线条目会被漏掉 |
 | bat 文件里写中文注释 | cmd 按 OEM/GBK 码页解析，UTF-8 中文会撕碎后续行的解析（连 `set PY` 都变空）；构建/发版 bat 保持纯 ASCII（2026-09-17 dsh-helper 实测） |

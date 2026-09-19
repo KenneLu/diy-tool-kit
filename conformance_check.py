@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.2.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.3.0
+# 1.3.0：新增 **C-22 bat/cmd 字节卫生**（CRLF + 无 0x09 + 纯 ASCII，逐文件逐行报位置）。
+#   把"bat 必须 CRLF + 纯 ASCII"从口头纪律升级成可执行判据；五条 selftest 样本（TAB / LF-only /
+#   非 ASCII / 混合 / 合规）。构建产物与脚手架目录（release/out/dist/_internal/.cache/.verify-scratch）
+#   跳过——它们不是作者手写、也不入库。
 # 1.2.0：C-10 判据重写——旧判据只要 smoke() 里出现 `mutex|single_instance` **任意子串**就算过，
 #   太松（"把 --smoke 提前分派 + 留一句注释"就能骗过），**区分不了"覆盖了"与"绕过了"**。
 #   现判据（D3.3）：smoke() 内必须有**探针** `mutex_name_is_valid(...)` 且**判了结果**；
@@ -676,8 +680,78 @@ def c21(c: Ctx):
 
 
 # ---------------------------------------------------------------- C-22..C-24
-# 说明：C-22 号已被"bat/cmd 字节卫生"占用（另一路任务），故本组从 C-23 起编号。
 _CONTAINERS = (ast.Dict, ast.List, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)
+
+# --- C-22：bat/cmd 字节卫生 -------------------------------------------------
+# 只扫**源**：构建产物（release/out/dist/_internal）与脚手架/缓存目录（.cache/.verify-scratch，
+# 两者都在 .gitignore 里）跳过——它们不是作者手写的、也不入库，报出来只会淹没真问题。
+# ⚠️ 但"生成的 bat 是 LF"这件事本身仍要记在案：恰恰是脚本写文件把 CRLF 写丢了的现场（见 J 坑）。
+_BAT_SKIP_DIRS = {".git", "__pycache__", "build", "dist", "release", "out", "_internal",
+                  "node_modules", ".verify-scratch", ".cache"}
+
+
+def _bat_files(root: Path):
+    out = []
+    for p in root.rglob("*"):
+        if p.suffix.lower() not in (".bat", ".cmd") or not p.is_file():
+            continue
+        if any(part in _BAT_SKIP_DIRS for part in p.parts):
+            continue
+        out.append(p)
+    return sorted(out)
+
+
+def _bat_hygiene(path: Path) -> list:
+    """返回 [`第N行:原因`]；空列表 = 合规。判据：**CRLF / 无 0x09 / 纯 ASCII**。
+
+    为什么是字节级而不是"看着没问题"：`write_text("...\\t...")` 会把 `\\t` 当**转义**解释，
+    写进 .bat 就成了真 TAB——`"%PY%" tests<TAB>est_update_bat.py` 这种行**永远跑不起来**；
+    若它前面还有别的门禁先把构建拦下，这条坏行就**永远不会暴露**（2026-09-19 reme 实例）。
+    LF-only 更隐蔽：cmd 对 `for`/`goto` 行的解析在 LF 下会异常。中文则按 OEM 码页撕碎后续行。
+    """
+    data = path.read_bytes()
+    lf_only, tabs, nonascii = [], [], []
+    line = 1
+    for i, b in enumerate(data):
+        if b == 0x0A:
+            if i == 0 or data[i - 1] != 0x0D:
+                lf_only.append(line)
+            line += 1
+        elif b == 0x09:
+            tabs.append(line)
+        elif b > 0x7F and (not nonascii or nonascii[-1] != line):
+            nonascii.append(line)
+    bad = []
+    if lf_only:
+        bad.append("LF-only 行 %d 处（首见 第%d 行；必须 CRLF）" % (len(lf_only), lf_only[0]))
+    if tabs:
+        bad.append("含 0x09 TAB %d 处（第 %s 行）"
+                   % (len(tabs), ",".join(str(n) for n in tabs[:6])))
+    if nonascii:
+        bad.append("非 ASCII %d 行（第 %s 行；cmd 按 OEM 码页解析）"
+                   % (len(nonascii), ",".join(str(n) for n in nonascii[:6])))
+    return bad
+
+
+@check("C-22", "FAIL", "bat/cmd 字节卫生：CRLF + 无 TAB + 纯 ASCII（B3/J 坑）")
+def c22(c: Ctx):
+    """把"bat 必须 CRLF + 纯 ASCII"从口头纪律升级成**可执行判据**（逐文件逐行报位置）。
+
+    三个判据各对应一次真实事故：TAB（转义写坏行 ⇒ 门禁从未执行）、LF-only（cmd 解析异常）、
+    非 ASCII（OEM 码页撕碎后续行）。**每次新增/修改 bat 行后必须跑一次本检查自证**——
+    这类损坏不会报错，只会让某行静默失效。
+    """
+    files = _bat_files(c.dir)
+    if not files:
+        return True, "无 .bat/.cmd（本工具用别的方式构建）"
+    bad = []
+    for p in files:
+        for item in _bat_hygiene(p):
+            bad.append("%s: %s" % (p.relative_to(c.dir).as_posix(), item))
+    return (not bad), ("；".join(bad) if bad
+                       else "%d 个 bat/cmd 全部 CRLF+ASCII 且无 TAB" % len(files))
+
+
 
 
 def _is_container(node) -> bool:
@@ -896,6 +970,24 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-10 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail))
+
+        # C-22：字节卫生——三种损坏各一条样本（都会让**某一行**静默失效），合规的必须放行
+        c22_cases = (
+            ("pos_tab", b"@echo off\r\necho a\tb\r\n", False),
+            ("pos_lf_only", b"@echo off\necho ok\n", False),
+            ("pos_nonascii", b"@echo off\r\nrem \xd6\xd0\xce\xc4\r\n", False),
+            ("pos_mixed_tab_lf", b"@echo off\nset x=1\r\n\tbad\n", False),
+            ("neg_clean", b"@echo off\r\necho ok\r\nif errorlevel 1 exit /b 1\r\n", True),
+        )
+        for name, blob, want in c22_cases:
+            d = base / ("c22_" + name)
+            d.mkdir(parents=True)
+            (d / "build.bat").write_bytes(blob)
+            ok, detail = c22(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-22 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
 
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))

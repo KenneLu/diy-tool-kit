@@ -71,12 +71,46 @@ def _run(root: Path):
                              if ln.strip().startswith(("[VERSION]", "[ERROR]"))]
 
 
+def _byte_hygiene_failures(root: Path) -> list:
+    """模板自己的 bat 也要过字节卫生。返回 [「文件名: 原因」]；空 = 合规。"""
+    out = []
+    for p in sorted(root.rglob("*.bat")):
+        if any(part in {".git", "__pycache__", "release", "build", "dist"} for part in p.parts):
+            continue
+        data = p.read_bytes()
+        line, lf, tab, nonascii = 1, [], [], []
+        for i, b in enumerate(data):
+            if b == 0x0A:
+                if i == 0 or data[i - 1] != 0x0D:
+                    lf.append(line)
+                line += 1
+            elif b == 0x09:
+                tab.append(line)
+            elif b > 0x7F and (not nonascii or nonascii[-1] != line):
+                nonascii.append(line)
+        if lf:
+            out.append("%s: LF-only 行 %d 处（首见 第%d 行）" % (p.name, len(lf), lf[0]))
+        if tab:
+            out.append("%s: 含 0x09 TAB（第 %s 行）"
+                       % (p.name, ",".join(str(n) for n in tab[:6])))
+        if nonascii:
+            out.append("%s: 非 ASCII（第 %s 行）"
+                       % (p.name, ",".join(str(n) for n in nonascii[:6])))
+    return out
+
+
 def main() -> int:
     if not TPL_BAT.exists():
         print("[FAIL] 找不到 %s" % TPL_BAT)
         return 1
     base = Path(tempfile.mkdtemp(prefix="verify_build_bat_"))
     failed = 0
+    # 0) 字节卫生：模板 bat 是**派发源**——自己带一个 TAB，四个工具就各带一个
+    #    （判据同 C-22：CRLF / 无 0x09 / 纯 ASCII；C-22 只扫工具仓，模板不在其扫描面内）
+    hygiene = _byte_hygiene_failures(HERE)
+    failed += len(hygiene)
+    print("[%s] 字节卫生（CRLF/无TAB/ASCII）: %s"
+          % ("PASS" if not hygiene else "FAIL", "；".join(hygiene) if hygiene else "OK"))
     try:
         cases = (
             ("A  两步式 + 行尾注释", False, False, "1.4.0", True),
