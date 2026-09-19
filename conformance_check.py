@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.4.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.5.0
+# 1.5.0：① **修 C-10 假红灯**（reme）："结果被消费"≠"必须写成 if"——探针**作为参数交给
+#   check() 助手**也算消费；兜底分支改按 **AST 调用节点**找真跑守卫（原来对函数体做文本匹配，
+#   把注释里的 single_instance_free() 当成了真调用 → 打印与事实相反的诊断）。新增两条样本：
+#   pos_probe_passed_to_check_helper / pos_guard_name_in_comment_only。
+#   ② 新增 **C-28（WARN）**：本仓 `.md` 不得含 0x09 TAB（lead 裁定：不扩到所有文本文件，
+#   只挑手写中文文档这一类，误报成本低）。
 # 1.4.0：新增三条「当天缺陷没有现役条款能拦」的机械判据（各带正负样本）：
 #   C-25 门禁步骤必须**既存在又能被执行**（reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
 #   C-26 `start` 前必须存在性守卫——外部程序"成功"不能只靠排除失败码（robocopy rc=0 ≠ 成功）
@@ -340,10 +346,8 @@ def c09(c: Ctx):
 # 探针 = "验名字合法性，不占锁不弹窗"。**不能**认 single_instance_free：用户常驻实例
 # 在跑时它返回 False，拿它当冒烟断言会假红（D3.3 的禁忌之一）。
 _PROBE_NAMES = {"mutex_name_is_valid"}
-# 真跑守卫的证据：出现即说明冒烟可能弹模态框把构建挂死——仅在探针缺失时拿来作提示。
+# 真跑守卫：命中即说明冒烟可能弹模态框把构建挂死（**只在探针缺失时**拿来作提示）。
 _GUARD_NAMES = {"acquire_single_instance", "single_instance_free", "warn_duplicate_instance"}
-_SMOKE_PROBE = re.compile("|".join(_PROBE_NAMES))
-_SMOKE_GUARD = re.compile("|".join(_GUARD_NAMES))
 
 
 def _callee_name(node) -> str:
@@ -358,28 +362,32 @@ def _callee_name(node) -> str:
     return ""
 
 
-def _guarded_probe_calls(fn) -> tuple:
-    """在函数体里找**被判断过的探针调用**，返回 (命中数, 只调未判数)。
+def _calls(fn, names) -> bool:
+    """AST 级：函数体里是否存在对 `names` 之一**真正的调用节点**（注释/字符串不算）。"""
+    return any(isinstance(n, ast.Call) and _callee_name(n) in names for n in ast.walk(fn))
 
-    "判过"= 调用出现在 `if` / `while` / `assert` 的条件里，或参与 `not`/`and`/`or`
-    布尔组合——即**结果被消费**。只出现在表达式语句里的 `mutex_name_is_valid(...)` 不算：
-    覆盖 ≠ 调用（D3.3 的判据要求"能打红构建"）。
+
+def _guarded_probe_calls(fn) -> tuple:
+    """在函数体里找**结果被消费**的探针调用，返回 (已消费数, 只调未判数)。
+
+    **判据是"返回值有没有被用"，不是"必须写成 `if`"**（2026-09-19 修，reme 假红灯）：
+      * **裸表达式语句** `mutex_name_is_valid(...)` → 值被丢弃 → `plain`（覆盖 ≠ 调用）；
+      * **其余一切**都算已消费 → `guarded`：条件里、`assert`、布尔组合、**作为参数交给
+        `check()`/断言助手**（reme 的形态）、赋给变量……。
+
+    旧判据只认 `if`/`while`/`assert` 的 test，于是 reme
+    `check("single-instance name valid", mutex_name_is_valid(...))` 落在两种之间 →
+    `guarded=0, plain=0` → **假红灯**。这正是"假红灯比漏报更伤信任"那一条。
     """
+    dropped = {id(n.value) for n in ast.walk(fn)
+               if isinstance(n, ast.Expr) and _callee_name(n.value) in _PROBE_NAMES}
     guarded = plain = 0
-    for node in ast.walk(fn):
-        if isinstance(node, (ast.If, ast.While)):
-            conds = [node.test]
-        elif isinstance(node, ast.Assert):
-            conds = [node.test]
-        else:
-            continue
-        for cond in conds:
-            for sub in ast.walk(cond):
-                if _callee_name(sub) in _PROBE_NAMES:
-                    guarded += 1
-    for node in ast.walk(fn):
-        if isinstance(node, ast.Expr) and _callee_name(node.value) in _PROBE_NAMES:
-            plain += 1
+    for n in ast.walk(fn):
+        if isinstance(n, ast.Call) and _callee_name(n) in _PROBE_NAMES:
+            if id(n) in dropped:
+                plain += 1
+            else:
+                guarded += 1
     return guarded, plain
 
 
@@ -419,8 +427,10 @@ def c10(c: Ctx):
     if plain:
         return False, ("smoke 调了 mutex_name_is_valid 但**没判结果**（覆盖 ≠ 调用："
                        "要么 if not … 中止，要么 assert）")
-    body_src = "\n".join(c.read(c.entry).splitlines()[smokes[0].lineno - 1:smokes[0].end_lineno])
-    if _SMOKE_GUARD.search(body_src):
+    # 只能按 **AST 调用节点**判定守卫——**绝不能对函数体做文本匹配**：守卫名出现在
+    # 注释里（如"别用它 single_instance_free()"这种说明）会把诊断带偏，报出一句与事实
+    # 相反的话（reme 2026-09-19 实例：它既有注释又有正确的探针，却被报成"真跑守卫"）。
+    if any(_calls(fn, _GUARD_NAMES) for fn in smokes):
         return False, ("smoke 里是**真跑守卫**（acquire_single_instance/…）：用户常驻实例在跑时"
                        "会弹模态重复启动框，把构建挂死。改用探针 tray_kit.mutex_name_is_valid()")
     return False, ("smoke() 没有守卫覆盖（SINGLE-04/D3.1）。把 --smoke 提到守卫之前"
@@ -1038,8 +1048,31 @@ def c27(c: Ctx):
     return (not bad), ("；".join(bad) if bad else "%d 个必接符号都已接线" % declared)
 
 
+@check("C-28", "WARN", "本仓 .md 不得出现 0x09 TAB（手写文档，出现 TAB 必属事故）")
+def c28(c: Ctx):
+    """**只扫 `.md`，WARN 级**——误报成本低，但能覆盖一类真实事故。
+
+    背景：写 CHANGELOG 时用 Python 字符串拼内容，`"\\t"` 被当成**转义**，于是文件里落进一个
+    **真 TAB**（2026-09-19 本人实例）。bat 有 C-22 管，`.py` 的 TAB 是缩进（合法）、`.json`
+    里也可能是合法转义——所以**只挑 `.md`**：本仓的 `.md` 全是手写中文文档，TAB 没有任何
+    正当用途。lead 裁定：不扩到所有文本文件，但这一条值得有。
+    """
+    bad = []
+    for p in sorted(c.dir.rglob("*.md")):
+        if any(part in _BAT_SKIP_DIRS for part in p.parts):
+            continue
+        data = p.read_bytes()
+        if b"\x09" not in data:
+            continue
+        lines = [i for i, ln in enumerate(data.split(b"\n"), 1) if b"\x09" in ln]
+        bad.append("%s: TAB 行 %d 处（第 %s 行）"
+                   % (p.relative_to(c.dir).as_posix(), len(lines),
+                      ",".join(str(n) for n in lines[:5])))
+    return (not bad), ("；".join(bad) if bad else "手写文档无 TAB")
+
+
 def selftest() -> int:
-    """C-21/C-22/C-23/C-24/C-25/C-26/C-27 反向自证：合成样本，正例须点名、反例须放行。"""
+    """C-21..C-28 反向自证：合成样本，正例须点名、反例须放行。"""
     import shutil
     import tempfile
     base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
@@ -1116,6 +1149,20 @@ def selftest() -> int:
             ("neg_comment_only",
              "def smoke():\n    # TODO: should call mutex_name_is_valid(APP_ID) here\n"
              "    return 0\n", False),
+            # reme 的真实形态：探针**作为参数交给 check() 助手**——值被消费了，必须放行。
+            # 旧判据只认 if/while/assert 的 test，这里 guarded=0/plain=0 → 假红灯。
+            ("pos_probe_passed_to_check_helper",
+             "def smoke():\n"
+             "    check('single-instance name valid',\n"
+             "          mutex_name_is_valid(APP_ID, mutex_name=SINGLE_INSTANCE_NAME))\n", True),
+            # 守卫名**只出现在注释里** + 有正确探针 → 必须放行（reme 那条假红灯的根因）
+            ("pos_guard_name_in_comment_only",
+             "def smoke():\n"
+             "    # 不许用 single_instance_free()：用户实例在跑时它为真\n"
+             "    check('ok', mutex_name_is_valid(APP_ID))\n", True),
+            # 真跑守卫（AST 调用节点）才 FAIL
+            ("neg_real_guard_ast",
+             "def smoke():\n    tray_kit.acquire_single_instance(APP_ID)\n", False),
         )
         for name, body, want in c10_cases:
             d = base / ("c10_" + name) / "src"
@@ -1194,6 +1241,27 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-27 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
+
+        # C-28：.md 里的真 TAB 必须被点名（这是本人踩过的形态）。
+        # ⚠️ 用**显式字节值**构造，不写 b"...TAB..."——写下这段样本时，正是 `TAB` 被当转义
+        # 解释、把真 TAB 落进了源文件（本 J 坑同一天第三次出现，且出现在"检测 TAB"的检查里）。
+        _tab, _crlf = bytes([9]), bytes([13, 10])
+        d = base / "c28_pos"
+        d.mkdir(parents=True)
+        (d / "CHANGELOG.md").write_bytes(b"# x" + _crlf + b"line" + _tab + b"with tab" + _crlf)
+        ok, detail = c28(Ctx("c28_pos", d))
+        good = ok is False
+        failed += 0 if good else 1
+        print("[selftest] %s  C-28 pos_md_tab: ok=%s want=False | %s"
+              % ("PASS" if good else "FAIL", ok, detail[:70]))
+        d = base / "c28_neg"
+        d.mkdir(parents=True)
+        (d / "CHANGELOG.md").write_bytes(b"# x" + _crlf + b"clean line" + _crlf)
+        ok, detail = c28(Ctx("c28_neg", d))
+        good = ok is True
+        failed += 0 if good else 1
+        print("[selftest] %s  C-28 neg_clean_md: ok=%s want=True | %s"
+              % ("PASS" if good else "FAIL", ok, detail[:70]))
 
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         return 1 if failed else 0

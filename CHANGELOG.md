@@ -2,6 +2,37 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-10 false red fixed on reme; C-28 .md TAB probe)
+
+The lead found C-10 reporting a **false red with an inverted diagnosis** on reme, and both
+halves of the analysis were right.
+
+- **Root cause, precisely**: reme's `smoke()` is *correct* — the probe is passed as an argument
+  to a `check(...)` helper — but (a) my "consumed" rule only counted probe calls inside
+  `if`/`while`/`assert` tests, so it scored `guarded=0, plain=0`, and (b) the fallback branch
+  matched the guard names **as text over the whole function body**, where line 7563 has them
+  **inside a comment** (`别用它 single_instance_free()`). So it printed "smoke 里是**真跑守卫**"
+  about a function that has no guard call at all.
+- **Fix**: "consumed" now means **the return value is used** — a bare `ast.Expr` call is
+  `plain`, everything else (condition, `assert`, boolean op, **argument to a helper**,
+  assignment) is `guarded`. The guard fallback now looks for **AST call nodes**
+  (`_calls(fn, _GUARD_NAMES)`), never text. Same lesson as before: a comment must never be able
+  to change a verdict.
+- **Two samples added, named for the two failure modes**:
+  `pos_probe_passed_to_check_helper` (must pass) and `pos_guard_name_in_comment_only` (must
+  pass — reme's exact shape), plus `neg_real_guard_ast` (a real `acquire_single_instance` call
+  node still fails). Real tree: **all four tools ok**, reme included.
+- **C-28 (WARN)**: `.md` files must not contain 0x09. The lead's ruling: do **not** widen it to
+  every text file (`.py` indentation, `.json` escapes are legitimate), but a hand-written CJK
+  doc with a TAB is always an accident — which is exactly the incident I hit when a `	` inside
+  a Python string landed in CHANGELOG.md as a real TAB. Positive/negative samples included.
+- **That J-坑 recurred twice more while writing this very entry**: the heredoc turned my
+  `	`/`
+` into real bytes twice (once inside the C-28 sample itself, once in a comment
+  about it). Both were caught by reading the bytes back and are now written with **explicit byte
+  values** (`bytes([9])`, `bytes([13, 10])`). Three occurrences in one day, all in code that was
+  *about* this hazard.
+
 ## 2026-09-19 (E group: the second reachable path — empty snapshot — now runs for real)
 
 The lead traced a second route to the same modal-box hang: `:install_failed` is entered when
