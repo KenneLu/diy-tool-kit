@@ -55,12 +55,13 @@ python my-diy-tool-template\sync_check.py --roots reme-helper local-speak2text
 python my-diy-tool-template\conformance_check.py --roots reme-helper
 ```
 
-本次快照的 `sync_check` 摘要（**退出码 0**，1.4.0 扫描范围含 README）：
-`0 undeclared drift, 0 blueprint lag(s), 0 declared override(s), 4 param file(s),`
-`9 no-header mismatch(es), 9 missing module(s), 6 missing file(s), 0 missing template(s)`。
-其中 9 条 `NOHDR` = 5 个模块 README（reme）+ 2 个 appconfig README（dsh/ocx）+ reme i18n×2；
+本次快照的 `sync_check` 摘要（**退出码 0**，1.4.0 扫描范围含 README；实现者持续收敛，以实时输出为准）：
+`0 undeclared drift, 0 blueprint lag(s), 2 declared override(s), 4 param file(s),`
+`3 no-header mismatch(es), 9 missing module(s), 6 missing file(s), 0 missing template(s)`。
+3 条 `NOHDR` = dsh/ocx 的 `appconfig/README.md` + reme 的 `i18n/README.md`；
+2 条 `[decl]` = reme i18n 重形态（已补 OVERRIDE 申报）；
 6 条 `MISSING-FILE` = dsh/l-s2t/ocx 各缺 `icons/README.md` 与 `icons/__init__.py`。
-**l-s2t 已 0 DIFF（其模块 README 全部 `[ok]`）**。
+**l-s2t 已 0 DIFF**（模块 README 全部 `[ok]`）。
 模板升位瞬间曾出现 **4 条红灯**（dsh/ocx 各 2 条：`paths` 1.1.2→**1.1.3**、`tray_kit`
 2.0.1→**2.0.2**），属 §0.2 级联清单的预期中间态；**dsh/ocx 已在同步波次中重拷，红灯自消**。
 数字随队友收敛持续下降——**以实时命令输出为准**。
@@ -101,8 +102,8 @@ reme 因 `icons` 整模块未采纳，记 `[MISSING-MODULE]`。
 | **tray_kit.py** (2.0.2) | `SAME` 2.0.2（**已跟进**，队友 #2） | `SAME` 2.0.2（**已跟进**，队友 #3） | `SAME` 2.0.2（**已重拷**，红灯自消） | `SAME` 2.0.2（**已重拷**，红灯自消） |
 | **log_kit.py** (1.0.2) | `SAME` 1.0.2（**已回基**，队友 #2，root-logger 分叉已并入正文或撤销） | `SAME` 1.0.2（**已收敛**，队友 #3） | `SAME` 1.0.2 | `SAME` 1.0.2 |
 | **service_link.py** (0.1.0) | `SAME`（**已文件夹化**，队友 #2）但**未接线**（`main.py` 无 import） | `MISSING-MODULE` | `MISSING-MODULE` | `MISSING-MODULE` |
-| **`__init__.py`**（各模块） | `i18n` 2 处 `NOHDR`（重形态）；其余 `SAME` | 全部 `SAME`（已跟进 1.0.1） | `SAME` | `SAME` |
-| **`README.md`**（各模块，1.4.0 起纳入） | `NOHDR` ×5（appconfig/i18n/log_kit/paths/tray_kit 均为 reme 自有形态） | 全部 `SAME`（**0 DIFF**） | `NOHDR` ×1（appconfig；余 `SAME`） | `NOHDR` ×1（appconfig；余 `SAME`） |
+| **`__init__.py`**（各模块） | `i18n/__init__.py` 已申报 OVERRIDE（`[decl]`，重形态）；其余 `SAME` | 全部 `SAME`（已跟进 1.0.1） | `SAME` | `SAME` |
+| **`README.md`**（各模块，1.4.0 起纳入） | `NOHDR` ×1（`i18n/README.md`，重形态未申报头）；其余 4 个已回基 `[ok]` | 全部 `SAME`（**0 DIFF**） | `NOHDR` ×1（appconfig；余 `SAME`） | `NOHDR` ×1（appconfig；余 `SAME`） |
 | **`icons/` 整夹**（README + `__init__.py`） | `MISSING-MODULE`（整模块未采纳） | `MISSING-FILE` ×2（README + `__init__.py` 未拷） | `MISSING-FILE` ×2 | `MISSING-FILE` ×2 |
 | **sync_check.py** (1.4.0) | `N/A` 设计不拷贝：门禁按路径调用模板正本 | `N/A` 同左 | `N/A` 同左 | `N/A` 同左 |
 
