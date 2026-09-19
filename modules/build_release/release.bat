@@ -7,7 +7,7 @@ rem Version from the SAME single source as build.bat (D1 0.1) - the app and the 
 rem can never disagree. Two-step parse; "tokens=2,*" would swallow a trailing
 rem comment into VERSION and produce a garbage tag (see STANDARDS B3/D1).
 set VERSION=
-for /f "tokens=2 delims==" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%a
+for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /b /c:"VERSION = " src\main.py') do set VERSION=%%a
 if defined VERSION for /f "tokens=1" %%a in ("%VERSION:"=%") do set VERSION=%%a
 if not defined VERSION (
   echo [ERROR] Cannot read VERSION from src\main.py.

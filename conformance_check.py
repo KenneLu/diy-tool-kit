@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.13
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.17
+# 1.9.17：C-46 的「过期」WARN 消息内联声明**本轮不重建 ⇒ 预期读数**（防下一个人去追它 / 去构建）；纯文案，无行为变更。
+# 1.9.16：**C-40 选键改为「路径优先、键名兜底」**（§4.1.53/§4.1.54）= 家族 Run 键名无单一契约（模板 autostart 用 APP_NAME / reme 内联用 APP_ID），只认键名必漏一半；路径腿枚举全表、命中「值路径落在本工具仓库根或稳定安装位之下」，键名腿兜底 dev 态，且**打印实际走的哪条腿**。自证 5 条腿（两条正样本 + 外来项反向格）。
+# 1.9.15：**修 C-40 键名假绿**（§4.1.53）= Run 键名从「按 `APP_ID` 单查」改为「取全表 + 按 `APP_NAME`→`APP_ID` 双候选选键并打印命中」——l-s2t 的 `APP_ID=local-speak2text` ≠ `APP_NAME=LocalSpeak2Text`，旧实现读不到 ⇒ 强断言从未执行；附大小写变体键提示（§4.1.51）。自证 4 条腿。
+# 1.9.14：**新增 C-46**（WARN）= **重建新鲜度分母补全为构建输入集**（`src/**` ∪ `--add-data` 源，四家皆有 out-of-src datas）；自证 4 条腿（含「同一 exe 因 out-of-src 项变新而翻红」的承重格）。
 # 1.9.13：**新增 C-35**（WARN）= **实例隔离两条腿**（测试文件自钉 + build.bat 整体外套），判别力已实测（关腿⇒ reme 11 红）。
 # 1.9.12：**新增 C-34**（WARN，模板通道）= **§1 登记表版本列 == 文件头 TEMPLATE-VER**（手抄副本必然滞后）；自证 2 条腿。
 # 1.9.11：**新增 C-45**（WARN）= **工具侧副本（`src/modules/**` 的 .py/.md）必须全程 CRLF**（`sync_check` 按 read_text 比、行尾被归一化），按字节判；自证 3 条腿。
@@ -318,24 +322,17 @@ def identity_line() -> str:
                      if not _re.match(r"^\s*#\s*TEMPLATE-", ln))
     m = _re.search(r"TEMPLATE-VER:\s*([\d.]+)", text[:2000])
     ver = m.group(1) if m else "?"
-    # HEAD 一并打印（lead 指定）：它是"这份输出属于哪个提交"的最短答案。
-    # 取不到就印 `?`——不在 git 仓 / 无 git / 超时都不该让判据崩（**不许因此报错**）。
-    head = "?"
-    try:
-        r = subprocess.run(["git", "-C", str(TEMPLATE_DIR), "rev-parse", "--short", "HEAD"],
-                           capture_output=True, text=True, timeout=5)
-        if r.returncode == 0 and r.stdout.strip():
-            head = r.stdout.strip()
-    except Exception:
-        pass
+    # **横幅不印 ref**（任务 #58，2026-09-19）：工具自印自己的 HEAD = 被测对象供给判它的
+    # 可观测量，属"无判据"而非"漏判"。ref 由读的人在外面配（`git rev-parse HEAD` 的 blob id），
+    # 与自报的 sha256/norm **两类证据分开记、不互替**（§D8 附则 附 2）。
     # `at:`（lead 2026-09-19 加，"计数必须带时点"）：**任何"命中 N 个"的转述都需要时点**——
     # 残留集是活的（本轮 reme 从 8 变 5：消失 4、新增 1），缺时点的数字会让接收方去找
     # 已不存在的东西。**扫描面说"扫了什么"，时点说"什么时候"**，两者齐了读数才可判。
     import time as _time
     at = _time.strftime("%Y-%m-%dT%H:%M:%S")
-    return ("# conformance_check %s  sha256:%s  norm:%s  head:%s  at:%s"
+    return ("# conformance_check %s  sha256:%s  norm:%s  at:%s"
             % (ver, hashlib.sha256(raw).hexdigest()[:12],
-               hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12], head, at))
+               hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12], at))
 
 # 蓝本工具（内容以模板正本为准，不按"消费方"判定）
 def load_blueprints() -> set:
@@ -2768,6 +2765,48 @@ ORPHAN_VERSIONS = {
     #            "或改引用并删目录。当前态：存在且被引用；曾出现过（临时升号构建）；未收敛",
     #     "reverify": "dsh 的 Run 键或 release/ 目录集合变化时",
     # },
+    # reme-helper 旧构建镜像（rename-preserve）：当前态=存在且**未被引用**；曾出现过=是；
+    # 如何收敛=未收敛（本轮红线禁删 release/）；是否仍被引用=否（Run 键指向当前 VERSION 目录）。
+    "_stale_reme-helper-1.2.5_20260919-204442": {
+        "why": "未被引用的孤儿版本目录（rename-preserve 保留的旧构建镜像）。当前态：存在，含旧 exe"
+               "（4192589 B / mtime 2026-09-19 18:51:06）+ _internal/。是否仍被引用：**否**——"
+               "Run[reme-helper] 指向 release/reme-helper-1.2.5/reme-helper.exe（当前 VERSION 1.2.5 的重建件），"
+               "且无进程从本目录启动。曾出现过：是（同日 20:44:42 的一次改名保留）。"
+               "如何收敛：**未收敛**——未被引用的孤儿可清理，但本轮红线禁止删除 release/ 目录，"
+               "留待 #24 GUI 验证出结论后由属主定夺。",
+        "reverify": "reme 的 release/ 目录集合变化、Run[reme-helper] 改指、或本目录被删/被引用时",
+    },
+    # 下方 Run 键值于 2026-09-19 22:17 用 `reg query HKCU\...\Run /v <APP_ID>` **实测**，
+    # 非照抄文档（HANDOFF §1.5 的改指已完成，但登记必须核实现值）。
+    "dsh-helper-1.8.2": {
+        "why": "当前态：目录存在、**未被引用**——Run[dsh-helper] 实测指向 "
+               "`release\\dsh-helper-1.8.1\\dsh-helper.exe`，与源码 VERSION=1.8.1 一致。"
+               "曾出现：1.8.2 是一次临时升号构建的产物；本波 21:16 已把 Run 键由 1.8.2 改指 1.8.1"
+               "（HANDOFF §1.5），此后该目录成为未被引用的孤儿。未收敛：按用户裁定「先保留，"
+               "验证通过后再定」（HANDOFF §1.6），暂不清理，删除未获授权。",
+        "reverify": "dsh 的 Run 键值或 release/ 目录集合变化时；或用户授权清理 1.8.2 时。",
+    },
+    "opencodex-helper-1.2.1.pre-rebuild-20260919-203905": {
+        "why": "当前态：目录存在、**未被引用**——Run[opencodex-helper] 实测指向 "
+               "`release\\opencodex-helper-1.2.1\\opencodex-helper.exe`，与源码 VERSION=1.2.1 一致。"
+               "曾出现：本波 ocx 重建走「改名保留（rename-preserve）」时留下的旧目录"
+               "（避免 robocopy /E 残留陈旧 _internal）。未收敛：未被引用但删除未获授权，暂留。",
+        "reverify": "ocx 的 Run 键值或 release/ 目录集合变化时；或用户授权清理该 pre-rebuild 目录时。",
+    },
+    # l-s2t 旧构建镜像（rename-preserve）：当前态=存在且**未被引用**；曾出现过=是；
+    # 如何收敛=未收敛；是否仍被引用=否。Run 键值于 2026-09-19 22:2x 用
+    # `reg query HKCU\...\Run /v LocalSpeak2Text` **实测**（值名是 APP_NAME，不是 APP_ID）。
+    "_stale_local-speak2text-1.4.0-20260919-204004": {
+        "why": "当前态：目录存在、**未被引用**——Run[LocalSpeak2Text] 实测指向 "
+               "`release\\local-speak2text-1.4.0\\local-speak2text.exe`，其目录 == "
+               "release/<源码 VERSION=1.4.0>，故强断言通过。目录内含旧 exe 6296010 B "
+               "（mtime 2026-09-19 17:25）+ _internal/ + README* + config.json"
+               "（smoke.log 是 22:15 取证时新写的，非原目录内容）。"
+               "曾出现：2026-09-19 20:40:04 一次重建的「改名保留」——避免 robocopy /E "
+               "在目标目录留下陈旧 _internal。未收敛：未被引用，但按红线不得删 release/，"
+               "且它是当前唯一的回滚路径（HANDOFF §1.6 精神），留待 GUI 验证出结论后由属主定夺。",
+        "reverify": "l-s2t 的 Run 键值或 release/ 目录集合变化时；或用户授权清理该 stale 目录时。",
+    },
 }
 _REQUIRED_ORPHAN_FIELDS = ("why", "reverify")
 
@@ -2807,18 +2846,101 @@ def tool_version(root: Path):
     return None, None
 
 
-def _run_value(app_id: str):
-    """HKCU\\...\\Run 里该 APP_ID 的值；读不到（非 Windows / 无此项）返回 None。"""
+def _run_values():
+    """HKCU\\...\\Run 的**全部键值**（`{键名: 值}`）；读不到（非 Windows / 无权限）返回 `{}`。
+
+    为什么取全表（CONFORMANCE §4.1.53）：Run 键名**没有单一契约**（§4.1.54）——模板 autostart 用
+    `APP_NAME`（l-s2t 的键是 `LocalSpeak2Text`），reme 内联用 `APP_ID`（键是 `reme-helper`）。
+    旧实现按 `APP_ID` 单查 ⇒ 对 `APP_ID != APP_NAME` 的工具**永远读不到** ⇒ 强断言静默不执行 = 假绿。
+    """
+    out = {}
     try:
         import winreg
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                             r"Software\Microsoft\Windows\CurrentVersion\Run",
                             0, winreg.KEY_READ) as k:
-            v, _ = winreg.QueryValueEx(k, app_id)
-            return v
+            i = 0
+            while True:
+                try:
+                    name, val, _ = winreg.EnumValue(k, i)
+                except OSError:
+                    break
+                out[name] = val
+                i += 1
     except Exception:
-        return None
+        return {}
+    return out
 
+
+def _first_path(cmd):
+    """从 Run 值（整条命令行）取第一个路径 token：优先第一个引号段，否则首个空白分隔 token。"""
+    if not cmd:
+        return None
+    m = re.search(r'"([^"]+)"', str(cmd))
+    if m:
+        return m.group(1)
+    parts = str(cmd).strip().split()
+    return parts[0] if parts else None
+
+
+def _is_under(child, parent):
+    """`child` 是否等于 `parent` 或在其下（`normcase`+`normpath`，**不要求路径存在**，便于自证）。"""
+    if not child or not parent:
+        return False
+    c = os.path.normcase(os.path.normpath(str(child)))
+    p = os.path.normcase(os.path.normpath(str(parent)))
+    return c == p or c.startswith(p + os.sep)
+
+
+def select_run_entry(run_values, root=None, app_id=None, app_name=None, local_appdata=None):
+    """选**本工具**的 Run 项：**先按路径、再按键名**（不依赖键名，CONFORMANCE §4.1.53/§4.1.54）。
+
+    为什么不能只认键名：家族里 Run 键名**无单一契约**——模板 autostart 用 `APP_NAME`、reme 内联用
+    `APP_ID` ⇒ 任选其一都会漏掉另一半。故两条腿：
+      ① **路径腿**（主）：枚举全表，值里的路径落在**本工具仓库根**或**稳定安装位**之下即命中；
+      ② **键名腿**（兜底）：无路径命中时退回 `APP_NAME` → `APP_ID` 候选（覆盖 dev 态等路径异常的形态）。
+    返回 `(key, value, how, notes)`；`how ∈ {"path","name","none"}`——**打印实际走的哪条路**。
+    `notes` 记需人看的形态：多个项指向本工具 / 命中键名不是候选（大小写变体或第三形态，§4.1.51）/
+    两候选键同时存在。
+    """
+    rv = run_values or {}
+    root_p = Path(root) if root else None
+    stable = (Path(local_appdata) / app_id / _STABLE_INSTALL_SUBDIR
+              if (local_appdata and app_id) else None)
+    hits = []
+    for k, v in rv.items():
+        p = _first_path(v)
+        if p and ((root_p and _is_under(p, root_p)) or (stable and _is_under(p, stable))):
+            hits.append(k)
+    order = [k for k in (app_name, app_id) if k]
+    notes = []
+    if hits:
+        key, how = hits[0], "path"
+        if len(hits) > 1:
+            notes.append("**多个** Run 项指向本工具：%s（取第一个，需人看）"
+                         % ",".join(sorted(hits)))
+        if key not in order:
+            notes.append("命中键 `%s` **不是** APP_NAME/APP_ID 候选（大小写变体或第三形态；"
+                         "`migrate_autostart` 只读 APP_NAME，看不见它，§4.1.51）" % key)
+    else:
+        key = next((k for k in order if k in rv), None)
+        how = "name" if key else "none"
+    if key is not None:
+        others = [k for k in order if k != key and k in rv]
+        if others:
+            diff = any(rv[k] != rv[key] for k in others)
+            notes.append("候选键 `%s` 同时存在（值%s）" % (",".join(others), "不同" if diff else "相同"))
+    return key, (rv.get(key) if key is not None else None), how, notes
+
+
+def _read_app_name(root):
+    """从 `src/modules/appconfig/appconfig.py` 读 **`APP_NAME`**（模板 autostart 契约的键名）。"""
+    ap = root / "src" / "modules" / "appconfig" / "appconfig.py"
+    if not ap.exists():
+        return None
+    m = re.search(r'APP_NAME\s*=\s*["\']([^"\']+)',
+                  _masked_code_text(ap.read_text(encoding="utf-8", errors="replace")))
+    return m.group(1) if m else None
 
 def judge_version_targets(version, app_id, release_names, run_target, declared,
                            local_appdata, path_exists=None):
@@ -2883,14 +3005,21 @@ def c40(c: Ctx):
     if not app_id:
         app_id = root.name if rels else None
     version, where = tool_version(root)
-    run_target = _run_value(app_id) if app_id else None
-    if not rels and not run_target:
-        return True, "扫描面：release/ 与 Run 键都不存在（判据不适用）"
+    run_values = _run_values()
+    app_name = _read_app_name(root)
     local_appdata = os.environ.get("LOCALAPPDATA", "")
+    run_key, run_target, run_how, run_notes = select_run_entry(
+        run_values, root=root, app_id=app_id, app_name=app_name, local_appdata=local_appdata)
+    if not rels and run_key is None:
+        return True, "扫描面：release/ 与候选 Run 项都不存在（判据不适用）"
     ok, detail, sev = judge_version_targets(version, app_id, rels, run_target,
                                             ORPHAN_VERSIONS, local_appdata)
-    detail = ("扫描面：release/ %d 个目录 / 源码 VERSION=%s（%s）/ Run[%s]=%s；%s"
-              % (len(rels), version, where or "未找到", app_id, run_target or "（无）", detail))
+    detail = ("扫描面：release/ %d 个目录 / 源码 VERSION=%s（%s）/ "
+              "Run[%s]=%s（选键腿=%s；候选 APP_NAME=%r, APP_ID=%r）；%s"
+              % (len(rels), version, where or "未找到",
+                 run_key or "无命中", run_target or "（无）", run_how, app_name, app_id, detail))
+    if run_notes:
+        detail += "；[注] " + "；".join(run_notes)
     for name, why in orphan_entry_problems():
         detail += "；[BROKEN] 孤儿登记条目不合规：%s —— %s" % (name, why)
         sev = "FAIL"
@@ -4382,6 +4511,55 @@ def selftest() -> int:
             print("[selftest] %s  C-40 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, _detail[:90]))
 
+        # C-40 选键口径（§4.1.53/§4.1.54 假绿修法；§4.1.37 判别力自证）：
+        # 必须**两条正样本**——① 模板 autostart 形态（键 = APP_NAME，l-s2t 真值）；
+        # ② reme 内联形态（键 = APP_ID，且 APP_NAME 是中文展示名、不在 Run 表里）。
+        # 旧谓词（按 APP_ID 单查）必须在①上**漏**（红），新"路径优先"两条都**抓**。
+        _rv_ls = {"LocalSpeak2Text":
+                  '"C:\\x\\local-speak2text\\release\\local-speak2text-1.4.0\\local-speak2text.exe"'}
+        _old_miss = _rv_ls.get("local-speak2text")            # 旧实现：按 APP_ID 单查
+        _k1, _v1, _how1, _ = select_run_entry(_rv_ls, root=r"C:\x\local-speak2text",
+                                              app_id="local-speak2text",
+                                              app_name="LocalSpeak2Text")
+        good = (_old_miss is None) and (_k1 == "LocalSpeak2Text") and (_how1 == "path")
+        failed += 0 if good else 1
+        print("[selftest] %s  C-40 run-key APP_NAME-form: old_miss=%s new=(%s,%s)"
+              " want (None,('LocalSpeak2Text','path'))"
+              % ("PASS" if good else "FAIL", _old_miss, _k1, _how1))
+        # ② reme 内联：键 = APP_ID，APP_NAME 是中文展示名（不在 Run 表里）⇒ 仍必须命中
+        _rv_reme = {"reme-helper":
+                    '"C:\\x\\reme-helper\\release\\reme-helper-1.2.5\\reme-helper.exe"'}
+        _k2, _v2, _how2, _ = select_run_entry(_rv_reme, root=r"C:\x\reme-helper",
+                                              app_id="reme-helper", app_name="ReMe 助手")
+        good = (_k2 == "reme-helper" and _how2 == "path")
+        failed += 0 if good else 1
+        print("[selftest] %s  C-40 run-key APP_ID-form: hit=%s how=%s want (reme-helper,path)"
+              % ("PASS" if good else "FAIL", _k2, _how2))
+        # 反向格：外来项（如 `OpenCodexTray-…vbs`，值指向别处）**不得**被算成本工具的自启项
+        _rv_foreign = {"OpenCodexTray-abc":
+                       '"C:\\Windows\\System32\\wscript.exe" //B "C:\\Users\\x\\.opencodex\\opencodex-tray.vbs"'}
+        _k3, _v3, _how3, _ = select_run_entry(_rv_foreign, root=r"C:\x\\opencodex-helper",
+                                              app_id="opencodex-helper", app_name="opencodex-helper")
+        good = (_k3 is None and _how3 == "none")
+        failed += 0 if good else 1
+        print("[selftest] %s  C-40 foreign Run item not matched: hit=%s how=%s want (None,none)"
+              % ("PASS" if good else "FAIL", _k3, _how3))
+        # 控制格：两候选皆无 ⇒ None（"没命中"与"命中但值坏"必须可区分，§D8 第 6 条）
+        _k4, _v4, _how4, _ = select_run_entry({}, root=r"C:\x\a", app_id="a", app_name="B")
+        good = (_k4 is None and _how4 == "none")
+        failed += 0 if good else 1
+        print("[selftest] %s  C-40 run-key none-present: hit=%s want None"
+              % ("PASS" if good else "FAIL", _k4))
+        # 附带盲区可见化：大小写变体键（§4.1.51）路径腿也能抓到，并把"多个/非候选"记进 notes
+        _rv_var = {"dsh-helper": '"C:\\x\\dsh-helper\\release\\dsh-helper-1.8.1\\dsh-helper.exe"',
+                   "DSH-Helper": '"C:\\x\\dsh-helper\\release\\dsh-helper-1.8.2\\dsh-helper.exe"'}
+        _k5, _v5, _how5, _n5 = select_run_entry(_rv_var, root=r"C:\x\dsh-helper",
+                                               app_id="dsh-helper", app_name="dsh-helper")
+        good = (_how5 == "path") and any(("多个" in n) or ("不是" in n) for n in _n5)
+        failed += 0 if good else 1
+        print("[selftest] %s  C-40 case/duplicate Run keys noted: hit=%s notes=%s"
+              % ("PASS" if good else "FAIL", _k5, _n5))
+
         # C-41（2026-09-19，lead 立）：**降级分支不得沿用已存勾选**。
         # 四格两红两绿，另加一格"**合法的原生框那一支**"必须放行（否则就成了"凡读配置就报"）。
         c41_cases = (
@@ -4653,6 +4831,30 @@ def selftest() -> int:
                  _c37_real[0], _c37_real[1][:110]))
 
 
+
+        # C-46：新鲜度的**分母**必须含 out-of-src datas——纯函数四格。
+        # 关键不是"能判新鲜"，而是"**补上的那一项能改变结论**"：
+        # 同一 exe 在 src-only 视图下判新鲜、在含 out-of-src 的构建输入集下判过期。
+        _c46_exe = 1000.0
+        _c46_src = ("src/main.py", 900.0)
+        _c46_data = ("locales/en.json", 1200.0)   # out-of-src 打包输入，比 exe 新
+        c46_cases = (
+            ("neg_all_older_is_fresh", [_c46_src], True),
+            ("pos_out_of_src_data_newer_is_stale", [_c46_src, _c46_data], False),
+            ("pos_equal_mtime_is_stale_strict_gt", [("src/main.py", 1000.0)], False),
+        )
+        for name, items, want in c46_cases:
+            ok, newest, _mt, n = judge_freshness(_c46_exe, items)
+            good = (ok == want)
+            failed += 0 if good else 1
+            print("[selftest] %s  C-46 %s: ok=%s want=%s | n=%d max=%s"
+                  % ("PASS" if good else "FAIL", name, ok, want, n, newest))
+        _c46_empty = judge_freshness(_c46_exe, [])
+        good = _c46_empty[0] is None
+        failed += 0 if good else 1
+        print("[selftest] %s  C-46 empty_denominator_is_undecidable: ok=%s want=None"
+              % ("PASS" if good else "FAIL", _c46_empty[0]))
+
         # [BROKEN]：**检查自身出错**必须独立成一档——不计 FAIL、不被 WARN 咽掉、并进退出码。
         # 用一条**故意抛异常**的判据作样本（历史实例：`check_md_tabs` 头上留着 `@check`，
         # 四个工具各报一条"检查异常"，看起来像工具坏了 ⇒ 一整轮排查方向是错的）。
@@ -4678,6 +4880,112 @@ def selftest() -> int:
     return rc
 
 
+
+# ---------------------------------------------------------------- C-46
+# **重建新鲜度：分母必须是"构建输入集"，不能只有 `src/**`**（任务 #62，2026-09-19）。
+# 口径（HANDOFF §1.4）：`exe mtime > max(构建输入 mtime)`，排除 `__pycache__/` 与 `*.pyc`。
+# **分母 = `src/**` ∪ `--add-data "SRC;DEST"` 的 SRC 清单**（= PyInstaller datas 的并集）。
+# 为什么不能只有 src：四家都有 out-of-src 打包输入（`*.ico` / `resources/` / `locales/` /
+#   `bin\plink.exe` / `doc/`）——只扫 src 时，"只有 datas 变了"的重建会被判成**新鲜**，
+#   而真实产物是旧的（判据的分母小于事实的定义域，与 `#58` 的 R-10 扫描面同族）。
+# 等级 WARN：它不是规范违规，而是"这批产物能不能作数"的信号；红 ⇒ 该产物不可作为回执。
+# **必须报告取到最大值的那条路径**：只给一个布尔是"无法复核的结论"（receipt_check 的教训）。
+_ADD_DATA_RE = re.compile(r'--add-data\s+"([^";]+);', re.I)
+_FRESH_SKIP_DIRS = {"__pycache__"}
+_FRESH_SKIP_SUFFIX = {".pyc"}
+
+
+def _freshness_inputs(root: Path, app_id):
+    """构建输入集：`src/**`（剔 pycache/pyc）∪ `build.bat|scripts/build.bat` 的 `--add-data` 源。
+
+    返回 `(items, datas)`：`items=[(相对路径, mtime)]`；`datas` = 成功解析的 `--add-data` 源
+    清单（扫描面声明用）。解析不出的源（仍含未展开 `%VAR%`）跳过——**扫描面必须自报缺口**。
+    """
+    items, datas = [], []
+
+    def add_file(p: Path):
+        try:
+            items.append((p.relative_to(root).as_posix(), p.stat().st_mtime))
+        except (OSError, ValueError):
+            pass
+
+    src = root / "src"
+    if src.is_dir():
+        for p in src.rglob("*"):
+            if p.is_file() and not any(x in _FRESH_SKIP_DIRS for x in p.parts) \
+                    and p.suffix.lower() not in _FRESH_SKIP_SUFFIX:
+                add_file(p)
+    for rel in ("build.bat", "scripts/build.bat"):
+        bp = root / rel
+        if not bp.exists():
+            continue
+        try:
+            text = bp.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in _ADD_DATA_RE.finditer(text):
+            raw = m.group(1).strip()
+            s = raw.replace("%~dp0", str(root) + os.sep).replace("%CD%", str(root))
+            if app_id:
+                s = s.replace("%APPNAME%", app_id)
+            if "%" in s:            # 还有未展开的变量 ⇒ 本判据读不出这个源，跳过并计入缺口
+                continue
+            sp = Path(s)
+            if sp.is_file():
+                add_file(sp)
+                datas.append(raw)
+            elif sp.is_dir():
+                for p in sp.rglob("*"):
+                    if p.is_file() and not any(x in _FRESH_SKIP_DIRS for x in p.parts) \
+                            and p.suffix.lower() not in _FRESH_SKIP_SUFFIX:
+                        add_file(p)
+                datas.append(raw)
+    return items, datas
+
+
+def judge_freshness(exe_mtime, items):
+    """**纯函数**（便于自证）：每个输入都早于 exe ⇒ 新鲜。
+
+    返回 `(ok, newest_path, newest_mtime, n)`；`items` 为空 ⇒ `ok=None`（**不可判**，
+    与"新鲜"必须可区分——§D8 第 6 条"0 命中与没东西可命中"）。
+    """
+    if not items:
+        return None, None, None, 0
+    newest = max(items, key=lambda it: it[1])
+    return exe_mtime > newest[1], newest[0], newest[1], len(items)
+
+
+@check("C-46", "WARN", "重建新鲜度：exe 必须比**全部构建输入**（src/** ∪ --add-data 源）新")
+def c46(c: Ctx):
+    """见上方注释。**分母补全**是任务 #62 的落地；缺 exe / 无输入 ⇒ 记"不可判"，不报绿。
+
+    **本条不覆盖**（§4.1.33：判据必须自报边界）：`_internal/` 内容是否正确、生成物
+    （`*.ico` / config 由脚本生成）的生成顺序、构建是否完整——那些由 build 门禁输出行回答
+    （HANDOFF §1.4：「FRESH 只证 exe 比源新，不证构建完整」）。
+    """
+    import time
+    root = c.dir
+    version, _where = tool_version(root)
+    app_id = c.app_id or root.name
+    exe = (root / "release" / ("%s-%s" % (app_id, version)) / ("%s.exe" % app_id)
+           if version else None)
+    if exe is None or not exe.is_file():
+        return True, ("扫描面：无 `release/%s-<VERSION>/%s.exe`（判据不适用）"
+                      % (app_id, app_id))
+    items, datas = _freshness_inputs(root, app_id)
+    ok, newest, mt, n = judge_freshness(exe.stat().st_mtime, items)
+    if ok is None:
+        return True, "扫描面：构建输入 0 件（不可判；空分母不等于新鲜）"
+
+    def stamp(t):
+        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t))
+
+    return ok, ("扫描面：构建输入 %d 件（其中 --add-data 源 %d 个）；exe=%s；"
+                "max 输入=%s @ %s；%s"
+                % (n, len(datas), stamp(exe.stat().st_mtime), newest, stamp(mt),
+                   "全部输入早于 exe ⇒ 新鲜"
+                   if ok else "**过期**：有构建输入比 exe 新 ⇒ 该产物不是这批输入的构建结果"
+                   "（⚠ 本轮明确**不重建** ⇒ 该 WARN 是**预期读数**，如实留着、别为消它去构建；见 CONFORMANCE §5.1 C-46）"))
 # ---------------------------------------------------------------- 主流程
 def _run_checks(c: Ctx, checks, only=None):
     rows = []

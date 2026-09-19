@@ -45,7 +45,7 @@ rem   step 1  split on '='                               ->  "1.4.0"   # comment
 rem   step 2  drop quotes, keep first space-delimited token  ->  1.4.0
 rem ---------------------------------------------------------------------------
 set VERSION=
-for /f "tokens=2 delims==" %%a in ('findstr /b /c:"VERSION = " src\main.py') do set VERSION=%%a
+for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /b /c:"VERSION = " src\main.py') do set VERSION=%%a
 if defined VERSION for /f "tokens=1" %%a in ("%VERSION:"=%") do set VERSION=%%a
 if not defined VERSION (
   echo [ERROR] Cannot read VERSION from src\main.py.
@@ -168,7 +168,7 @@ if errorlevel 1 (
 
 echo [PACK] 3.3 assembling %RELEASE_DIR% ...
 if not exist "%RELEASE_DIR%" mkdir "%RELEASE_DIR%"
-robocopy "build\dist_tmp\%APPNAME%" "%RELEASE_DIR%" /E /R:1 /W:1 /NFL /NDL /NP >nul
+%SystemRoot%\System32\Robocopy.exe "build\dist_tmp\%APPNAME%" "%RELEASE_DIR%" /E /R:1 /W:1 /NFL /NDL /NP >nul
 if errorlevel 8 (
   echo [ERROR] package copy failed.
   if not defined NOPAUSE pause
