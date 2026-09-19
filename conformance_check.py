@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.9
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.10
+# 1.9.10：**新增 C-44**（FAIL）= **bat 里闭集命令（find/findstr/ping/tasklist/robocopy/where/reg/timeout）必须用绝对路径**，与 C-33（ping 当节拍）**独立**；只看命令位置，自证 5 条腿。
 # 1.9.9：**新增 C-43**（FAIL）= **`if` 条件里的 `:~` 子串扩展**（未定义时会中止整个脚本）——**窄版**：嵌套 `if`（无 `:~`）与动作一侧的 `:~` 均判绿，自证 4 条腿。
 # 1.9.8：**新增 C-42**（FAIL）= **重定向位置不得出现 `dev/null`**（收窄版：不写成“全文不得出现 dev/”，否则注释里的路径与 URL 会误报）；文本口径与 C-33 同一条边界（正文保留、散文不算），自证 5 条腿。
 # 1.9.7：**新增 C-41**（FAIL）= 退出确认的「链路不可用」分支必须固定为**不停服务**（不得沿用已存勾选）——判据只看降级分支，**原生框那一支不算**；
@@ -3146,6 +3147,79 @@ def c43_template(c: Ctx):
     return check_if_substr_expansion(c.dir)
 
 
+# ---------------------------------------------------------------- C-44
+# **bat 里的外部命令必须用绝对路径**（lead 2026-09-19 定；事故由 reme-dev 撞到）。
+# **机制**：`where find` -> **`H:\Tools\Git\usr\bin\find.exe`**（排在 System32 前面）。
+#   等待循环用 `find /i "{exe}" 文件` 判"旧进程还在不在"，而 **GNU `find` 把 `smss.exe`
+#   当文件名 ⇒ 恒返回 1** ⇒ 循环每次判"旧进程已退出" ⇒ 直接去覆盖**仍在运行的 exe**
+#   （文件被锁 ⇒ robocopy 默认百万次重试）。`ping` 同理（GNU 的 `-n` 是 numeric，不是次数）。
+# **与 `dev/null` 同一母题**：**环境悄悄提供一个同名但语义不同的程序，代码走进错分支，
+#   而且不报错**。
+#
+# **闭集**（只收这 8 个）：`find` / `findstr` / `ping` / `tasklist` / `robocopy` / `where` /
+#   `reg` / `timeout`——**只在发现新的同名冲突时才扩集**，**不写成"所有外部命令"**
+#   （那会噪声化，且"所有命令"无法用一条正则判准）。理由：这 8 个都有（或有）GNU/第三方同名物。
+# **只判"命令位置"**：行首、或 `|`/`&`/`(`/`^` 之后的第一个 token；`rem`/`::` 行不算。
+#   ⇒ 这样不会误伤散文（`update_helper` 的 `rem` 里成篇讨论 `find`/`ping`）。
+# **合规形态**：token 里含路径分隔符（`%SystemRoot%\System32\find.exe`、`C:\...\x.exe`、
+#   `\\srv\share\x.exe`）即算绝对。
+_BARE_NAME_CLOSED_SET = ("find", "findstr", "ping", "tasklist", "robocopy", "where", "reg",
+                         "timeout")
+_BAT_CMD_SPLIT = re.compile(r"[|&(^]")
+_BAT_TOKEN = re.compile(r"\s*([^\s]+)")
+
+
+def check_bat_absolute_cmds(root: Path):
+    """`root` 下的 `.bat`/`.cmd`：闭集里的命令必须用绝对路径（**只看命令位置**）。"""
+    hits, scanned = [], 0
+    files = [p for p in root.rglob("*")
+             if p.is_file() and p.suffix.lower() in (".bat", ".cmd")
+             and not any(part in _PY_SKIP_DIRS for part in p.parts)]
+    for p in sorted(files):
+        scanned += 1
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        rel = p.relative_to(root).as_posix()
+        for n, line in enumerate(text.splitlines(), 1):
+            s = line.strip()
+            if not s or s.lower().startswith("rem ") or s.lower() == "rem" or s.startswith("::"):
+                continue
+            for seg in _BAT_CMD_SPLIT.split(s):
+                m = _BAT_TOKEN.match(seg)
+                if not m:
+                    continue
+                tok = m.group(1).strip('"').strip().lstrip("'").rstrip("'")
+                base = tok.split("\\")[-1].split("/")[-1].lower()
+                base = base[:-4] if base.endswith(".exe") else base
+                if base in _BARE_NAME_CLOSED_SET and "\\" not in tok and "/" not in tok:
+                    hits.append("%s:%d `%s`" % (rel, n, tok.split()[0][:40]))
+    if hits:
+        return False, ("%d 处以**裸名**调用闭集命令：%s。【为什么是硬违规】PATH 的顺序不是我们"
+                       "能假设的（实测 `where find` -> `H:\\Tools\\Git\\usr\\bin\\find.exe`，"
+                       "排在 System32 之前）：GNU `find` 语义不同、**恒返回非零**，于是"
+                       "\u201c旧进程还在不在\u201d这条判断**静默走错分支**，代码去覆盖仍在运行的 exe。"
+                       "**同一个母题**：环境提供同名异物 ⇒ 走进错分支且不报错。"
+                       "【正确形态】`%%SystemRoot%%\\System32\\find.exe`（或 `C:\\...` 绝对路径）。"
+                       "【闭集】find/findstr/ping/tasklist/robocopy/where/reg/timeout——"
+                       "只收这 8 个，只在发现新同名冲突时扩集。【扫描面】%d 个 .bat/.cmd"
+                       % (len(hits), "；".join(hits[:6]), scanned))
+    return True, ("闭集命令均为绝对路径（只看命令位置；`rem`/`::` 不计）。扫描面：%d 个 .bat/.cmd"
+                  % scanned)
+
+
+@check("C-44", "FAIL", "bat 里的外部命令（闭集 8 个）必须用绝对路径，不得裸名")
+def c44(c: Ctx):
+    """见上方注释。**C-33 管"ping 当节拍"、本条管"裸名 ping"——两者独立，不互相顶替。**"""
+    return check_bat_absolute_cmds(c.dir)
+
+
+@template_check("C-44", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+def c44_template(c: Ctx):
+    return check_bat_absolute_cmds(c.dir / "modules")
+
+
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
@@ -4219,6 +4293,35 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-43 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
+
+        # C-44（2026-09-19，lead 定）：**bat 里闭集命令必须绝对路径**。
+        # 五格：裸名（红）/ 绝对路径（绿）/ rem 里提到（绿）/ for /f ('cmd') 形态（红）
+        # / 非闭集命令（绿）。
+        c44_cases = (
+            ("bare_name_flagged",
+             {"build.bat": "@echo off\r\nfindstr /b /c:\"VERSION = \" src\\main.py\r\n"}, False),
+            ("absolute_path_ok",
+             {"build.bat": "@echo off\r\n%SystemRoot%\\System32\\findstr.exe /b /c:\"V\" x\r\n"},
+             True),
+            ("rem_mention_ok",
+             {"build.bat": "@echo off\r\nrem never use bare find or ping here\r\n"}, True),
+            ("for_f_inline_bare_flagged",
+             {"build.bat": "@echo off\r\nfor /f \"tokens=2\" %%a in ('findstr /b x y') do set V=%%a\r\n"},
+             False),
+            ("non_closed_set_ok",
+             {"build.bat": "@echo off\r\npython -c \"print(1)\"\r\n"}, True),
+        )
+        for name, files, want in c44_cases:
+            d = base / ("c44_" + name)
+            for rel, body in files.items():
+                fp = d / rel
+                fp.parent.mkdir(parents=True, exist_ok=True)
+                fp.write_text(body, encoding="utf-8", newline="")
+            ok, detail = check_bat_absolute_cmds(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-44 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
