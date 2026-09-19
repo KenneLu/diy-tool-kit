@@ -61,6 +61,11 @@
 #      `src/main.py:7405` 的 `prefix=f"{APP_ID}-update-"` 未登记）**，其余三工具 ok。
 #   ③ 运行期取证改成**两条腿**（task #43，lead 裁定）：腿 A 生成器派生（前缀枚举 + 登记表；
 #      裸 `mkdtemp()` → 系统默认前缀 `tmp`，列为**弱前缀**并单独 WARN，因为它会撞上无关目录）、
+#      ⚠️ **归因更正（2026-09-19，lead 自我更正 + ls2t-dev 判别实验）**：腿 A 的天花板**不止**是
+#      "源码里出现过的 prefix"，而是 **"它只看我们枚举得到的源码"**——由 **shell `mktemp -d`**、
+#      外部 CLI、探针脚本造的目录**源码里没有调用点**，腿 A 结构上抓不到。判别形态（`_name_shape`）：
+#      `tmp.gVxHfxTMya`（带点+10）= GNU `mktemp -d`；`tmpigscx7m2`（无点+8）= Python `mkdtemp()`。
+#      所以腿 B 必须打印**名字形态直方图**——它把"有残留"变成"该去改谁"（进程规则 vs 仓库代码）。
 #      腿 B **形态派生**（`_SHAPE_RULE`：**任意深度存在名为 `log` 的目录**——B3 规定日志一律落
 #      `<数据根>/log/`，故"有 log 目录"就是数据根的不变量；**不看名字、不要求 config.json、
 #      不设深度上限、log 里的文件是 0 字节甚至没有文件都算**）。**必须打印扫描面**——
@@ -1923,6 +1928,30 @@ def _shape_hits(T: Path):
     return hits
 
 
+def _name_shape(name: str) -> str:
+    """按**名字形态**反推"这是谁造的"——把"有残留"变成"该去改谁"的那一步。
+
+    ls2t-dev 的判别实验（各造一个目录，形态固定可辨）：
+      GNU `mktemp -d`            → `tmp.gVxHfxTMya`（**带点** + 10 字符）
+      Python `tempfile.mkdtemp()` → `tmpigscx7m2`  （**无点** + 8 字符）
+    为什么重要：l-s2t 那 8 个残留**全是"带点"形态 ⇒ 出自 shell `mktemp -d`**，
+    而该仓源码里**没有任何裸 `mkdtemp()`** ⇒ **要改的是进程规则/脚本，不是仓库代码**；
+    只看"有残留"会把修复方向指错（去 grep 一个根本不存在的调用点）。
+    """
+    if re.match(r"^tmp\.[A-Za-z0-9]{10}$", name):
+        return "shell mktemp -d"
+    if re.match(r"^tmp[A-Za-z0-9_]{8}$", name):
+        return "Python mkdtemp"
+    return "其他/家族前缀"
+
+
+def _shape_histogram(names) -> str:
+    """腿 B 命中集的**名字形态直方图**（lead 采纳 ls2t-dev 的口径）。"""
+    from collections import Counter
+    c = Counter(_name_shape(n) for n in names)
+    return "，".join("%s %d" % (k, v) for k, v in sorted(c.items())) or "（空）"
+
+
 def _declared_present(T: Path):
     """白名单里**确实存在于 %TEMP%** 的那些（只报出来，不计入并集/增量）。"""
     out = []
@@ -2027,6 +2056,11 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
         print("        %-30s %-26s%s" % (d, why_b[d], "" if d in names_a else "  <- 腿 A 的盲区"))
     if len(names_b) > 12:
         print("        ... 还有 %d 个" % (len(names_b) - 12))
+    # 名字形态直方图：**把"有残留"变成"该去改谁"**——带点 ⇒ shell `mktemp -d`
+    # （进程规则/外部 CLI 造的，源码里没有可枚举的调用点）；无点 ⇒ Python `mkdtemp()`。
+    print("  名字形态直方图：%s" % _shape_histogram(names_b))
+    print("     ↑ 带点（`tmp.<10>`）= GNU `mktemp -d`（shell/外部 CLI）；无点（`tmp<8>`）= Python `mkdtemp()`。"
+          "前者**源码里没有调用点**，只能靠形态腿，且要改的是**进程规则**而不是代码")
     declared = _declared_present(T)
     if TMP_DECLARED_PATHS:
         print("== 已声明位置（**不算泄漏**，不计入并集与增量）现场命中 %d / 登记 %d =="
