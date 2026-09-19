@@ -2,6 +2,35 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (conformance layer added; docs corrected against disk)
+
+Trigger: local-speak2text 1.4.0 could not start at all since 1.2.0 — an illegal
+mutex name made the single-instance guard report "already running" on every launch.
+Three layers of protection (smoke / gates / review) stayed green because
+**nothing said what to check**. This round turns the prose spec into checkable rows.
+
+- **NEW `CONFORMANCE.md`** — 76 numbered atomic clauses × 4 tools status matrix,
+  reproducible check command per row, five deep-dive tables (exit / single-instance /
+  service hosting / naming / docs), a registry of spec-vs-disk contradictions (§4),
+  and a "can be scripted today" checklist (§5.1, C-01..C-20).
+- **STANDARDS**: framework header now four documents (README→STANDARDS→CONFORMANCE→REVIEW);
+  **A3-03 reversed** — named mutex is adopted (`tray_kit` 2.0.1 already standardised it),
+  with two hard rules: name may not contain a second backslash after the `Local\` prefix,
+  and **a guard that fails must fail open**; **new D3.1** — diagnostic switches (`--smoke`)
+  must not bypass the normal startup path; **new D3.2** — every guard must declare its
+  failure direction (family answer: open); B2 registry version for reme-helper 1.2.4→1.2.5.
+- **README**: four-piece framework, CONFORMANCE wired into the assembly guide and tree.
+- **REVIEW**: T7 row corrected — the claim that l-s2t is the `--quit` blueprint was false
+  (no `--quit` on disk); R1 now points at CONFORMANCE §5.1.
+- **blueprints.txt**: documents the exemption's blind spot — an exempted blueprint is
+  never checked, so template progress leaves it behind silently; each template bump now
+  requires the blueprint to answer "follow / not follow" with a REVIEW note.
+- **modules/paths/README.md**: corrected — the template does **not** read `<APP>_CONFIG`
+  (its own blueprint did; the template regressed). Fix registered as a TODO because it
+  must be synced to dsh/ocx in the same batch or sync_check goes red.
+- **modules/icons/README.md**: interface table corrected to the actual
+  `base_image()` / `make_icons(base_dir)` / `python src/icons.py`.
+
 ## 2026-09-18 (standards alignment, no module code changed)
 
 - STANDARDS / README / REVIEW / blueprints updated per user rulings (2026-09-18):

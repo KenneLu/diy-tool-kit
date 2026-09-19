@@ -4,6 +4,9 @@
 > 原则：不为抽象而抽象——能一致的一致，因业务特性必须分叉的**申报留痕**，不强改
 > （颗粒度护栏）；同时**全量模板化不搞特殊**（2026-09-18 用户定，STANDARDS B4 原则③）——
 > 四工具一律往模板收敛，合不上优先改模板接口，豁免名单只减不增。
+>
+> **逐条符合度看 [CONFORMANCE.md](CONFORMANCE.md)**（76 条 × 四工具状态矩阵 + 检查命令）；
+> 本文件只管"三轮怎么跑、跑了什么"。R1 机械比对 = `sync_check.py` + CONFORMANCE §5.1 清单。
 
 ## 一、对应关系矩阵（现状，更新本表 = 复审的一部分）
 
@@ -15,7 +18,7 @@
 | T4 update_helper | 内联（OVERRIDE 申报：bat+备份目录链路，行为差异大） | updater.py 变体（稳定位形态，蓝本） | **src/modules/update_helper 副本 == 模板 1.0.1** | **同 dsh** |
 | T5 i18n | **src/modules/i18n 重形态模块 + pairs.json（OVERRIDE：与轻量 T5 不同构；W-f）** | **src/modules/i18n 副本 == 模板 2.1.0** | ⏳ 未启用（T1 触发条件已满足，待办） | ⏳ 同左 |
 | T6 icons | 内联（OVERRIDE 申报：运行态着色 vs 构建期静态） | **icons.py 蓝本复制** | assets png（未触发改造，声明） | 无（代码画圆） |
-| T7 tray_kit | **src/modules/tray_kit 副本·mutex 机制（OVERRIDE：显式互斥名；W-f）+ 签名/退出留 main** | main.py 内联等构（单实例/ui_q） | **src/modules/tray_kit 副本 == 模板 1.0.1** | **同 dsh** |
+| T7 tray_kit | **src/modules/tray_kit 副本·mutex 机制（OVERRIDE：显式互斥名；W-f）+ 签名/退出留 main** | main.py 内联等构（单实例/ui_q）；**无 `--quit`**（2026-09-19 更正：本行曾称 l-s2t 是 `--quit` 蓝本，磁盘无此机制）+ 互斥体名非法致启动误报（CONFORMANCE SINGLE-01/02） | **src/modules/tray_kit 副本 == 模板 1.0.1** | **同 dsh** |
 | T8/T9 build_release | 蓝本（build+release+CI 全套） | **build.bat/release.bat/workflows 正身** | build.bat + workflows 变体（含 sync_check 闸、--paths src） | 同 dsh |
 | T10 sync_check | 不适用（被审方） | 不适用（蓝本豁免，临时态） | **build.bat 门禁闸** | **build.bat 门禁闸** |
 | T12 log_kit | **src/modules/log_kit 副本（OVERRIDE：root-logger 形态；W-f）** | **log_kit.py 蓝本复制** | **src/modules/log_kit 副本 == 模板 1.0.2** | **同 dsh** |
@@ -42,6 +45,7 @@
 | 2026-09-18 | R3 | 3 工具（reme-helper 当日已随 v1.2.3 全套 CI 绿） | ✅ | dsh/ocx：py_compile + import + 更新逻辑（dsh 真实查到 v1.7.0）绿；l-s2t：py_compile + i18n 断言绿（当日 v1.2.0 CI 全绿佐证） | AI |
 | 2026-09-18 | R1+R2+R3 | W1 模板升级（i18n v2 数据驱动 / paths 回填 / autostart 参数化）+ W2–W4 四工具接口化重构 | ✅ 全绿 | sync_check：dsh/ocx 的 update_helper/paths/log_kit/tray_kit 归一化一致、appconfig param；l-s2t i18n v2 74 词条 JSON 断言绿；dsh/ocx py_compile+import+更新逻辑绿；三工具已 tag 发版（1.3.0/1.8.0/1.2.0） | AI |
 | 2026-09-18 | R1+R2 | W-e/W-f 收尾 + reme 全量模板化（文档三裁决后） | ✅ 全绿 | sync_check 全家族 0 漂移（模板红灯→dsh/ocx 副本同步→归零，"接口不动实现换血"首次实战：log_kit 1.0.2 回退分支 / tray_kit 1.0.1 探测函数 / i18n 2.1.0 向上查找）；reme：--smoke PASS、8 套件绿、lang-audit missing=0；l-s2t/dsh 冻结冒烟 PASS；reme 冻结冒烟留版本号落定后（W-g） | AI |
+| 2026-09-19 | R1+R2+R3（新增 CONFORMANCE 层） | 四工具 76 条款全量审计（9 智能体，含对抗复核）+ l-s2t 首轮整改 | ✅ 审计完成；l-s2t 修复后 **1 FAIL / 2 WARN**（修前 5 FAIL）；全门禁绿 | **根因**：l-s2t 单实例互斥体名 `Local\<app>\SingleInstance` 含第二个反斜杠 → `CreateMutexW` 恒失败 → 被当成"已有实例" → 自 1.2.0 起完全无法启动，而 --smoke 绕过守卫使三层防护全绿。已修：合法命名 + 失败放行 + 两个新回归套件进 GATE 2b + `_DATA_DIR` 数据根重定向 + 冒烟双 env 隔离 + 测试注册表备份还原 + README 切换行 + 词表补 2 键。**新增 CONFORMANCE.md（76 条款矩阵）与 conformance_check.py（20 项机械检查，首版修掉 6 处误判）**。未做：C-12 菜单签名重画（需 GUI 目视）、T4/T5 自检命令、T7 guide、E2-06 --quit | AI |
 
 ## 四、发现登记簿（跨轮待办）
 

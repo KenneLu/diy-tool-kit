@@ -1,9 +1,13 @@
 # 家族工具开发规范（STANDARDS · 模板库三件套之"规范"）
 
-> **框架定位**：`my-diy-tool-template/` = 完整开发流程框架——**README**（概述引导 + 模块拼接指南）
-> → **本文件 STANDARDS**（家族规范正文：能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 坑清单，执行时依此）
-> → **modules\<模块>\**（规范对应的模板实现件）→ **REVIEW**（每次开发/修改完成后的三轮校验）。
-> 规范与实现冲突时：以本文件为准，回改模板并登记 REVIEW。
+> **框架定位**：`my-diy-tool-template/` = 完整开发流程框架（四件套）——
+> **README**（怎么拼：概述引导 + 模块索引 + 拼接指南）
+> → **本文件 STANDARDS**（必须做什么：能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 坑清单，执行时依此）
+> → **[CONFORMANCE.md](CONFORMANCE.md)**（做到没有：76 条原子条款 × 四工具状态矩阵 + 检查命令 + 重点域深挖）
+> → **REVIEW.md**（本轮改了什么：三轮复审矩阵与记录）。
+> `modules\<模块>\` 是规范对应的模板实现件。
+> 规范与实现冲突时：以本文件为准，回改模板并登记 REVIEW；
+> **文档与磁盘冲突时**：改文档或改代码，禁止并存（不一致项登记 CONFORMANCE §4）。
 
 本文件是本目录下所有 Python 桌面工具（托盘常驻、命令行小工具、桥接服务）的**统一工程规范**。
 面向对象是**执行开发的 AI**：术语、命名、验收标准都写成可直接落地的形式，目的是让不同时间、不同会话里做出的工具**收敛到同一套技术选择**，减少技术发散。
@@ -85,7 +89,7 @@
 |---|---|---|
 | 主题引擎持久化（记住用户主题选择） | 暂缓 | 深色模式本身是 T2 触发式；没有窗口就没有主题 |
 | 日志查看器（应用内窗口看日志） | 暂缓 | 日志在用户数据区，文本编辑器够用；除非日志成为主要交互面 |
-| 多实例互斥锁（命名互斥量） | 暂缓 | 进程名检测 + 运行检测够用；引入 Win32 句柄管理不值 |
+| 多实例互斥锁（命名互斥量） | **已采纳**（2026-09-19 修订，原判"暂缓"被推翻） | `tray_kit` 2.0.1 已把 `acquire_single_instance()` 定为标准接口，dsh/ocx 字节级消费，规范落后于模板。**两条硬纪律**：① 互斥体名一律 `Local\<APP_ID>-single-instance`——命名空间前缀之后**不得再出现反斜杠**（`Local\<id>\X` 非法，`CreateMutexW` 返回 NULL 且 err=3）；② **守卫自身失败必须放行**（宁可多开，不能打不开）。见 CONFORMANCE §3.2 |
 | Electron/Qt 等重框架 | 不采用 | 包体、内存、启动时间与"小工具"定位冲突；tkinter + pystray 足够 |
 | 单文件 onefile 打包 | 不采用 | 每次启动解包到 %TEMP%，托盘启动变慢；onedir 便于排查与原地更新 |
 
@@ -124,8 +128,8 @@
 
 | 工具 | 目录 | 一句话用途 | 版本 | 生效配置 | 日志 |
 |---|---|---|---|---|---|
-| reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.4` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
-| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.0` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
+| reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.5` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
+| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.1` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
 | dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.8.1` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\` |
 | opencodex-helper | `opencodex-helper` | 多目标 SSH 反向隧道 + opencodex 服务控制 | `1.2.1` | `%LOCALAPPDATA%\opencodex-helper\config.json` | `%LOCALAPPDATA%\opencodex-helper\log\` |
 
@@ -240,6 +244,16 @@
 | `--ui-check` | T4 | 真建窗口再关，断言 UI 线程异常计数为空 | "点了没反应" |
 | `--lang-audit` | T5 | 中文未覆盖清单 + 中英对照表 | "切英文还有中文" |
 | `--status` | 建议 | 结构化诊断（版本/路径/依赖） | 排障时让对方贴一段 |
+
+**诊断参数不得绕过正常启动路径（2026-09-19 升级为硬性，D3.1）**：`--smoke` 等诊断分支
+**必须在单实例守卫、路径播种、自启自愈之后**分派，或显式复跑这些步骤。理由：诊断旁路
+等于"测的不是用户跑的那条路"——J 坑记过一次（reme 1.2.5 零参 TypeError 只在正常模式炸），
+2026-09-19 l-s2t 又踩同款（`--smoke` 跳过单实例守卫，守卫坏掉 3 个月、构建全绿、
+工具完全无法启动）。**判据**：删掉 `--smoke` 分支后正常路径能跑通，才算自检有效。
+
+**守卫类代码必须申报失败方向（D3.2，2026-09-19 定）**：任何"检测—拒绝"型守卫
+（单实例、服务唯一性、依赖检查、版本闸）都要在注释里写清"守卫自身出错时是打开还是关闭"。
+家族统一答案：**打开**（宁可多开/放行，不能打不开）。写反 = 工具变砖。
 
 测试三原则（不变）：**测试是门禁**；**失败信息带实际值**；**每个真实故障补一条断言**。
 
@@ -527,3 +541,10 @@ helper 的价值是让服务的启停可视、可控、可更新——而不是�
 | frozen 冒烟过 ≠ 源码态可跑 | 打包态 PyInstaller 自动收集模块，会掩盖源码态的缺导入；入口/路径引导（`sys.path` 引导、`--paths src`）必须有 dev 态 `python main.py` 实测（2026-09-18 l-s2t 入口 `Path` 未导入即 NameError，打包冒烟没拦住） |
 | commit 信息 ≠ 磁盘事实 | 声称"已改 CI 编译清单"实际文件未改——复审必走 diff，不采信转述（2026-09-18 三工具门禁路径漏改同源） |
 | py_compile 只验语法 | import 级 NameError / ModuleNotFoundError 抓不到；门禁必须含真实 import 或启动自测（frozen 冒烟不能替代 dev 态启动） |
+| 写断言前凭记忆定期望值 | 期望值先对正确形态采样确认再断言；`:args_done` 标签计数把 goto+标签算 1 实际 2，连续误判失败（2026-09-18） |
+| Unix 习惯渗漏 bat | heredoc/管道习惯把 `>/dev/null` 写进 bat → "系统找不到指定的路径"；bat 重定向一律 `>nul`（2026-09-18 实测两处） |
+| 诊断参数冒烟过 ≠ 正常模式可跑 | `--smoke` 走诊断旁路，不触发单实例守卫等正常启动路径；换模板件改签名后调用点不适配，TypeError 只在正常模式炸（reme 1.2.5 `acquire_single_instance()` 零参）。签名变更必须 grep 全部调用点逐个适配，冒烟绿灯不代表正常模式存活（2026-09-18 用户实测报错抓到） |
+| 托盘"图标不见"先查溢出区与实例存活 | Win10 对新程序图标默认收纳进溢出区（^ 箭头），主区本来就没有；诊断顺序：①tasklist 确认实例活着 ②展开溢出区找图标 ③都无才谈 bug。"实例被清场后图标消失"是正常现象，别误判成"图标丢失"（2026-09-18 l-s2t 隐身误报：排查 1 小时 + 5 个探针，最终用户溢出区截图证实图标一直健在） |
+| 托盘验证必须目视溢出区 | 日志 `Shell_NotifyIcon(NIM_ADD)` 与进程存活都不算托盘验证；验收=展开溢出区亲眼确认图标存在（dev 态 + frozen 态各一次）。自我验证轮漏掉这步，才会被"隐身"假象带着跑 |
+| GUI 现象探针的存活期要远大于观察间隔 | 截图/点检一轮要几十秒，20s 短命探针在截图时已自杀——得到假阴性"隐身"结论，二分方向全错；探针 watchdog 至少 3~5 分钟（2026-09-18 探针 2/3 假阴性教训） |
+| pystray 两种 run 模式都是正解 | `run(setup=...)` 主线程（reme/dsh/ocx，无常驻主线程 UI）；`run_detached()` 后台线程（l-s2t，主线程要跑 Tk mainloop 悬浮条）。已实证 run_detached 与 Tk mainloop 共存正常（dev+frozen 双态），后人勿"顺手统一"改坏架构 |

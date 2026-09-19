@@ -12,9 +12,13 @@
 
 | 名称 | 说明 |
 |---|---|
-| `make_image(size=64)` | 调 `ICON_DRAW` 画一张 RGBA |
-| `write_app_icons(out_dir=".")` | 生成 `<APP_ID>.ico`（托盘态，7 档尺寸帧）+ `<APP_ID>-taskbar.ico`（任务栏态） |
-| CLI | `python icons.py --out .` |
+| `base_image()` | 图形来源二选一：`ICON_ASSET`（相对仓库根的 png，统一缩放到 256 基图）优先，否则 `ICON_DRAW(256)` |
+| `make_icons(base_dir)` | 在 `base_dir` 下生成 `<APP_ID>.ico`（托盘态，`TRAY_SIZES`）+ `<APP_ID>-taskbar.ico`（任务栏态，`TASKBAR_SIZES`），返回两路径 |
+| `TRAY_SIZES` / `TASKBAR_SIZES` | 帧档常量（6 档 / 15 档） |
+| CLI | `python src/icons.py`（dev 态 ico 落仓库根） |
+
+> 2026-09-19 更正：本表曾写 `make_image(size=64)` / `write_app_icons(out_dir=".")` / `--out`，
+> 与正本 `icons.py` 2.0.0 不符（CONFORMANCE §4.1.4）。**接口以正本为准**。
 
 ## 采纳步骤
 

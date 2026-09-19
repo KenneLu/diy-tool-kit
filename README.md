@@ -1,20 +1,24 @@
 # my-diy-tool-template —— 家族工具模板库与开发流程框架（拷贝式）
 
-> **三件套框架**（开发新工具 = 按此顺序走完）：
-> ① **README**（本文件）——概述引导 + 模块索引 + 拼接指南；
-> ② **[STANDARDS.md](STANDARDS.md)**——家族规范正文（能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 坑清单），执行时依此；
-> ③ **[REVIEW.md](REVIEW.md)**——每次开发/修改完成后的三轮校验 + 家族工具对应关系矩阵。
+> **四件套框架**（开发新工具 = 按此顺序走完）：
+> ① **README**（本文件）——怎么拼：概述引导 + 模块索引 + 拼接指南；
+> ② **[STANDARDS.md](STANDARDS.md)**——必须做什么：家族规范正文（能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 坑清单），执行时依此；
+> ③ **[CONFORMANCE.md](CONFORMANCE.md)**——做到没有：**76 条原子条款 × 四工具状态矩阵** + 可复现检查命令 + 退出/单实例/服务/命名/文档五张深挖表；
+> ④ **[REVIEW.md](REVIEW.md)**——本轮改了什么：三轮复审机制 + 家族工具对应关系矩阵 + 记录。
 >
 > `modules/<模块>/` 是规范对应的**实现件**（模块超详细文档 + 模板代码）。
-> 规范与实现冲突时：以 STANDARDS.md 为准，回改模板并登记 REVIEW。
+> 规范与实现冲突时：以 STANDARDS.md 为准，回改模板并登记 REVIEW；文档与磁盘冲突时改文档或改代码，禁止并存。
 
 ## 目录结构
 
 ```
 my-diy-tool-template\
   README.md            ← 本文档：标准索引 + 拼接指南
-  sync_check.py        ← T10 漂移检查（构建门禁的一个闸）
+  STANDARDS.md         ← 规范正文（A–J 分节）
+  CONFORMANCE.md       ← 逐条对照表：76 条款 × 四工具状态 + 检查命令 + 重点域深挖
   REVIEW.md            ← 三轮复审机制 + 对应关系矩阵 + 复审记录
+  sync_check.py        ← T10 漂移检查（构建门禁的一个闸）
+  blueprints.txt       ← 蓝本/待对齐工具名单（只减不增）
   CHANGELOG.md / LICENSE / .gitignore
   modules\<模块名>\
     README.md          ← 该模块的超详细文档（接口/采纳/坑）
@@ -46,6 +50,7 @@ my-diy-tool-template\
 
 1. **定级**：对照 STANDARDS §A 全表逐条过（别只看触发列——基线 8 这类挂在
    "开源/交付他人"下的条目最容易漏，2026-09-18 实测翻过车）；
+   **收尾时对照 CONFORMANCE §2 全表逐行自查**，每行给出 `文件:行号` 证据；
 2. **必拷**：`modules/appconfig/`（填参数）+ `modules/paths/`；
 3. **按需选模块**：托盘工具 → `tray_kit` + `log_kit` + `autostart` + `build_release`；
    公开发布 → `baseline`（双语 README）+ `update_helper`；要图标 → `icons`；双语 UI → `i18n`；
