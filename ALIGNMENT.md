@@ -49,8 +49,9 @@ python my-diy-tool-template\conformance_check.py --roots reme-helper
 ```
 
 本次快照的 `sync_check` 摘要（**退出码 0**）：
-`0 undeclared drift, 5 blueprint lag(s), 0 declared override(s), 4 param file(s),`
-`2 no-header mismatch(es), 9 missing module(s), 3 missing file(s), 0 missing template(s)`。
+`0 undeclared drift, 1 blueprint lag(s), 0 declared override(s), 4 param file(s),`
+`2 no-header mismatch(es), 9 missing module(s), 3 missing file(s), 0 missing template(s)`
+（唯一 lag = l-s2t `appconfig/__init__` 1.0.0→1.0.1）。
 模板升位瞬间曾出现 **4 条红灯**（dsh/ocx 各 2 条：`paths` 1.1.2→**1.1.3**、`tray_kit`
 2.0.1→**2.0.2**），属 §0.2 级联清单的预期中间态；**dsh/ocx 已在同步波次中重拷，红灯自消**。
 数字随队友收敛持续下降——**以实时命令输出为准**。
@@ -83,12 +84,12 @@ reme 因 `icons` 整模块未采纳，记 `[MISSING-MODULE]`。
 | 模板件 (VER) | reme-helper | local-speak2text | dsh-helper | opencodex-helper |
 |---|---|---|---|---|
 | **appconfig.py** (1.0.1) | `PARAM` 参数不同；另申报 VERSION 不入此文件、ICON_DRAW 不启用 | `PARAM` 已建 `src/modules/appconfig/appconfig.py` | `PARAM` 参数不同；ICON_ASSET 手工 png，VERSION 在 `main.py` | `PARAM` 参数不同；ICON_DRAW 自绘，VERSION 在 `main.py` |
-| **paths.py** (1.1.3) | `SAME` 1.1.3（**已跟进**，队友 #2；dev `RUN_DIR` 分叉随 OVERRIDE 保留） | `LAG` 1.1.2→1.1.3（蓝本黄灯）；模板已补 `_CONFIG`，其 OVERRIDE 可撤——但 env 前缀 `LOCALSPEAK2TEXT_*` 例外仍在 | `SAME` 1.1.3（**已重拷**，红灯自消） | `SAME` 1.1.3（**已重拷**，红灯自消） |
+| **paths.py** (1.1.3) | `SAME` 1.1.3（**已跟进**，队友 #2；dev `RUN_DIR` 分叉随 OVERRIDE 保留） | `SAME` 1.1.3（**已跟进**）；模板补 `_CONFIG` 后原 OVERRIDE 已撤 | `SAME` 1.1.3（**已重拷**，红灯自消） | `SAME` 1.1.3（**已重拷**，红灯自消） |
 | **autostart.py** (1.1.1) | `MISSING-MODULE` 内联在 `main.py`（含模板没有的 `sync_autostart_path` 自愈；倾向反向沉淀） | `SAME` 1.1.1（**已抽件**，队友 #3） | `SAME` 1.1.1（**已抽件**，队友 #4） | `SAME` 1.1.1（**已抽件**，队友 #4） |
 | **update_helper.py** (1.0.1) | `MISSING-MODULE` 内联更新链含备份目录 + `robocopy /purge`，与模板时序不同 | `MISSING-MODULE` 变体 `src/updater.py`（稳定位 + `update.pending.json`），**无头** | `SAME` 1.0.1 | `SAME` 1.0.1 |
 | **i18n.py** (2.1.0) | `NOHDR` 重形态 `modules/i18n/i18n.py`(204 行，差 303 行) + `pairs.json`；缺模板头 | `SAME` 2.1.0（含 `locales/zh.json`+`en.json`） | `MISSING-MODULE` | `MISSING-MODULE` |
 | **icons.py** (2.0.0) | `MISSING-MODULE` 内联 `make_icon`/`make_taskbar_icon`/`icon_font`（运行态着色不同构） | `SAME` 2.0.0（`src/icons.py` 已消费模板）；缺 `icons/__init__.py` → `MISSING-FILE` | `SAME` 2.0.0（`ICON_ASSET`，头部申报）；缺 `icons/__init__.py` → `MISSING-FILE` | `SAME` 2.0.0（`ICON_DRAW`）；缺 `icons/__init__.py` → `MISSING-FILE` |
-| **tray_kit.py** (2.0.2) | `SAME` 2.0.2（**已跟进**，队友 #2） | `LAG` 2.0.1→2.0.2（蓝本黄灯，新抽件待跟进） | `SAME` 2.0.2（**已重拷**，红灯自消） | `SAME` 2.0.2（**已重拷**，红灯自消） |
+| **tray_kit.py** (2.0.2) | `SAME` 2.0.2（**已跟进**，队友 #2） | `SAME` 2.0.2（**已跟进**，队友 #3） | `SAME` 2.0.2（**已重拷**，红灯自消） | `SAME` 2.0.2（**已重拷**，红灯自消） |
 | **log_kit.py** (1.0.2) | `SAME` 1.0.2（**已回基**，队友 #2，root-logger 分叉已并入正文或撤销） | `SAME` 1.0.2（**已收敛**，队友 #3） | `SAME` 1.0.2 | `SAME` 1.0.2 |
 | **service_link.py** (0.1.0) | `SAME`（**已文件夹化**，队友 #2）但**未接线**（`main.py` 无 import） | `MISSING-MODULE` | `MISSING-MODULE` | `MISSING-MODULE` |
 | **`__init__.py`**（各模块） | `i18n` 2 处 `NOHDR`（重形态）；其余 `SAME` | appconfig `LAG` 1.0.0→1.0.1、paths/tray_kit `LAG`；其余 `SAME` | `SAME`（无 VER 头，内容未变） | `SAME`（无 VER 头，内容未变） |
@@ -136,14 +137,12 @@ CONFORMANCE §4.1.5 的"模板回退"已闭环）——l-s2t 的 `_CONFIG` OVERR
   - 现状：`src/modules/paths/paths.py` 头部 VER 已改 1.1.2、归一化一致；dev `RUN_DIR`=仓库根与
     `REME_HELPER_CONFIG` 以 `TEMPLATE-LOCAL-OVERRIDE` 保留（设计分叉）。
   - 剩余：跑 reme `--smoke` + 8 套件做 R3 回归（路径根行为变更）。风险：**中**。负责人：lead 决定。
-- **local-speak2text `LAG` 1.1.2→1.1.3（蓝本黄灯）**
-  - 现状：已迁 `src/modules/paths/paths.py`；模板 1.1.3 **已补** `<APP>_CONFIG`（CONFORMANCE §4.1.5
-    的"模板回退"闭环），故原 OVERRIDE 的一半理由消失。
-  - 剩余动作：① 重拷 `paths.py` + `paths/__init__.py` 到 1.1.3，撤销 `_CONFIG` 相关 OVERRIDE 文字；
-    ② **`LOCALSPEAK2TEXT_CONFIG`/`_DATA_DIR` 前缀例外仍在**——模板派生式是 `LOCAL_SPEAK2TEXT_*`
-    （NAME-10），l-s2t 现用无下划线版。要么按 CONFORMANCE NAME-10 建议改名对齐（测试/CI 同步改），
-    要么保留一条只针对 env 前缀的 OVERRIDE（不再是"模板缺能力"）。
-  - 风险：**中**（重拷 + 可能的 env 改名，牵动 build.bat/tests）。负责人：lead 决定 l-s2t owner 执行。
+- **local-speak2text `SAME` 1.1.3（已跟进）**
+  - 现状：已迁 `src/modules/paths/paths.py` 并重拷到 1.1.3；模板补上 `<APP>_CONFIG` 后
+    （CONFORMANCE §4.1.5"模板回退"闭环），原 `_CONFIG` OVERRIDE 已撤销。
+  - 遗留（不阻断）：env 前缀 `LOCALSPEAK2TEXT_*`（无下划线）与模板派生式 `LOCAL_SPEAK2TEXT_*`
+    不同（NAME-10 已知唯一例外）。要么改名对齐（测试/CI 同步改），要么保留一条只针对前缀的 OVERRIDE。
+  - 风险：低（文件已一致；前缀是独立小项）。负责人：lead 决定。
 - **dsh-helper / opencodex-helper `SAME` 1.1.3（已重拷）**
   - 改动清单：无。注意其 `_DATA_DIR` 键是**f-string 动态拼**（`f"{APP_ID.upper().replace('-','_')}_DATA_DIR"`），
     故 `conformance_check.py` C-16 按字面量 grep 会误报缺失——**这是 C-16 的实现盲区，不是工具缺陷**
@@ -279,8 +278,8 @@ CONFORMANCE §4.1.5 的"模板回退"已闭环）——l-s2t 的 `_CONFIG` OVERR
   - 现状：模板升到 2.0.2 时曾报红灯（预期级联），同步波次已重拷 `tray_kit.py` + `tray_kit/__init__.py`。
   - 后续可选：退出确认框若启用 i18n，把文案接到 `t()`（不接则中文默认值照旧可用）。
   - 风险：无（已一致）。负责人：lead 决定。
-- **local-speak2text `LAG` 2.0.1→2.0.2（蓝本黄灯）**：同上重拷；l-s2t 已启用 i18n，建议本次
-  顺带把确认框文案接到 `t()`（E4-02）。风险：低-中。负责人：lead 决定；l-s2t owner 执行。
+- **local-speak2text `SAME` 2.0.2（已跟进，队友 #3）**：文件已一致。后续可选：把退出确认框
+  文案接到 `t()`（E4-02），不接则中文默认值照旧可用。风险：低。负责人：lead 决定。
 
 ---
 
@@ -377,7 +376,7 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
 |---|---|---|---|---|
 | **0a** | **dsh/ocx 重拷 `paths` 1.1.3 + `tray_kit` 2.0.2（消 4 条红灯）** | 4 个 .py（+2 个 `__init__.py`） | 低 | **完成**（同步波次已重拷，红灯自消） |
 | **0b** | dsh/l-s2t/ocx 补 `src/modules/icons/__init__.py` | 3 个文件 | 低 | 待做（`[MISSING-FILE]`） |
-| **0c** | l-s2t/reme 跟进 paths 1.1.3 / tray_kit 2.0.2 / appconfig `__init__` 1.0.1（消黄灯） | 蓝本各 2-3 文件 | 低 | 部分（reme 已完成，l-s2t 待做） |
+| **0c** | l-s2t/reme 跟进 paths 1.1.3 / tray_kit 2.0.2 / appconfig `__init__` 1.0.1（消黄灯） | 蓝本各 2-3 文件 | 低 | **基本完成**（仅剩 l-s2t `appconfig/__init__` 1 条 lag） |
 | 1 | reme i18n 补 OVERRIDE 头；l-s2t updater 补 OVERRIDE 头 | 2 个文件的头部注释 | 低 | 待做 |
 | 1a | 各工具 `src/modules/*/__init__.py` 形态回基（模板已统一） | 见 0b/0c | 低 | 部分完成 |
 | 2 | reme `service_link.py` 文件夹化（+`__init__.py`） | 1 移 + 1 新 | 低 | **完成**（队友 #2） |
@@ -410,7 +409,7 @@ l-s2t 新增的 appconfig 需补 `TEMPLATE-FROM` 头才能进 `[param]` 统计�
 - 默认只扫**家族工具**（有 `src/` 且有门禁 `build.bat`），避免把同目录无关项目刷成缺失。
 
 **R1 基线（模板冻结、同步波次收口后）**：`0 undeclared drift`（升位瞬间的 4 条红灯
-由 dsh/ocx 重拷后自消）、`5 blueprint lag`（l-s2t `paths`/`tray_kit` 及 appconfig `__init__`）、
+由 dsh/ocx 重拷后自消）、`1 blueprint lag`（仅剩 l-s2t `appconfig/__init__` 1.0.0→1.0.1）、
 `2 nohdr`（reme i18n）、`9 missing-module`、`3 missing-file`（dsh/l-s2t/ocx 缺
 `icons/__init__.py`）。此前 l-s2t `log_kit 1.0.0→1.0.2`、reme `paths 1.1.1→1.1.2`、
 四工具 `autostart` 缺失、`__init__.py` 形态不一、`service_link` 散文件、模板 `_CONFIG` 回退
