@@ -1415,51 +1415,122 @@ def check_md_tabs(root: Path):
 # 用户 AppData，一眼就能分辨"导入式探针"与"托盘实例"。
 # ⇒ **把归属依据写进产物自己**，比任何外部扫描都强。
 _SELF_ID_NAMES = ("USER_DATA_DIR", "CONFIG_PATH")
+# **一次性行不得计入自证**（2026-09-19，lead 依复核员的实测裁定）：
+# `config seeded:` / `config migrated:` 只在**数据根首次播种/迁移**时出现——也就是说，
+# **能解决归属的那条日志，按构造永远不会在第二次启动时出现**。复核员的实测（读真实日志）：
+# reme 6757 行里只有 2 行含数据根（首现在 **#770**，09-13）；dsh 92 行 1 行（**#0**，09-18）；
+# ocx 145 行 1 行（**#0**）；**l-s2t 284 行 0 行**。dsh/ocx 的"绿"正来自那次一次性
+# `config migrated:` ⇒ **绿得不是地方，比红更坏**（它会让人以为这条性质已经被满足）。
+_SELF_ID_ONESHOT = ("config seeded", "config migrated")
+# 锚 = **启动那一条日志**：`log(...)`/`print(...)` 的**第一个字符串实参以 `startup` 开头**
+# （家族现行写法 `log("startup %s v%s (pid %s)" % ...)`）。**不能**用"行里含 startup"——
+# 那样 `log("dsh process exited during startup: …")` 这种**错误提示**也会变成锚（实测踩到）。
+_SELF_ID_ANCHOR = re.compile(r"""(?i)(?:^|\W)(?:log|print)\s*\(\s*f?["']\s*startup\b""")
+_SELF_ID_WINDOW = 20
+
+
+def _self_id_window(source_text: str):
+    """在**已掩码**的源码文本上判"启动自证"。
+
+    规则（lead 2026-09-19 定的形态，替代原来的"文件前 N 行 / 全文任意处"）：
+      ① **锚在 `startup` 那条日志行**，数据根/配置路径必须出现在**它之后 `_SELF_ID_WINDOW` 行内**
+         ——**不看文件前 N 行**：追加/轮转日志的**前 N 行是最老的**，看它等于回看历史；
+      ② **一次性行（`config seeded:` / `config migrated:`）不计入**。
+    返回 `(ok_or_None, detail, hits)`；`None` = 判不了（没有锚行）。
+    """
+    lines = source_text.splitlines()
+    anchors = [i for i, ln in enumerate(lines) if _SELF_ID_ANCHOR.search(ln)]
+    if not anchors:
+        return None, "**判不了**：找不到 `startup` 日志行（本条判据锚在它上面）", [], []
+    hits = []
+    for a in anchors:
+        for j in range(a + 1, min(a + 1 + _SELF_ID_WINDOW, len(lines))):
+            ln = lines[j]
+            if "log(" not in ln and "print(" not in ln:
+                continue
+            if any(n in ln for n in _SELF_ID_NAMES):
+                if any(one in ln for one in _SELF_ID_ONESHOT):
+                    continue          # 一次性行：不算自证
+                hits.append((a + 1, j + 1, ln.strip()))
+    # **锚也要交出来**（纪律 ⑥：读数自带分母）：锚认错了（例如把 `startup update check:`
+    # 这种周期性检查行当成启动标记）必须**看得见**，否则"判红的理由"本身无法被复核。
+    anchor_list = [(i + 1, lines[i].strip()[:60]) for i in anchors]
+    return bool(hits), "", hits, anchor_list
 
 
 def _self_identifying(root: Path):
-    """工具 `src/**/*.py` 里是否存在"把数据根/配置路径打进日志"的那一行。
+    """工具 `src/**/*.py` 里是否**在 `startup` 行之后**把数据根/配置路径打进日志。
 
-    返回 `(ok_or_None, [(相对路径, 行号, 行内容)])`；`None` = 无 `src/`（判据不适用）。
+    返回 `(ok_or_None, detail, [(相对路径, 锚行, 命中行, 行内容)])`；`None` = 判不了。
     模板 `paths.py` 的**副本**也在 `src/modules/paths/` 下，所以"在模板里加一行"对四家同时生效。
+    ⚠️ 文本先经 `_masked_code_text`：**散文不算**（§4.1.37 / 设计纪律 ⑨）——工具源码里
+    docstring 引用 `USER_DATA_DIR` 是很自然的写法，不掩码就会假绿。
     """
     src = root / "src"
     if not src.is_dir():
-        return None, []
+        return None, "无 src/（判据不适用）", [], []
+    if not (src / "main.py").exists() and not list(src.glob("*.py")):
+        return None, "src/ 下没有 .py（判据不适用）", [], []
     hits = []
+    anchors = []
+    judged = 0
     for f in sorted(src.rglob("*.py")):
         try:
-            for i, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-                if "log(" not in line and "print(" not in line:
-                    continue
-                if any(n in line for n in _SELF_ID_NAMES):
-                    hits.append((f.relative_to(root).as_posix(), i, line.strip()))
+            text = _masked_code_text(f.read_text(encoding="utf-8", errors="replace"))
         except OSError:
             continue
-    return bool(hits), hits
+        ok, why, found, found_anchors = _self_id_window(text)
+        if ok is None:
+            continue
+        judged += 1
+        rel = f.relative_to(root).as_posix()
+        for a, j, line in found:
+            hits.append((rel, a, j, line))
+        for ln_no, ln_txt in found_anchors:
+            anchors.append((rel, ln_no, ln_txt))
+    if not judged:
+        return None, "扫描面内没有可判的 `startup` 锚行", [], []
+    return bool(hits), "", hits, anchors
 
 
-@check("C-38", "WARN", "启动自证：日志里必须能看到解析后的数据根 / 配置文件路径")
+@check("C-38", "WARN", "启动自证：`startup` 行之后必须能看到解析后的数据根 / 配置文件路径")
 def c38(c: Ctx):
     """**为什么是 WARN 而不是 FAIL**：缺它不会让用户看到任何异常，只会让**下一次残留归属
     无据可依**——而那正是本次三个 `tmp*` 目录耗掉一整轮取证的原因（它们出自 `python -c` /
-    heredoc，**不落盘**，外部扫描原理上够不着）。等级由 lead 定（他倾向 WARN；我实测 3/4 家未做，
-    且修复路径是**模板一处**：`paths.seed_config()` 加一行 ⇒ 四家重拷后同时具备）。
+    heredoc，**不落盘**，外部扫描原理上够不着）。等级由 lead 定，**2026-09-19 复核员实测后
+    定为 WARN（今天四家都红，是新增缺口，不是谁写错）**。
 
-    **为什么"扫源码里有没有那一行"就够**：我们不需要判它的格式好不好看，只需要保证
-    **那次解析的结果会落进日志**——这正是"把不可查的纪律换成可查的性质"。
+    **形态为什么改**（lead 裁定，原形态"文件前 N 行含数据根"**按字面会假绿**）：
+    ① 锚在 `startup` 行之后 N 行——**追加/轮转日志的前 N 行是最老的**；
+    ② **一次性行（`config seeded:` / `config migrated:`）不计入**，并作反例样本
+       ——"只有一次性 migration 行 ⇒ 判红"。
     """
-    ok, hits = _self_identifying(c.dir)
+    ok, why, hits, anchors = _self_identifying(c.dir)
+    _span = ("扫描面：src/**/*.py；锚 = 第一个字符串实参以 `startup` 开头的 `log(`/`print(` 行，"
+             "窗口 = 其后 %d 行；锚 %d 处（%s）"
+             % (_SELF_ID_WINDOW, len(anchors),
+                ", ".join("%s:%d" % (a[0], a[1]) for a in anchors[:3]) or "无"))
     if ok is None:
-        return True, "扫描面：无 src/（判据不适用）"
+        # **判不了也要 WARN，不能报 ok**（lead："绿得不是地方，比红更坏"；设计纪律 ⑧ 要求
+        # 不可判必须打印"判不了 + 为什么"）。这一格今天真实发生：ocx 源码里**根本没有**
+        # `log("startup …")` 这条启动标记 ⇒ 既无法定锚，也说明它**没有任何启动自证**。
+        return False, (_span + "；%s。⇒ 这一格**不可判**，但按 WARN 报（不是通过）："
+                       "判据锚在 `startup` 启动标记上，没有标记就既定不了锚、也谈不上自证——"
+                       "**缺启动日志本身就是缺口**（第一次启动/第二次启动都无法归属）。"
+                       "【正确形态】启动早期 `log(\"startup <名字> v<版本> (pid <pid>)\")`，"
+                       "**紧跟着**一行写出解析后的 `USER_DATA_DIR` 与 `CONFIG_PATH`" % why)
     if ok:
-        return True, ("扫描面：src/**/*.py 全部；启动自证行 %d 处（%s）"
-                      % (len(hits), ", ".join("%s:%d" % (h[0], h[1]) for h in hits[:3])))
-    return False, ("扫描面：src/**/*.py 全部；**0 处**把数据根/配置路径写进日志的行。"
+        return True, (_span + "；命中 %d 处（%s）"
+                      % (len(hits),
+                         ", ".join("%s:%d→:%d" % (h[0], h[1], h[2]) for h in hits[:3])))
+    return False, (_span + "；**该窗口内 0 处**把数据根/配置路径写进日志的行。"
+                   "【为什么锚在 startup 而不看文件前 N 行】追加/轮转日志的**前 N 行是最老的**；"
+                   "且 `config seeded:` / `config migrated:` 这类**一次性行不得计入**——"
+                   "复核员实测：dsh/ocx 今天的\"有\"正来自一次性的 `config migrated:`，**绿得不是地方**。"
                    "【为什么值得做】`python -c`/heredoc 探针**不落盘**，源码扫描原理上覆盖不到它们；"
-                   "能定死归属的只有**产物自带的那行日志**（如 `config seeded: <源> -> <目标>`）。"
-                   "【正确形态】在 `seed_config()` 或启动早期 `log()` 一行，写出 `USER_DATA_DIR` 与 "
-                   "`CONFIG_PATH` 的**解析结果**（不是常量、不是假设值）")
+                   "能定死归属的只有**产物自带的那行日志**。"
+                   "【正确形态】`startup` 那一行之后紧跟一行，写出 `USER_DATA_DIR` 与 `CONFIG_PATH` 的"
+                   "**解析结果**（不是常量、不是假设值）")
 
 
 @check("C-28", "WARN", "本仓 .md 不得含 0x09 TAB（只扫手写中文文档）")
@@ -3276,6 +3347,46 @@ def selftest() -> int:
         print("[selftest] %s  C-33 own_instrument_excluded_and_announced: ok=%s want=True "
               "(且 detail 必须点名被排除的文件) | %s"
               % ("PASS" if good else "FAIL", ok, detail[:160]))
+
+        # C-38（2026-09-19 改形态后补）：**锚在 `startup` 行之后**，且**一次性行不计入**。
+        # 五条腿 = 1 正 + 4 反，每条都对着新形态的一条限定（设计纪律 ⑨：豁免的每一条边界
+        # 都必须有一条腿，且必须带反向格）。
+        _sid_wrap = ("def main():\n"
+                     "    log('startup vVERSION')\n"
+                     "    log('data root:', USER_DATA_DIR, 'config:', CONFIG_PATH)\n")
+        _sid_ok = _sid_wrap
+        _sid_no_id = "def main():\n    log('startup vVERSION')\n    log('ready')\n"
+        # 反例①：只有**一次性** migration 行 ⇒ 必须红（dsh/ocx 今天的"绿"就来自这里）
+        _sid_oneshot = ("def seed_config():\n"
+                        "    log('config migrated:', LEGACY_CONFIG_PATH, '->', CONFIG_PATH)\n"
+                        "def main():\n    log('startup vVERSION')\n")
+        # 反例②：数据根写在**文件开头 / startup 之前** ⇒ 必须红（"前 N 行是最老的"）
+        _sid_before = ("log('data root:', USER_DATA_DIR)\n"
+                       "def main():\n    log('startup vVERSION')\n    log('ready')\n")
+        # 反例③：写在窗口之外（21 行之后）⇒ 必须红
+        _sid_far = ("def main():\n    log('startup vVERSION')\n"
+                    + "    log('tick')\n" * 21
+                    + "    log('data root:', USER_DATA_DIR)\n")
+        # 反例④：**只在 docstring 里提到** USER_DATA_DIR ⇒ 必须红（散文不算，§4.1.37）
+        _sid_prose = ('def main():\n'
+                      '    """\u542f\u52a8\u65f6\u4f1a\u5427 USER_DATA_DIR \u6253\u8fdb\u65e5\u5fd7\u3002"""\n'
+                      "    log('startup vVERSION')\n    log('ready')\n")
+        c38_cases = (
+            ("startup_then_data_root_ok", _sid_ok, True),
+            ("startup_without_data_root_flagged", _sid_no_id, False),
+            ("oneshot_migration_line_flagged", _sid_oneshot, False),
+            ("data_root_before_startup_flagged", _sid_before, False),
+            ("data_root_outside_window_flagged", _sid_far, False),
+            ("prose_mention_only_flagged", _sid_prose, False),
+        )
+        for name, body, want in c38_cases:
+            ok, why, _hits, _anch = _self_id_window(body)
+            got = (ok is True) if want else (ok is False)
+            good = got and ok is not None
+            failed += 0 if good else 1
+            print("[selftest] %s  C-38 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want,
+                     why or ("命中 %d 处" % len(_hits))))
 
         # C-36：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；

@@ -2,6 +2,44 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-38 changes shape: anchor at the startup line, one-shot lines do not count)
+
+- **The first draft of C-38 would have gone green in the wrong place.** "The first N lines of the
+  log must contain the data root" is **false-green by construction**: the reviewer measured the real
+  logs — reme 6757 lines with 2 data-root lines (**first at #770**, 09-13), dsh 92 lines with 1
+  (**#0**, 09-18), ocx 145 with 1 (**#0**), **l-s2t 284 with 0**. dsh/ocx's "compliance" came from a
+  **one-shot `config migrated:`** line, i.e. it sat at the *oldest* end of the file.
+- **Root cause:** `config seeded:` / `config migrated:` appear **only on the first seed/migration of
+  a data root** — so *the one line that resolves attribution can never appear on a second start*.
+  (`tmp0whlwvmi` could self-identify precisely because it was a **brand-new data root**.)
+- **New shape, two clauses (lead's ruling, implemented):** ① the anchor is **the log line whose first
+  string argument starts with `startup`**, and the data root must appear **within 20 lines after it**
+  — **never the file's first N lines**, since an appended/rotated log's first lines are the *oldest*;
+  ② **one-shot lines (`config seeded:` / `config migrated:`) must not count**, with a **negative
+  sample** ("only a one-shot migration line ⇒ red"). The text also goes through `_masked_code_text`
+  (prose does not count, §4.1.37), and the **anchors are printed in the detail** so a mis-identified
+  anchor is visible.
+- **Measured after the change: all four tools WARN** (dsh anchor `main.py:1763`, l-s2t `:1030` — both
+  are the real boot lines, with no self-identification in the window; **reme's anchor is
+  `main.py:7433 log(f"startup update check: …")`, a periodic check, not a boot marker** — its real
+  boot line `:2897` prints a local `config={config}`, which cannot be read as a resolved path;
+  **ocx has no anchor at all ⇒ unjudgeable**). **Unjudgeable is reported as WARN, not `[ok]`** —
+  "green in the wrong place is worse than red". Six new self-test legs (1 positive + 4 negative +
+  the anchor-shape cases) keep every clause of the new shape guarded.
+- **Scheduled, not merged into this wave:** the actual "log the data root + config path on every
+  start" line touches **four `main.py` startup blocks** and needs **one fixed format** (otherwise it
+  grows five variants like the cmd guard did). The lead's reasons to defer: it is a **new gap**
+  (all four red today), inserting a cross-repo format requirement now pushes the rebuild and #24
+  further out, and its value is **retrospective** while the channel it replaces (session transcript)
+  is already available and ruled on. ⇒ **This wave changes only the criterion and the docs**; the log
+  line lands next wave, once, in one format. **Paste-ready sample and shape requirements: CONFORMANCE
+  §4.1.38** — `log("data root: %s" % USER_DATA_DIR)` / `log("config   : %s" % CONFIG_PATH)`, placed
+  within 20 lines *after* the tool's own `startup` line, printing the **resolved** values.
+- **Also recorded:** reme's `config seeded:` line pointed at
+  `…\release\reme-helper-1.0.7\config.json` ⇒ reme once seeded a config **from a very old release
+  directory**. Filed as supporting evidence in §4.1.34: "a referenced orphan version is a state that
+  must be handled" — this proves such references are not hypothetical, they already happened.
+
 ## 2026-09-19 (criteria read prose: C-33 false red fixed, C-30's second instance fixed)
 
 - **`check_ping_tick` flagged its own docstring.** The explanation of *why* `ping -n 2` is banned
