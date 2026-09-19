@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.1
+# 1.9.1：**身份行**（lead 批准）：每次运行的第一行打印
+#   `# conformance_check <VER>  sha256:<raw>  norm:<归一化>`
+#   —— `raw` = 文件逐字节 sha256，`norm` = sync_check 口径（剔 `# TEMPLATE-*` 行后哈希）。
+#   **两种都印**，因为本家族同时用两套口径发哈希（ALIGNMENT §0 专门钉过这件事）；
+#   只印一种，迟早有人拿另一套去对，得出"对不上"的假结论。
+#   动机：同一类分歧（tray_kit 版本 / 183 行 / C-11）今晚发生了**三次**，每次都靠人工
+#   对齐修订号，成本极高。**一行身份行让任何贴回来的输出自证身份**——是旧快照还是磁盘
+#   这份，看第一行就知道。它同时是 R-EVID 的**自动化形式**：让工具自己打印时点，
+#   比要求每个人记得贴时点可靠（"用结构代替纪律"）。
 # 1.9.0：① **C-30 补上"覆盖缺口必须自己报出来"**（lead 裁定：判据可以自己失效比泄漏更糟）。
 #   ① 新增上半：**mkdtemp 前缀必须可静态归属**——从源码枚举 `mkdtemp(...)` 的 `prefix` 实参
 #      （含**包装函数的调用点**，如 `scratch_dir(prefix)`：dsh/ocx/l-s2t 三家真实前缀都在
@@ -114,19 +123,27 @@
   sync_check.py        只管「拷贝件与模板正本是否一致」（哈希级）
   conformance_check.py 管「条款是否落地」（语义级，但仍要求可机械判定）
 
-设计纪律（来自 2026-09-19 首轮审计的教训）：
+设计纪律 ①–⑤（来自 2026-09-19 首轮审计的教训；**索引与正文必须一致**——索引缺条目本身
+就是"文档说谎"）：
   ① 只写**能给出证据**的检查；判不了的宁可 WARN，不硬判 FAIL——误判会让人不再信任工具；
+  ② 每条检查的输出必须带 `文件:行号` 或实际值，否则等于没说；
+  ③ FAIL = 硬违规（默认让退出码非 0）；WARN = 需要人判断，只提示；
   ④ **"不认识形态"与"检出违规"必须分开**（2026-09-19 由 lead 升级，合并原有两条口径）：
      (a) 判据的"不通过消息"**必须与它实际检出的东西一致**——检不出就说检不出，不许拿不相干
          的模式去解释失败（C-10 曾把"消费形态不认识"说成"真跑守卫"，误导出错误修法）；
      (b) 遇到**判据自己不认识的形态**时，一律 **WARN + "形态不认识，需人工确认"**，并在消息里
          写明"期望什么形态 / 实际看到什么"。**不认识 ≠ 违规**；**FAIL 只能用在确实检出违规
          证据的时候**（AST 调用节点、行号 + 实际值这类）。
+     (c) **判准：分支级别取决于「它检出的东西」，不取决于「它期望的形态」**——确证违规 → FAIL；
+         检不出/形态不认识/证据不足 → WARN。降错方向的代价是**真缺陷从红灯变黄灯、GATE 不再拦**。
      * 为什么升级：同一元缺陷一天内出现**三次**——C-10 的 `check()` 形态、C-10 的正则读注释、
        C-11 的 PowerShell 形态；每次都是"判据只认自己那一款，别款一律报违规"。误判一次，
        人就再也不信这个工具（纪律 ①）。
-  ② 每条检查的输出必须带 `文件:行号` 或实际值，否则等于没说；
-  ③ FAIL = 硬违规（默认让退出码非 0）；WARN = 需要人判断，只提示。
+  ⑤ **判据的每条限定，都必须用"已知正例"回验过才算数**（2026-09-19 加）：前四条管
+     "判据的**输出**要诚实"，⑤ 管"判据的**构造过程**要回验"。实证（复核员做 C-32 时逐条回验）：
+     加"同一语句块"→ 漏掉正典、命中 0；加"最近一条赋值"→ 落在 `except` 里的 `detail = ""`
+     上，命中 4、**漏了 reme**；改成"遍历所有先前赋值"才 5/5 全真。**"收紧条件"不能靠加限定词
+     的直觉**。推论：**样本必须抄真实现场的形状**——用想象的形状写样本，会得到"全绿但漏真案"。
 
 用法：
   python my-diy-tool-template/conformance_check.py                  # my_diy_tools 下全部工具
@@ -154,6 +171,39 @@ except Exception:
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = Path(__file__).resolve().parent
+
+
+def identity_line() -> str:
+    """**本工具自己的身份**（lead 2026-09-19 批准）：版本 + 两种哈希口径。
+
+    为什么是运行时自算、而不是写死一串：写死的哈希**自己就会过期**——那正是"贴回来的
+    输出说不清是哪个时点"的成因。自算保证"这一行永远描述**正在跑的这个文件**"。
+    两种口径都给：`sha256`（逐字节）与 `norm`（sync_check 归一化：剔 `# TEMPLATE-*` 行）。
+    本家族两套都在用（`.py` 比对用 norm、`.md` 用逐字节，ALIGNMENT §0 专门钉过），
+    **只印一种就会有人拿另一种去对**，然后得出"对不上"的假结论。
+    """
+    import hashlib
+    import re as _re
+    import subprocess
+    raw = Path(__file__).read_bytes()
+    text = raw.decode("utf-8", "replace")
+    norm = "\n".join(ln for ln in text.splitlines()
+                     if not _re.match(r"^\s*#\s*TEMPLATE-", ln))
+    m = _re.search(r"TEMPLATE-VER:\s*([\d.]+)", text[:2000])
+    ver = m.group(1) if m else "?"
+    # HEAD 一并打印（lead 指定）：它是"这份输出属于哪个提交"的最短答案。
+    # 取不到就印 `?`——不在 git 仓 / 无 git / 超时都不该让判据崩（**不许因此报错**）。
+    head = "?"
+    try:
+        r = subprocess.run(["git", "-C", str(TEMPLATE_DIR), "rev-parse", "--short", "HEAD"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            head = r.stdout.strip()
+    except Exception:
+        pass
+    return ("# conformance_check %s  sha256:%s  norm:%s  head:%s"
+            % (ver, hashlib.sha256(raw).hexdigest()[:12],
+               hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12], head))
 
 # 蓝本工具（内容以模板正本为准，不按"消费方"判定）
 def load_blueprints() -> set:
@@ -2137,9 +2187,10 @@ def _rmtree_strict(path, tries=10):
 
 
 def selftest() -> int:
-    """C-21..C-30 反向自证：合成样本，正例须点名，反例须放行。"""
+    """C-21..C-33 反向自证：合成样本，正例须点名，反例须放行。"""
     import shutil
     import tempfile
+    print(identity_line())   # 自证输出也自证身份：贴出来的 selftest 结果不能是无主的
     base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
     try:
         cases = []
@@ -2720,6 +2771,8 @@ def main() -> int:
 
     if args.temp_leak or args.temp_leak_save or args.temp_leak_baseline:
         return temp_leak_main(names, args.temp_leak_save, args.temp_leak_baseline)
+
+    print(identity_line())   # 身份行：任何贴回来的输出自证"这是哪一版、哪个文件的产物"
 
     fails = warns = 0
     only = set(args.only) if args.only else None

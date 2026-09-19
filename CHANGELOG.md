@@ -2,6 +2,30 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (identity line; `conformance_check` 1.9.1)
+
+One line, printed by the tool about itself:
+`# conformance_check 1.9.1  sha256:<raw>  norm:<normalized>  head:<short-sha>`.
+`head` degrades to `?` when git is unavailable, not in a repo, or slow — an identity line must
+never be the reason a check crashes.
+
+- **Why**: tonight the *same* disagreement happened **three times** (`tray_kit` version, the
+  `183`-line guard, C-11) — "which revision produced this output?" — and every time it was
+  settled by hand, by comparing revision ids. An identity line lets any pasted output **prove
+  its own identity**: the first line says whether it came from a stale snapshot or from the
+  file on disk. It is also R-EVID **automated**: R-EVID asks evidence to carry its own
+  timestamp; making the tool print its own identity is more reliable than asking every person
+  to remember to paste one — structure instead of discipline.
+- **Computed at runtime, never hard-coded**: a frozen hash string would itself go stale, which
+  is exactly the failure mode this fixes.
+- **Both hash families are printed on purpose**: `sha256` over the raw bytes, and `norm`
+  (the `sync_check` normalization: drop `# TEMPLATE-*` lines, then hash). The family publishes
+  both (`.py` comparisons use `norm`, `.md` uses bytes; ALIGNMENT §0 pins the operator), and
+  printing only one invites someone to check it against the other and conclude "it does not
+  match" — the same two-families trap already recorded there.
+- Printed in both modes (normal run and `--selftest`), because a self-test result pasted
+  without provenance is as ambiguous as any other evidence.
+
 ## 2026-09-19 (C-30 grew a coverage-gap alarm; `conformance_check` 1.9.0)
 
 A check whose coverage can be switched off by renaming a literal to a variable is worse than

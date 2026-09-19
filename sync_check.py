@@ -167,6 +167,40 @@ def is_scan_target(path: Path) -> bool:
             and not (set(path.parts) & SCAN_SKIP_DIRS))
 
 
+def _script_form_cases():
+    """脚本形态采纳的真值表（四例）。**没有样本的分支等于没有判据**。"""
+    P = Path("src/icons.py")
+    cases = [
+        ("脚本形态：被消费 + 无包目录 + 有具体文件 → True",
+         is_script_form_adoption("icons", {"icons"}, {"icons": [P]}, False), True),
+        ("有 src/modules/icons/ 目录 → False（那是包形态，缺件就是缺口）",
+         is_script_form_adoption("icons", {"icons"}, {"icons": [P]}, True), False),
+        ("没有任何文件消费它 → False（交给 [MISSING-MODULE]）",
+         is_script_form_adoption("icons", set(), {}, False), False),
+        ("消费记录为空 → False（说不出'就地'在哪，就不下结论）",
+         is_script_form_adoption("icons", {"icons"}, {"icons": []}, False), False),
+    ]
+    return [(label, got == want, f"got={got} want={want}")
+            for label, got, want in cases]
+
+
+def is_script_form_adoption(mod, consumed, consumed_files, has_mod_dir) -> bool:
+    """该模块是否以**脚本形态就地采纳**（不是导入包）。
+
+    判据（三条同时成立，**不猜命名**）：
+      ① 模块被采纳（`mod in consumed`——头部通道有文件申报来自它）；
+      ② 工具侧**没有** `src/modules/<mod>/` 目录（`has_mod_dir` 为假）；
+      ③ 有**具体的工具侧文件**消费了它（`consumed_files` 非空，用于输出"就地"路径）。
+
+    为什么需要这条：`icons` 在 dsh/ocx/l-s2t 都是 `src/icons.py` + `python src\\icons.py`
+    的**构建期脚本**用法，三家的 `[MISSING-FILE]`（缺 `__init__.py` / `README.md`）
+    完全相同。实测把它改成包形态会炸 `ModuleNotFoundError: No module named 'modules'`
+    ——`from modules.appconfig import ...` 依赖文件所在深度。所以"缺 `__init__.py`"
+    不是缺口，是**另一种采纳形态**；判据必须能说出这一点，而不是把它算成漏拷。
+    """
+    return bool(mod in consumed and not has_mod_dir and consumed_files.get(mod))
+
+
 def scan_tool(tool_dir: Path):
     """头部通道：返回 [(tool_file, template_rel, declared, tool_ver)]。
 
@@ -727,6 +761,10 @@ def selftest() -> int:
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
 
+        for label, ok, detail in _script_form_cases():
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
         print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
         return 1 if failed else 0
     finally:
@@ -800,6 +838,8 @@ def main() -> int:
             print(f"[bp  ] {name}: blueprint —— 逐文件比对，落后报 [lag]（不阻断）")
 
         compared, compared_rels, consumed = set(), set(), set()
+        # 头部通道消费掉的模块 → 该模块被用到的**工具侧文件**（判定"脚本形态采纳"用）
+        consumed_files = {}
 
         # ① 头部通道：工具自报出处的文件
         for tool_file, rel, is_declared, tool_ver in scan_tool(tool_dir):
@@ -809,6 +849,7 @@ def main() -> int:
             parts = rel.split("/")
             if len(parts) >= 2 and parts[0] == "modules":
                 consumed.add(parts[1])
+                consumed_files.setdefault(parts[1], []).append(tool_file)
             kind, note, tv, pv = compare(tool_file, rel, is_blueprint, is_declared,
                                          tool_ver, True)
             emit(kind, name, tool_dir, tool_file, rel, note, tv, pv, is_declared)
@@ -818,6 +859,23 @@ def main() -> int:
             mod_dir = tool_dir / "src" / "modules" / mod
             if mod_dir.is_dir():
                 consumed.add(mod)
+            # **脚本形态采纳**（lead 2026-09-19 裁定 (B)）：模块代码以 `src/<name>.py`
+            # **就地**被采纳（头部通道消费过它），且工具侧**没有** `src/modules/<mod>/`
+            # ——那它就不是"导入包"，`__init__.py` 与 `README.md` 都**不是缺口**，
+            # 不报 [MISSING-FILE]，改报一条 [script] 说明。
+            # 为什么不能一律要求：实测把 `src/icons.py` 移进 `src/modules/icons/` 后以
+            # **脚本**方式运行会炸 `ModuleNotFoundError: No module named 'modules'`
+            # ——`from modules.appconfig import ...` 依赖所在深度，模板 docstring 那句
+            # "与本模块所在深度无关"**只对 ICON_ASSET 的路径解析成立**。为纯形态收益给
+            # 一个 shipped 模块加 sys.path 兜底 = 引入复杂度换零功能（三家现在都能跑且
+            # 代码逐字节一致）。
+            script_form = is_script_form_adoption(mod, consumed, consumed_files,
+                                                  mod_dir.is_dir())
+            if script_form:
+                paths = ", ".join(sorted({f.relative_to(tool_dir).as_posix()
+                                          for f in consumed_files[mod]}))
+                print(f"[script] {name}: modules/{mod}/ 以**脚本形态就地采纳**（{paths}）"
+                      f"—— 不要求 __init__.py / README.md（本模块不作导入包使用）")
             # 模块级申报：该工具模块目录里任一 .py 带 TEMPLATE-LOCAL-OVERRIDE，
             # 即视整模块为有意分叉；其 README 差异随之记 [decl] 而非 [DIFF]。
             # 记下**申报来源文件名**，输出里带上，便于与"漏拷"一眼区分。
@@ -835,6 +893,10 @@ def main() -> int:
                     # 模块已被采纳（有目录或头部通道消费了它的其它文件），却缺这一件
                     # → [MISSING-FILE] 黄灯。整个模块都没采纳的交给 [MISSING-MODULE]，
                     # 避免同一件事报两遍刷屏。
+                    # **例外：脚本形态采纳**——代码以 `src/<name>.py` 就地使用，
+                    # `__init__.py`/`README.md` 不是缺口（[script] 已单独说明）。
+                    if script_form:
+                        continue
                     if mod in consumed and tpl_rel not in compared_rels:
                         miss_file.append((name, tpl_rel))
                         print(f"[MISSING-FILE] {name}: 缺 {TEMPLATE_DIR.name}/{tpl_rel}"
