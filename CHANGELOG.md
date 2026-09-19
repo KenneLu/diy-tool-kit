@@ -2,6 +2,40 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-2 lands as a mechanism; C-37 asserts it by measurement; two escape corruptions found)
+
+- **C-2: "don't delete the running instance" stops being a discipline and becomes kernel-enforced.**
+  `modules/paths/paths.py` **1.1.4** gains `hold_no_delete(path)` and `hold_exe_delete_guard(log=print)`:
+  a handle opened **without `FILE_SHARE_DELETE`**. Measured by helpers-dev and reproduced here:
+  `unlink` and `rmtree(<release dir>)` = **winerror 32**, `rename(<parent>)` = **winerror 5**, and the
+  no-handle control **succeeds**. The failure direction is **loud** instead of "silently hollow out the
+  directory while the instance is running in it". Lifetime = process lifetime (deliberately never closed,
+  so no `finally` is needed). Hard requirements: taken **early, before any tray/window**; **fails open**
+  (D3.2); **skipped in dev mode** (a handle on `python.exe` protects nothing).
+  ⚠️ Boundary written into the clause: **an in-use marker inside the directory is detection only, never
+  protection** — the marker sits *inside* the directory a blind delete removes, so it goes with it.
+- **C-37 asserts the primitive by measurement, not by prose.** A new template-channel FAIL check:
+  static half (the functions exist **and** the README declares `<!-- MUST-WIRE: hold_exe_delete_guard -->`
+  — without it the four tools copy the code and never call it, which is exactly what C-27 exists for)
+  plus a **property half** run on a temp file: while the handle is held, `unlink` and `rmtree(parent)`
+  **must fail**; after release, `unlink` **must succeed** (the discriminating control — without it an
+  implementation that can never open anything would pass). Selftest adds a **power sample**: a primitive
+  with a share mode that **permits** deletion **must be caught** — a wrong share mode is invisible in the
+  source, and only a real `unlink` can tell.
+- **Two escape corruptions found in the docs, and my own byte check is why they hid.**
+  `STANDARDS.md:492` held `System32<0x0c>ind.exe` (should be `System32\find.exe` — the row that
+  documents the GNU-`find`-shadows-PATH pitfall, rewritten by the very pit it documents), and
+  `CONFORMANCE.md` held `%TEMP%<0x0d>eme-helper-builddata` (should be `%TEMP%\reme-helper-builddata`).
+  Both repaired **byte-wise**. The second exposed a gap in the check I had just written: it counted
+  `CRLF` and lone `LF` and **never counted a lone CR** — so "mixed line endings" could hide in plain
+  sight while the numbers said clean. §D7-10's EOL rule now demands all three counts.
+  (Both were found only because a *comparable* claim existed — `ALIGNMENT §0`'s "0 occurrences of exotic
+  whitespace" — which is the whole point of writing zero-claims down.)
+- Also: **C-29 gains two "don't judge" samples** — `log=` given a *path* (`log_path`, `HELPER_UPDATE_LOG`)
+  must be `[ok]`; those are l-s2t/reme's real shapes and flagging them is a false red. And two missing
+  index rows were added to `CONFORMANCE §5.1` (**C-36 had never been registered there** — an index
+  blind spot, this time mine).
+
 ## 2026-09-19 (C-30 leg B widened a second time; [BROKEN] tier; two of my own readings corrected)
 
 Three corrections, all from the lead relaying the reviewer's measurements — and **two of them are

@@ -1,5 +1,20 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.2
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.3
+# 1.9.3：① **新增 C-37（模板通道，FAIL）= C-2 拒绝删除句柄**：静态半（`paths.py` 提供
+#   `hold_no_delete` / `hold_exe_delete_guard` + README 的 `<!-- MUST-WIRE -->`，否则四家
+#   拷走了也**没人调用**）+ **性质半**（用临时文件实测：持句柄时 `unlink` / `rmtree(父目录)`
+#   **必须失败**，释放后 `unlink` **必须成功**这个判别控制）。自检另加**判别力样本**：
+#   把共享位写成 `…|FILE_SHARE_DELETE`（允许别人删）的原语**必须被抓住**——共享位写错在
+#   源码上完全看不出来，只能实测。
+#   ② **C-29 补两条"不下判"样本**：`log=` 后面给的是**日志路径**（`log_path` 变量 /
+#   `HELPER_UPDATE_LOG` 常量）时必须 `[ok]`（不下判）——l-s2t/reme 的真实形态，报红就是假红。
+#   ③ **顺手补两条已漏登记的索引行**：C-36 自 1.9.1 起实现，却一直没进 CONFORMANCE §5.1 表
+#   （"索引里缺条目本身就是盲区"——这次是**我自己**犯的）。
+#   ④ **另修两处转义损坏**（本轮实测发现，都是"描述这个坑的文本自己踩坑"）：
+#      `STANDARDS.md:492` 的 `System32<0x0c>ind.exe`（应为 `System32\find.exe`）、
+#      `CONFORMANCE.md` 的 `%TEMP%<0x0d>eme-helper-builddata`（应为 `%TEMP%\reme-helper-builddata`）。
+#      **第 ④ 条还暴露了我的字节检查不完整**：只数了 `CRLF` 与"孤立 LF"，**从没数过孤立 CR**
+#      ——"混合行尾"可以整整齐齐地藏在那个盲区里（本轮就是这么藏的）。
 # 1.9.2：**腿 B 按复核员的实测再放宽一次 + 扫描面口径修正**（lead 转达复核员取证后裁定）：
 #   ① **不再要求 `config.json`、不设深度上限**：旧签名（config 在 ≤1 层 + 顶层下存在 `*.log`）
 #      抓不到 `tmp.6FcrxXYxmM\d\local-speak2text`（3 层、只有 `log/`）这类真实残留。
@@ -2276,6 +2291,93 @@ def c36_template(c: Ctx):
                 % (len(samples), samples[0].relative_to(c.dir).as_posix(), detail))
 
 
+# ---------------------------------------------------------------- C-2 / C-37
+# C-2 = **活实例对自己的 exe 持一个"拒绝删除"句柄**（lead 2026-09-19 批准，helpers-dev 实测）。
+# 它把"别删正在运行的实例目录"从**纪律**升级成**内核强制**：持句柄时 `unlink` /
+# `rmtree(父目录)` / `rename(父目录)` 全部失败（winerror 32 / 32 / 5），失败方向是
+# **大声失败**而不是静默掏空目录——后者正是 2026-09-19 那次事故的形态。
+# 判据分两半，缺一不可：
+#   **静态半**：模板 `paths.py` 必须提供原语，且 README 必须有 MUST-WIRE 声明
+#              （否则四家拷走了也**没人调用**——那正是 C-27 存在的理由）；
+#   **性质半**：**实测**原语真的挡得住（不是"注释里说它能挡"）。用临时文件，不碰真 exe。
+def c2_property(hold_no_delete):
+    """性质断言（返回 `(ok, detail)`）：持句柄时 `unlink` 与 `rmtree(父目录)` **必须失败**。
+
+    **判别控制**：还断言"释放句柄后同一个 `unlink` **必须成功**"——没有这一半，
+    一个"永远打不开任何文件"的实现也能通过前一半（判据就没有区分力）。
+    """
+    import ctypes
+    import shutil
+    import tempfile
+
+    d = Path(tempfile.mkdtemp(prefix="c37_c2_"))
+    try:
+        f = d / "victim.exe"
+        f.write_bytes(b"MZ")
+        h = hold_no_delete(f)
+        if not h:
+            return False, "原语返回空句柄——拿不到句柄就无从验证性质"
+        blocked = []
+        for label, fn in (("unlink", f.unlink), ("rmtree(父目录)", lambda: shutil.rmtree(d))):
+            try:
+                fn()
+                blocked.append("%s=**未被挡住**" % label)
+            except OSError as exc:
+                blocked.append("%s=winerror %s" % (label, getattr(exc, "winerror", None)))
+        ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(ctypes.c_void_p(h))
+        try:
+            f.unlink()
+            after, released_ok = "释放后 unlink 成功（控制组）", True
+        except OSError as exc:
+            after = "释放后 unlink **仍失败** winerror %s（控制组不成立）" % getattr(exc, "winerror", None)
+            released_ok = False
+        ok = released_ok and all("winerror" in b for b in blocked)
+        return ok, "持句柄时 %s；%s" % ("，".join(blocked), after)
+    finally:
+        if not _rmtree_strict(d):        # C-30：删完回读，判据自己不许留残留
+            return False, "临时目录未清掉（判据自己泄漏）：%s" % d
+
+
+@template_check("C-37", "FAIL", "C-2 拒绝删除句柄：原语在位 + 删除必须被内核挡住（性质实测）")
+def c37_template(c: Ctx):
+    """静态半（原语 + MUST-WIRE）+ 性质半（真的挡得住）——两半都过才算过。
+
+    **为什么性质半不能省**：`hold_no_delete` 的全部价值在于"内核会不会拒绝"，
+    而那是**运行时事实**；共享位写错（比如顺手带上 `FILE_SHARE_DELETE`）在源码上
+    完全看不出来，只有真的去 `unlink` 一次才知道。这正是"能实测的就别推断"。
+    """
+    py = c.dir / "modules" / "paths" / "paths.py"
+    rd = c.dir / "modules" / "paths" / "README.md"
+    missing = []
+    if not py.is_file():
+        return False, "扫描面：%s 不存在" % py
+    src = py.read_text(encoding="utf-8", errors="replace")
+    for name in ("def hold_no_delete", "def hold_exe_delete_guard"):
+        if name not in src:
+            missing.append("paths.py 缺 %s" % name)
+    if not rd.is_file() or "<!-- MUST-WIRE: hold_exe_delete_guard -->" not in rd.read_text(
+            encoding="utf-8", errors="replace"):
+        missing.append("README 缺 `<!-- MUST-WIRE: hold_exe_delete_guard -->`（没有它，四家拷走了也没人调用）")
+    if missing:
+        return False, "扫描面：%s / %s | %s" % (py.name, rd.name, "；".join(missing))
+    import importlib
+    import sys as _sys
+    _sys.path.insert(0, str(c.dir))
+    try:
+        paths = importlib.import_module("modules.paths.paths")
+    except Exception as exc:                        # noqa: BLE001
+        return False, "import 模板 paths.py 失败（判不了，不猜）：%r" % (exc,)
+    ok, detail = c2_property(paths.hold_no_delete)
+    ctx = ("扫描面：%s 的 hold_no_delete（真实现，不重写）+ README 的 MUST-WIRE | 性质实测：%s"
+           % (py.relative_to(c.dir).as_posix(), detail))
+    if ok:
+        dev_ok = paths.hold_exe_delete_guard(log=lambda _m: None) is False
+        if not dev_ok:
+            return False, ctx + " | dev 态（未冻结）本应**跳过并放行**，实测却没有"
+        ctx += " | dev 态跳过并放行（D3.2 失败方向）"
+    return ok, ctx
+
+
 # ---------------------------------------------------------------- C-31
 # 派发件 = 会被"整文件夹"拷进四个工具的模块内容（`modules/<模块>/` 下的 .py/.md）。
 # 模板专属件不在其列：`build_release/`（模板自己的构建工具）与 `baseline/`（历史件）。
@@ -2667,6 +2769,17 @@ def selftest() -> int:
              "def log(message):\n    pass\n\n\ntray_kit.acquire_single_instance(log=log)\n", False),
             ("single_arg_unused_ok",
              "def log(message):\n    pass\n\n\nx = 1\n", True),
+            # **值不是函数**这一类必须**不下判**（而非报红）：l-s2t `updater.py:277` 与
+            # reme 的真实形态是 `log=` 后面给**日志文件路径**（`log_path` / 常量
+            # `HELPER_UPDATE_LOG`）。把它们当"单参 log"报红就是假红——判据只能判
+            # "工具内自己定义的那个函数"，别的一律不下判（宁可漏，不造假红）。
+            ("path_value_not_a_function_ok",
+             "HELPER_UPDATE_LOG = UPDATE_DIR / 'update.log'\n\n\n"
+             "update_helper.download_and_prepare(latest, APP_DIR, UPDATE_DIR,\n"
+             "                                   log=HELPER_UPDATE_LOG)\n", True),
+            ("local_path_var_as_log_ok",
+             "log_path = UPDATE_DIR / 'helper.log'\n\n\n"
+             "update_helper.pop_failed_update_note(UPDATE_DIR, log=log_path)\n", True),
         )
         for name, main_src, want in c29_cases:
             d = base / ("c29_" + name) / "src"
@@ -2932,6 +3045,25 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-31 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-37（C-2）：性质判据的**判别力**自证——一个"共享位写错"的原语必须**不通过**。
+        # 真原语用 `FILE_SHARE_READ|WRITE`（不给 DELETE）；下面这条**故意**带上
+        # `FILE_SHARE_DELETE`（= 允许别人删），于是 unlink 会成功 ⇒ 性质断言必须失败。
+        # 这正是"能实测的就别推断"：共享位写错在源码上完全看不出来。
+        def _permissive_hold(path):
+            import ctypes
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.CreateFileW.restype = ctypes.c_void_p
+            h = k32.CreateFileW(str(path), 0x80000000, 0x1 | 0x2 | 0x4, None, 3, 0, None)
+            return None if not h or h == ctypes.c_void_p(-1).value else h
+
+        _c37_real = c2_property(_permissive_hold)
+        good = _c37_real[0] is False
+        failed += 0 if good else 1
+        print("[selftest] %s  C-37 判别力 %s: ok=%s（want False）| %s"
+              % ("PASS" if good else "FAIL", "permissive_share_is_caught",
+                 _c37_real[0], _c37_real[1][:110]))
+
 
         # [BROKEN]：**检查自身出错**必须独立成一档——不计 FAIL、不被 WARN 咽掉、并进退出码。
         # 用一条**故意抛异常**的判据作样本（历史实例：`check_md_tabs` 头上留着 `@check`，
