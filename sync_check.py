@@ -462,6 +462,13 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
 
         参数按**位置**逐位比（忽略大小写），因为顺序本身就是要判的东西：
         `"%TARGET%" "%SNAPSHOT%"`（快照）与 `"%SNAPSHOT%" "%TARGET%"`（回铺）是两条不同的行。
+
+        ⚠️ **已知未归一的第三条轴：变量名。** 本选择器与调用方传进来的参数字面量里含
+        `"%TARGET%"` / `"%STAGE%"` / `"%SNAPSHOT%"`——**前缀与大小写已归一，变量名没有**。
+        reme 的真实 bat 用的是 `%INSTALL%`（`reme-helper/src/main.py:7233` 一带），
+        所以若模板哪天与 reme 的变量名收敛，这些锚点会**全部失配**。
+        **失败方向是响的**（`before()` 任一侧 None 即 False ⇒ 变红，不会静默变绿），
+        所以这是**登记项不是缺陷**；真到那天请**把这条轴也归一，不要放宽断言**。
         """
         for i, ln in enumerate(cmds):
             c, a = _split_cmd(ln)
@@ -905,9 +912,18 @@ def _apply_bat_runtime_cases():
         # 绝对路径（`%SystemRoot%\System32\Robocopy.exe`）之后就一条都选不到，`[0]` 直接
         # IndexError。这是"锚拼写"同一个病的第五处——前四处是 21 条判据里的三处分类器锚点
         # 与两处次序锚点。
-        copy_line = [l for l in text2.splitlines()
-                     if _split_cmd(l.strip())[0] == "robocopy"
-                     and "%STAGE%" in l and "%TARGET%" in l][0]
+        candidates = [l for l in text2.splitlines()
+                      if _split_cmd(l.strip())[0] == "robocopy"
+                      and "%STAGE%" in l and "%TARGET%" in l]
+        if not candidates:
+            # 具名失败，不用 `[0]`：`IndexError: list index out of range` 不告诉任何人
+            # **是哪条轴**失配，而这里已知至少还有第三条轴没归一。
+            raise AssertionError(
+                "E-runtime：按命令名选不到 STAGE→TARGET 那条 robocopy。"
+                "本选择器用的是 `%STAGE%`/`%TARGET%` **字面量**——与 idx_cmd / 变异 lambda 同轴。"
+                "若哪天变量名与 reme（`%INSTALL%`）收敛，这里会先响：那时**把这条轴也归一，"
+                "不要把断言放宽**。")
+        copy_line = candidates[0]
         text2 = text2.replace(copy_line, "goto install_failed")
         bat2 = base / "apply2.bat"
         try:
