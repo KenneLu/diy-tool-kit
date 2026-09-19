@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.6
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.7
+# 1.9.7：**新增 C-41**（FAIL）= 退出确认的「链路不可用」分支必须固定为**不停服务**（不得沿用已存勾选）——判据只看降级分支，**原生框那一支不算**；
+#   实测模板 + 四家全绿（今天无违规，立判据是为了防 `tray_kit` 统一之后长回去），自证 5 条腿。
 # 1.9.6：**新增 C-40**（FAIL）= 版本目录 ↔ 自启目标必须一致（强断言）+ 孤儿版本目录必须两栏登记（WARN）；读**磁盘 + 注册表**，纯函数 + 可注入 `path_exists` （样本不受活状态污染），自证 6 条。
 #   **实测：dsh = FAIL**（源码 VERSION=1.8.1 而 Run 键指着 `release\dsh-helper-1.8.2\`）。
 # 1.9.5 三条：
@@ -2889,6 +2891,103 @@ def c40(c: Ctx):
     return (ok, detail) if sev is None else (ok, detail, sev)
 
 
+# ---------------------------------------------------------------- C-41
+# **退出确认的"链路不可用"分支，必须固定为"不停服务"**（lead 2026-09-19 定，源头是他批错过一处）。
+# 理由一句话：**那个勾选是用户在"有确认框"的语境下保存的；链路坏掉时用户根本没被问过**。
+# 若沿用，就变成 **"辅助机制坏掉 ⇒ 在无人确认的情况下停掉用户正在用的服务"**——正是本轮的母题。
+# 标准形态 = dsh/ocx 的**硬编码 `False`**；reme 与 l-s2t 原本按已存配置走，已改（并在原地留下"曾偏离"）。
+# **为什么现在就要写成判据**：将来 `tray_kit` 要做统一形态，**统一之后极容易长回去**——
+#   判据立在这里，统一件落地那天它自己就会被验。
+#
+# **可判性**：只看**降级分支**（`except` 处理器 + `if <x> is None:` 分支）里那段"喂给退出决策"
+#   的语句；若它**读持久化配置**（`CFG`/`cfg`/`load_config_dict`/`config` 任一）**并且**涉及
+#   破坏性开关键（`quit_stop*`/`quit_apply*`/`stop_tunnels`/`stop_reme`/`stop_service`）⇒ 红。
+#   **原生框那一支不算**：那时用户**确实被问到了**（只是没有勾选框）⇒ 按已存配置走是合法的，
+#   两条分支因此保持可分（与 reme 代码里的注释同一条口径）。
+_QUIT_FUNC_RE = re.compile(r"quit", re.I)
+_DESTRUCTIVE_QUIT_KEYS = ("quit_stop", "quit_apply", "stop_tunnels", "stop_reme",
+                          "stop_service", "stop_dsh")
+_CONFIG_READ_TOKENS = ("CFG", "cfg", "load_config_dict", "config")
+_QUIT_BRANCH_NOTE = ("降级分支不得沿用已存勾选：**用户这次没被问过** —— "
+                     "\"没问到\"与\"用户选了\"必须分开")
+
+
+def _quit_stmt_feeds_decision(node) -> bool:
+    """这条语句是否在决定"退出时动不动服务/应用更新"。"""
+    if isinstance(node, ast.Return):
+        return True
+    if isinstance(node, ast.Assign):
+        for t in node.targets:
+            for n in ast.walk(t):
+                if isinstance(n, ast.Name) and re.search(r"stop|quit", n.id, re.I):
+                    return True
+    return False
+
+
+def _reads_destructive_config(node) -> bool:
+    seg = ast.unparse(node)
+    return (any(k in seg for k in _DESTRUCTIVE_QUIT_KEYS)
+            and any(c in seg for c in _CONFIG_READ_TOKENS))
+
+
+def check_quit_fallback(root: Path, sub: str = "src"):
+    """见上方注释。返回 `(ok, detail)`；扫描面 = `<sub>/**/*.py`。"""
+    base = root / sub
+    if not base.is_dir():
+        return True, "扫描面：无 %s/（判据不适用）" % sub
+    bad, funcs, branches = [], 0, 0
+    for f in sorted(base.rglob("*.py")):
+        if any(part in _PY_SKIP_DIRS for part in f.parts):
+            continue
+        try:
+            tree = ast.parse(_masked_code_text(f.read_text(encoding="utf-8", errors="replace")))
+        except (OSError, SyntaxError):
+            continue
+        rel = f.relative_to(root).as_posix()
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not _QUIT_FUNC_RE.search(fn.name):
+                continue
+            funcs += 1
+            # ① 降级链里的 except 处理器
+            for h in [n for n in ast.walk(fn) if isinstance(n, ast.ExceptHandler)]:
+                for st in h.body:
+                    branches += 1
+                    if _quit_stmt_feeds_decision(st) and _reads_destructive_config(st):
+                        bad.append("%s:%d `%s()` 的 `except` 分支用**已存配置**决定是否停服务/应用更新"
+                                   "（`%s`）" % (rel, st.lineno, fn.name,
+                                                 ast.unparse(st).strip()[:60]))
+            # ② `if <x> is None:` 这一支（"链路不可用"的显式写法）
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.If) or "None" not in ast.unparse(node.test):
+                    continue
+                for st in node.body:
+                    branches += 1
+                    if _quit_stmt_feeds_decision(st) and _reads_destructive_config(st):
+                        bad.append("%s:%d `%s()` 的 `if %s` 分支用**已存配置**决定是否停服务/应用更新"
+                                   "（`%s`）" % (rel, st.lineno, fn.name,
+                                                 ast.unparse(node.test).strip()[:30],
+                                                 ast.unparse(st).strip()[:60]))
+    if bad:
+        return False, ("%d 处：%s。【为什么是硬违规】%s。辅助机制坏掉**不得**触发破坏性动作"
+                       "——`False` 是**硬编码**的那一侧，与 dsh/ocx 的 `return True, False` 同形"
+                       % (len(bad), "；".join(bad[:4]), _QUIT_BRANCH_NOTE))
+    return True, ("扫描面：%s/**/*.py；退出相关函数 %d 个、降级分支 %d 处，**无一处沿用已存勾选**"
+                  "（%s）" % (sub, funcs, branches, _QUIT_BRANCH_NOTE))
+
+
+@check("C-41", "FAIL", "退出确认的「链路不可用」分支必须固定为不停服务（不得沿用已存勾选）")
+def c41(c: Ctx):
+    """见上方注释。**原生框那一支不算违规**（那时用户确实被问到了）。"""
+    return check_quit_fallback(c.dir)
+
+
+@template_check("C-41", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+def c41_template(c: Ctx):
+    return check_quit_fallback(c.dir, "modules")
+
+
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
@@ -3855,6 +3954,53 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-40 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, _detail[:90]))
+
+        # C-41（2026-09-19，lead 立）：**降级分支不得沿用已存勾选**。
+        # 四格两红两绿，另加一格"**合法的原生框那一支**"必须放行（否则就成了"凡读配置就报"）。
+        c41_cases = (
+            ("fallback_literal_false_ok",
+             "def on_quit():\n"
+             "    try:\n"
+             "        choice = confirm()\n"
+             "    except Exception:\n"
+             "        return True, False\n", True),
+            ("fallback_reuses_saved_checkbox_flagged",
+             "def on_quit():\n"
+             "    try:\n"
+             "        choice = confirm()\n"
+             "    except Exception:\n"
+             "        return True, bool(CFG.get('quit_stop_tunnels', False))\n", False),
+            ("none_branch_literal_false_ok",
+             "def on_quit():\n"
+             "    choice = decide()\n"
+             "    if choice is None:\n"
+             "        stop_tunnels = False\n"
+             "        return True, stop_tunnels\n", True),
+            ("none_branch_reuses_config_flagged",
+             "def on_quit():\n"
+             "    choice = decide()\n"
+             "    if choice is None:\n"
+             "        stop_tunnels = bool(load_config_dict().get('quit_stop_tunnels', False))\n"
+             "        return True, stop_tunnels\n", False),
+            # 反向格：**原生框那一支**（在 try 体内）按已存配置走是合法的
+            # ——那时用户**确实被问到了**，只是没有勾选框（与 reme 代码里的注释同一条口径）。
+            ("native_fallback_in_try_body_ok",
+             "def on_quit():\n"
+             "    try:\n"
+             "        choice = confirm()\n"
+             "    except Exception:\n"
+             "        choice = {'go': True, 'stop': bool(CFG.get('quit_stop_tunnels', False))}\n"
+             "    return choice\n", True),
+        )
+        for name, body, want in c41_cases:
+            d = base / ("c41_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(body, encoding="utf-8")
+            ok, detail = check_quit_fallback(base / ("c41_" + name))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-41 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；

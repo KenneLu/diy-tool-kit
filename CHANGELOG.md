@@ -2,6 +2,43 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-41: the "link unavailable" fallback must not reuse the saved checkbox)
+
+- **C-41 (FAIL, tool channel + template channel).** The lead corrected two tools on the source
+  question, so the rule is now a criterion: **the "confirm dialog unavailable" branch must be fixed
+  to "do not stop the service"; it must not reuse the user's persisted checkbox.** The reason, in one
+  line: **the checkbox was saved in a context where a dialog existed; when the link is broken the
+  user was never asked.** Reusing it turns "an auxiliary mechanism broke" into "the user's running
+  service is stopped without anyone confirming" — the theme of this whole round.
+  * **Standard form** = dsh/ocx's hardcoded `False` (`return True, False`, two branches each).
+    **reme and l-s2t originally followed the stored config**; both were corrected, and both **kept
+    the history of having deviated** in place (reme's comment records "the old behaviour followed
+    the saved config ... the lead withdrew that approval on 2026-09-19"; l-s2t's `_confirm_quit`
+    docstring records the same clause).
+  * **Why write the criterion now rather than later**: `tray_kit` is due to provide a unified form,
+    and **a unified form is exactly where this grows back**. The criterion sits here, so the day
+    that lands it gets verified by itself.
+  * **Decidable form**: only the **fallback branches** are judged (`except` handlers and
+    `if <x> is None:` bodies). A statement that feeds the quit decision **and** reads persisted
+    config **and** touches a destructive key (`quit_stop*` / `quit_apply*` / `stop_tunnels` /
+    `stop_reme` / `stop_service`) is red. **The native-dialog branch is not a violation** — there the
+    user *was* asked (there is just no checkbox), which is why the criterion judges **per branch,
+    not per file**.
+  * **Measured**: template `modules/**` (3 quit-related functions, 6 fallback branches) and all four
+    tools (6/7/6/8 functions; 21/16/21/19 branches) are **all `[ok]`** — nothing is wrong today; the
+    criterion exists to keep the unified form from reintroducing it. **Five self-test legs**, two of
+    them reverse cells (literal `False` in each shape ⇒ green; the **native branch reading config
+    inside the `try` body ⇒ green**).
+- **The declaration template gains a two-sentence rule (ls2t-dev's precise distinction).**
+  What expires is **two different things** and they must be written separately:
+  **content identity** (e.g. `f81a5922e2d8`) **is not wrong** — it identifies exactly that content
+  and, *as a name, never expires*; the **binding assertion** ("**= what is on disk now**") is
+  **time-bound** and becomes false the moment something changes. ⇒ Declare in two sentences:
+  *"compared with `<old rev>`, only `X` changed — **new value N**"* (identity) plus *"**N is
+  authoritative** (nothing has changed since)"* (assertion). Benefit: **"the old value is void" now
+  has a clear object — the assertion is void, not the identity** — and nobody will read "the hash is
+  void" as "that hash was computed wrong".
+
 ## 2026-09-19 (C-40: version directory vs autostart target; plus three escape corruptions repaired)
 
 - **C-40 (FAIL), proposed by ls2t-dev, corrected twice by the lead.** It turns a discipline
