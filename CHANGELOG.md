@@ -2,6 +2,43 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-44: bare-name external commands in bats; PATH hands you a different program)
+
+- **C-44 (FAIL, tool + template channel).** In `.bat`/`.cmd`, a **closed set of 8 commands**
+  (`find` / `findstr` / `ping` / `tasklist` / `robocopy` / `where` / `reg` / `timeout`) must be called
+  by **absolute path**, never by bare name. The mechanism (reme-dev hit it): on this machine
+  **`where find` resolves to Git's `usr/bin/find.exe`**, ahead of System32 — the wait loop used
+  `find /i "{exe}" file` to decide "is the old process still there", and **GNU `find` treats
+  `smss.exe` as a filename and returns non-zero**, so the loop concluded "already exited" every time
+  and went on to overwrite an exe **that was still running** (locked file, then robocopy's default
+  million retries). `ping` is the same trap (GNU's `-n` means numeric, not count). **Same root as
+  `dev/null`: the environment quietly supplies a program with the same name and different semantics,
+  the code takes the wrong branch, and nothing reports an error.**
+  * **Only the command position is judged** (line start, or the first token after `|`/`&`/`(`/`^`,
+    including the `for /f ('cmd')` inline form); `rem`/`::` lines are exempt; a token containing a
+    path separator counts as absolute. So prose that mentions `find`/`ping` (as `update_helper`'s
+    `rem` block does at length) is not flagged.
+  * **Measured: 17 sites** — template 3 (`build_release/build.bat:48`, `:171`, `release.bat:10`),
+    dsh 2, l-s2t 5, ocx 2, reme 5 — **all of them `findstr` / `tasklist` / `robocopy`**.
+  * **Calibration measured with `where`**: **only `find` and `timeout` are actually shadowed** here
+    (Git's `usr/bin` first); the other six currently resolve to System32. So today's 17 sites are
+    **latent** rather than live — but **PATH order is not ours to assume**, which is exactly
+    discipline (12), so the criterion keeps the whole closed set.
+  * **Five self-test legs**: bare name => red; absolute path => green; a mention inside `rem` =>
+    green; the `for /f ('findstr ...')` form => red; a non-closed-set command => green.
+- **The template's `update_helper` needs nothing here, and that is measured rather than assumed**: its
+  rendered `apply.bat` already calls the System32 paths for `tasklist.exe`, `find.exe`, `Robocopy.exe`
+  and WindowsPowerShell, with **zero bare-name hits**, and no `ping` remains. **C-33 and C-44 are
+  independent** (one governs *ping-as-a-tick*, the other *bare-name resolution*); neither substitutes
+  for the other, and each scans and reports on its own.
+- **Discipline (12)**: **the resolution of any external name a criterion or program depends on changes
+  with the environment (PATH order, same-named tools). Anything depending on an external name must
+  either pin an absolute path, or it is handing the branch decision to the environment.** Filed next
+  to discipline (11) — that one says *two layers sharing one transformation err together*, this one
+  says *the startup environment silently swaps your branch*; both are "a factor outside the code
+  quietly changed the execution path".
+
+
 ## 2026-09-19 (C2 landing moved to `tray_kit`; the evidence-swallowed-by-return family, third instance)
 
 - **C2's home changes from `paths.py` to `modules/tray_kit/tray_kit.py`** (the lead withdrew the
