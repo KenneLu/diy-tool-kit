@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.18
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.19
+# 1.9.19：**W6 独立复核后的三处判据修正**（登记见 CONFORMANCE §4.1 F）：
+#   ① **新增 C-47（FAIL）**= 派发件头不得用被禁形态 `TEMPLATE-MODULE` —— C-19 的 `and` 链
+#      反把它列为合法形态 ⇒ R1 §2.1 那 13 处 `MODULE→FROM` 修复**没有任何守卫**（回归不会红）。
+#      自证 3 腿（判别力格 = 旧谓词必漏 / 两条反向格 = 别误伤 FROM 与 LOCAL-OVERRIDE）。
+#   ② **修 C-06 空真**（§4.1 F-2）= 只看**命令位置**：新增 `_strip_bat_prose` 剔 `rem`/`::`/`echo` ——
+#      旧实现是纯 token 存在性，**reme 被自己的注释与错误提示骗绿**（删掉真拷贝行仍报"均随包"）。
+#      自证 2 腿（红格 = 只有散文时必须红）。
+#   ③ **修 C-46 分母**（§4.1 F-4）= `src/modules/**/*.md` **不计入构建输入**（是给人读的派发件，
+#      不是 PyInstaller 打包输入）⇒ **只改文档不再误报"过期"**；自证 1 腿（含同目录 `.py` 反向格）。
+#   ④ **登记但明确不改**：C-44 段首盲区（§4.1.56 —— 无真实案例 + 改动有假红风险）；
+#      **驳回**"恢复横幅 `head:`"（§4.1.57 —— 那是任务 #58 的有意设计，差异 ≠ 回退）。
 # 1.9.18：l-s2t 孤儿登记补「键名口径 = APP_NAME 非 APP_ID」+ 采集时点（§4.1.53）；纯登记文案，无判据行为变更。
 # 1.9.17：C-46 的「过期」WARN 消息内联声明**本轮不重建 ⇒ 预期读数**（防下一个人去追它 / 去构建）；纯文案，无行为变更。
 # 1.9.16：**C-40 选键改为「路径优先、键名兜底」**（§4.1.53/§4.1.54）= 家族 Run 键名无单一契约（模板 autostart 用 APP_NAME / reme 内联用 APP_ID），只认键名必漏一半；路径腿枚举全表、命中「值路径落在本工具仓库根或稳定安装位之下」，键名腿兜底 dev 态，且**打印实际走的哪条腿**。自证 5 条腿（两条正样本 + 外来项反向格）。
@@ -545,12 +556,44 @@ def c05(c: Ctx):
     return (not problems), "; ".join(problems) if problems else "两份切换行格式正确"
 
 
+def _strip_bat_prose(text: str) -> str:
+    """丢掉 bat 里**不执行**的行：`rem`/`::` 注释与 `echo` 输出。
+
+    **为什么需要**：判据若在全文找 token，就会被"说明这件事"的散文骗绿 ——
+    `rem`/`echo` 行含同样的字面量，但它们**不执行任何动作**。与 §4.1.37
+    （判据读散文 ⇒ 判据自己判自己红）同族，方向相反：这里散文让判据**假绿**。
+    **"提到"与"执行"必须分开。**
+    ⚠ 边界：`echo … >> file` 会真写文件，但那是**输出文本**而非**复制动作**，
+    本判据问的是"有没有把 README 拷进 release"，故一并排除（保守侧：宁可在
+    `echo` 里漏判，也不要被注释骗绿——漏判可由门禁输出行兜住，假绿不能）。
+    """
+    out = []
+    for ln in text.splitlines():
+        s = ln.strip()
+        low = s.lower()
+        if not s or low == "rem" or low.startswith("rem ") or low.startswith("rem\t") \
+                or s.startswith("::") or low.startswith("echo"):
+            continue
+        out.append(ln)
+    return "\n".join(out)
+
+
 @check("C-06", "WARN", "两份 README 都随 release 复制（DOC-05）")
 def c06(c: Ctx):
+    """只看**命令位置**：排除 `rem`/`::` 注释行与 `echo` 行。
+
+    旧实现是 `"README.zh-CN.md" in text`（纯 token 存在性）⇒ **reme 被自己的注释与
+    错误提示骗绿**：删掉 `scripts/build.bat:370-371` 的真拷贝行后，`:366` 的
+    `rem Both READMEs ship: … README.zh-CN.md …` 与 `:371` 的
+    `echo [ERROR] README.zh-CN.md was not copied…` 仍含该字面量 ⇒ 判据照旧报"均随包"
+    （verifier 2026-09-19 用纯字符串变异实测，dsh/ocx/l-s2t 同变异**转红**=负控通过，
+    只有 reme 空真）。与 C-44「只看命令位置」同一手法：**提到 ≠ 执行**。
+    """
     text = c.build_blob
     if not text:
         return False, "找不到 build.bat"
-    has_zh = "README.zh-CN.md" in text
+    body = _strip_bat_prose(text)
+    has_zh = "README.zh-CN.md" in body
     return has_zh, ("build.bat 未复制 README.zh-CN.md" if not has_zh else "两份 README 均随包")
 
 
@@ -925,6 +968,27 @@ def c19(c: Ctx):
                 and "TEMPLATE-LOCAL-OVERRIDE" not in head:
             missing.append(p.relative_to(c.dir).as_posix())
     return (not missing), ("无模板头: " + ", ".join(missing)) if missing else "模板件头部齐全"
+
+
+@check("C-47", "FAIL", "派发件头不得用被禁形态 `TEMPLATE-MODULE`（已被 `TEMPLATE-FROM` 取代）")
+def c47(c: Ctx):
+    """R1 §2.1 那 13 处 `# TEMPLATE-MODULE:` → `# TEMPLATE-FROM:` 的修复，**当时没有守卫**：
+    C-19 的判定串反而把 `TEMPLATE-MODULE` 列为合法形态（`"TEMPLATE-MODULE" not in head`
+    是它 `and` 链里的一项）⇒ **回归不会被任何判据抓住**（verifier 2026-09-19 复核发现，
+    §4.1 F-1）。本条把唯一被禁的形态独立成判据 —— 与 C-19 分工：C-19 管**有没有头**，
+    本条管**是不是被禁的那一种**（一条判据一个职责，改 C-19 的语义会混淆两件事）。
+    """
+    mods = c.src / "modules"
+    if not mods.is_dir():
+        return True, "无 src/modules/"
+    hits = []
+    for p in sorted(mods.rglob("*.py")):
+        if "TEMPLATE-MODULE" in c.read(p)[:4096]:
+            hits.append(p.relative_to(c.dir).as_posix())
+    if hits:
+        return False, ("仍用被禁形态 `TEMPLATE-MODULE`（应改为 `TEMPLATE-FROM`，§2.1）: "
+                       + ", ".join(hits))
+    return True, "无被禁头形态"
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -4719,6 +4783,46 @@ def selftest() -> int:
             print("[selftest] %s  C-45 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
+        # C-47（2026-09-19，verifier 复核发现）：**被禁头形态 `TEMPLATE-MODULE`**。
+        # 红格 = 判别力自证：旧 C-19 的 `and` 链把 MODULE 列为合法 ⇒ 回归抓不到；
+        # 两条反向格 = 别误伤合法形态（`TEMPLATE-FROM` / `TEMPLATE-LOCAL-OVERRIDE`）。
+        c47_cases = (
+            ("pos_banned_module_head", "TEMPLATE-MODULE", False),
+            ("neg_from_head_ok", "TEMPLATE-FROM", True),
+            ("neg_local_override_ok", "TEMPLATE-LOCAL-OVERRIDE", True),
+        )
+        for name, marker, want in c47_cases:
+            d = base / ("c47_" + name)
+            (d / "src" / "modules" / "m").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "modules" / "m" / "m.py").write_text(
+                "# %s: x\nX = 1\n" % marker, encoding="utf-8")
+            ok, detail = c47(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-47 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-06（2026-09-19，verifier 发现空真）：**只有 rem/echo 提到 ⇒ 必须红**。
+        # 红格 = 判别力自证（旧实现在这一格**假绿**，reme 真身就是这形态）；
+        # 反向格 = 有真拷贝行 ⇒ 必须放行（别把 dsh/ocx/l-s2t 误伤）。
+        c06_cases = (
+            ("pos_prose_only",
+             "rem Both READMEs ship: README.zh-CN.md\necho [ERROR] README.zh-CN.md was not copied\n",
+             False),
+            ("neg_real_copy",
+             "copy README.md \"%RELEASE_DIR%\\\"\ncopy README.zh-CN.md \"%RELEASE_DIR%\\\"\n",
+             True),
+        )
+        for name, body, want in c06_cases:
+            d = base / ("c06_" + name)
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "build.bat").write_text(body, encoding="utf-8")
+            ok, detail = c06(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-06 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
         # 两格：表格版本与文件头不符（红）/ 一致（绿）。
         c34_cases = (
@@ -4856,6 +4960,23 @@ def selftest() -> int:
         print("[selftest] %s  C-46 empty_denominator_is_undecidable: ok=%s want=None"
               % ("PASS" if good else "FAIL", _c46_empty[0]))
 
+        # C-46 豁免腿（§4.1.37：**豁免的每条边界都要有自证腿 + 反向格**）：
+        # `src/modules/**/*.md` **不计入分母**（是给人读的派发件，不是构建输入）；
+        # 但同目录的 `*.py` **必须仍计入**（反向格 —— 证明豁免只针对文档，
+        # 不是把 `src/modules/` 整目录跳过）。
+        _c46d = base / "c46_doc_exempt"
+        (_c46d / "src" / "modules" / "m").mkdir(parents=True, exist_ok=True)
+        (_c46d / "src" / "main.py").write_text("x = 1\n", encoding="utf-8")
+        (_c46d / "src" / "modules" / "m" / "m.py").write_text("y = 1\n", encoding="utf-8")
+        (_c46d / "src" / "modules" / "m" / "README.md").write_text("# doc\n", encoding="utf-8")
+        _c46_names = {n for n, _ in _freshness_inputs(_c46d, "demo")[0]}
+        good = ("src/modules/m/README.md" not in _c46_names
+                and "src/modules/m/m.py" in _c46_names
+                and "src/main.py" in _c46_names)
+        failed += 0 if good else 1
+        print("[selftest] %s  C-46 module_doc_exempt_but_code_included: names=%s"
+              % ("PASS" if good else "FAIL", sorted(_c46_names)))
+
         # [BROKEN]：**检查自身出错**必须独立成一档——不计 FAIL、不被 WARN 咽掉、并进退出码。
         # 用一条**故意抛异常**的判据作样本（历史实例：`check_md_tabs` 头上留着 `@check`，
         # 四个工具各报一条"检查异常"，看起来像工具坏了 ⇒ 一整轮排查方向是错的）。
@@ -4913,9 +5034,16 @@ def _freshness_inputs(root: Path, app_id):
     src = root / "src"
     if src.is_dir():
         for p in src.rglob("*"):
-            if p.is_file() and not any(x in _FRESH_SKIP_DIRS for x in p.parts) \
-                    and p.suffix.lower() not in _FRESH_SKIP_SUFFIX:
-                add_file(p)
+            if not p.is_file() or any(x in _FRESH_SKIP_DIRS for x in p.parts) \
+                    or p.suffix.lower() in _FRESH_SKIP_SUFFIX:
+                continue
+            # **模块文档不计入分母**：`src/modules/**/*.md` 是派发件的 README（给人读的），
+            # **不是构建输入** —— PyInstaller 只收 `--add-data` 显式列出的东西。旧口径全收
+            # `src/**` ⇒ **只改 README 也会报"产物过期"**（噪音，且会诱导人去重建）。
+            # （verifier 2026-09-19 复核提出；本轮两处 WARN 都有真代码支撑，故当时结论未受影响。）
+            if p.suffix.lower() == ".md" and "modules" in p.parts:
+                continue
+            add_file(p)
     for rel in ("build.bat", "scripts/build.bat"):
         bp = root / rel
         if not bp.exists():
