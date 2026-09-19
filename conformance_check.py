@@ -1,5 +1,56 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.8.0
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.0
+# 1.9.0：① **C-30 补上"覆盖缺口必须自己报出来"**（lead 裁定：判据可以自己失效比泄漏更糟）。
+#   ① 新增上半：**mkdtemp 前缀必须可静态归属**——从源码枚举 `mkdtemp(...)` 的 `prefix` 实参
+#      （含**包装函数的调用点**，如 `scratch_dir(prefix)`：dsh/ocx/l-s2t 三家真实前缀都在
+#      调用点上）；f-string / 变量 / 无 prefix 等推不出的站点，必须在模块级字面量
+#      `TMP_PREFIX_REGISTRY`（键 `"相对路径:行号"` → 等价前缀）登记，**不登记即红**。
+#      登记表的值非字面量 = 判据读不到 = 等于没登记，也红；登记了却对不上站点 = 过期 WARN。
+#   ② 下半扫描范围 **tests/ → 全工具**：真实树立刻多出一处 **reme `src/main.py:7409`
+#      `rmtree(work, ignore_errors=True)`**（`work` = 7405 的 mkdtemp 根），是同一缺陷的
+#      生产代码形态；只看 tests/ 会整个溜过去。首跑真实树：**C-30 1 FAIL（reme，
+#      `src/main.py:7405` 的 `prefix=f"{APP_ID}-update-"` 未登记）**，其余三工具 ok。
+#   ③ 运行期取证改成**两条腿**（task #43，lead 裁定）：腿 A 生成器派生（前缀枚举 + 登记表；
+#      裸 `mkdtemp()` → 系统默认前缀 `tmp`，列为**弱前缀**并单独 WARN，因为它会撞上无关目录）、
+#      腿 B **形态派生**（`_SHAPE_RULE`：顶层目录下恰好一个子目录 + 该子目录内有 config.json
+#      + 顶层下至少存在一个 `*.log`，**不看名字、不要求 log 非空**）。**必须打印扫描面**——
+#      实测：112 个顶层目录上腿 A = **0**、腿 B = **20**，20 个全在腿 A 命中之外；若把签名
+#      写成"log 非空"则只覆盖 11/20。那 20 个的名字（`icon-probe-*`/`smoke-proof-*`/
+#      `reme-gate-2.2.0`/`tmp*`）**在四个工具源码里一个字都搜不到**（裸 mkdtemp 的默认前缀、
+#      或扫描范围之外的探针脚本）——"前缀法 0 命中"与"真没泄漏"在输出上完全同形，这就是
+#      "判据可以自己假绿"。20 个已登记为负样本回归集 `_TEMP_REGRESSION_20260919`。
+#   ④ 新增运行期取证/验收（只读）：`--temp-leak`（列出 %TEMP% 命中，**永远 exit 0**——
+#      历史存量会让它恒红，那是取证不是判据）、`--temp-leak-save` / `--temp-leak-baseline`
+#      （**增量断言**：只对"跑测试期间新增"报红，残留免疫）。这才是 lead 定的验收口径
+#      "跑完门禁后实测 = 0"的可执行形态。**"0"要按时点读**：lead 16:11 那次测得 dsh 3 个
+#      残留目录的 mtime 就是 16:11（门禁运行当口 ⇒ 当时在产生新的），而 tpl-keeper 稍后
+#      复扫同一批 19 个前缀得 **0 命中**——两次测量各自成立，谁也不能替对方下结论；
+#      "清一遍就好了"同样只是一个时点，只有增量断言不依赖历史存量。
+#   ⑤ 本工具自守 C-30：selftest 收尾从 `rmtree(..., ignore_errors=True)` 改成
+#      `_rmtree_strict`（删后回读、失败抛错）——同一个 %TEMP% 泄漏形态，判据作者自己也会犯。
+#   样本 11 条（前缀 7 + 清理 4），含 dsh/ocx/l-s2t 的 `param_prefix_literal_calls_ok`。
+#   · 新增 **C-31（WARN，模板正本专属）**：派发件（`modules/**` 的 `.py`/`.md`，排除模板
+#   专属的 `build_release/` `baseline/`）必须全程 CRLF。由来：C-22 只管 `.bat`/`.cmd`，
+#   **模板里的 `.py`/`.md` 被写成 LF 没有任何一层会报**（`py_compile` 绿、`sync_check` 两边
+#   同为 LF 也绿）——`log_kit.py` 被整文件重写那次就是"读回字节"才发现的。lead 批准为
+#   **WARN**（不误伤将来有意为之的文件，但让不一致可见）。为此新开 `TEMPLATE_CHECKS` 注册表：
+#   模板判据**只跑一次**（`Ctx.dir` = 模板仓根），不跟着四个工具重复输出 N 遍。
+#   **首跑真实树：4/27 个派发件是 LF-only**（`autostart.py` / `icons.py` /
+#   `service_link/README.md` / `service_link/service_link.py`），且**工具侧副本同样是 LF**
+#   （dsh/ocx/l-s2t 的 `autostart.py`、reme 的 `service_link/*`）——要改成 CRLF 必须
+#   **正本 + 全部副本同批**（只改正本会让 `sync_check` 立刻 `[DIFF]`），属一次"可重拷"冻结事件。
+#   · **C-30 第二路径：可折叠模块常量**（lead 2026-09-19 裁定"低成本做法"）：模块级
+#   `APP_ID = "reme-helper"` + `prefix=f"{APP_ID}-update-"` 其实**推得出**（折成
+#   `reme-helper-update-`），不该逼作者写登记表。只认模块级字面量；同名再赋不同值或赋非
+#   字面量 → 该名字不可折叠（**宁缺勿猜**）。登记口径同步升级为**两态**：未登记 → FAIL /
+#   已登记 → OK（原 WARN 留了"把字面量改成变量即可降级"的逃逸口）。样本 +3（折叠常量 / 折叠
+#   拼接 / 同名冲突仍红）。**真实树**：reme 靠折叠转 `[ok]`，C-30 只剩 `rmtree(work, ignore_errors=True)`。
+#   · **C-28 补扫模板正本 + §4.1.18**（lead 批准"最省事形态"）：此前 `main()` 用
+#   `d.name not in {..., TEMPLATE_DIR.name}` 把模板仓**显式排除**，于是模板自己的 `.md`
+#   从未被扫过，而模板是四份副本之源——**"判据存在 ≠ 被检查对象在范围内"**。只让 C-28
+#   额外扫一遍模板仓、只报一次（不给模板开整轮：它没有 `src/` + `build.bat`，会空转甚至误报）。
+#   **留档**：C-28 的规则文本自己那条 CHANGELOG 里就落进两个真 TAB（想写两字符 `` `\t` ``，
+#   写进去的是真 TAB，`HEAD 188bbcc` 上已存在）——**描述这个坑的文档，本身踩了这个坑**。
 # 1.8.0：新增 **C-30**：测试里对 **mkdtemp 根目录**的清理必须可验证——禁 `ignore_errors` 吞掉。
 #   根因（实测）：四工具在 %TEMP% 积了 **133~138 个**自家前缀目录，每个里恰好一个文件
 #   `<app>/log/<app>.log`——**`log_kit` 的 FileHandler 句柄还开着**（Windows 拒删在用文件），
@@ -82,9 +133,15 @@
   python my-diy-tool-template/conformance_check.py --roots dsh-helper local-speak2text
   python my-diy-tool-template/conformance_check.py --strict         # WARN 也计入退出码
   python my-diy-tool-template/conformance_check.py --only C-08 C-09
+  python my-diy-tool-template/conformance_check.py --selftest       # 合成样本反向自证各判据
+
+C-30 的运行期验收（**增量断言**，残留免疫；"清一遍"不算证据）：
+  跑测试前：… --roots <工具> --temp-leak-save build\\_tmpbase.txt
+  跑完门禁：… --roots <工具> --temp-leak-baseline build\\_tmpbase.txt   # 新增非空 = 泄漏复现
 """
 import argparse
 import ast
+import itertools
 import re
 import subprocess
 import sys
@@ -230,6 +287,19 @@ CHECKS = []
 def check(cid, severity, title):
     def deco(fn):
         CHECKS.append((cid, severity, title, fn))
+        return fn
+    return deco
+
+
+# **模板正本专属**判据：`main()` 里只跑一次（`Ctx.dir` = 模板仓根），不跟着工具跑 N 遍。
+# 为什么单开一张表：这类判据的对象是**正本自己**（拷出去之前的样子），按工具重复执行既
+# 不增加信息、又把同样的行刷 N 遍淹没真信号。首个成员是 C-31（派发件行尾）。
+TEMPLATE_CHECKS = []
+
+
+def template_check(cid, severity, title):
+    def deco(fn):
+        TEMPLATE_CHECKS.append((cid, severity, title, fn))
         return fn
     return deco
 
@@ -1132,17 +1202,16 @@ def c27(c: Ctx):
     return (not bad), ("；".join(bad) if bad else "%d 个必接符号都已接线" % declared)
 
 
-@check("C-28", "WARN", "本仓 .md 不得出现 0x09 TAB（手写文档，出现 TAB 必属事故）")
-def c28(c: Ctx):
-    """**只扫 `.md`，WARN 级**——误报成本低，但能覆盖一类真实事故。
+# ---------------------------------------------------------------- C-28
+def check_md_tabs(root: Path):
+    """`root` 下所有手写 `.md` 不得含 0x09 TAB。返回 `(ok, detail)`。
 
-    背景：写 CHANGELOG 时用 Python 字符串拼内容，`"\\t"` 被当成**转义**，于是文件里落进一个
-    **真 TAB**（2026-09-19 本人实例）。bat 有 C-22 管，`.py` 的 TAB 是缩进（合法）、`.json`
-    里也可能是合法转义——所以**只挑 `.md`**：本仓的 `.md` 全是手写中文文档，TAB 没有任何
-    正当用途。lead 裁定：不扩到所有文本文件，但这一条值得有。
+    **普通助手函数，不要加 `@check`**——它收的是 `Path`，不是 `Ctx`（我先前的重构
+    把装饰器留在了它头上，于是每个工具都收到 `Ctx` → `AttributeError`，四条 WARN
+    全是"检查异常"）。注册点只有下面 `c28` 与模板侧的 `c28_template` 两处。
     """
     bad = []
-    for p in sorted(c.dir.rglob("*.md")):
+    for p in sorted(root.rglob("*.md")):
         if any(part in _BAT_SKIP_DIRS for part in p.parts):
             continue
         data = p.read_bytes()
@@ -1150,9 +1219,37 @@ def c28(c: Ctx):
             continue
         lines = [i for i, ln in enumerate(data.split(b"\n"), 1) if b"\x09" in ln]
         bad.append("%s: TAB 行 %d 处（第 %s 行）"
-                   % (p.relative_to(c.dir).as_posix(), len(lines),
+                   % (p.relative_to(root).as_posix(), len(lines),
                       ",".join(str(n) for n in lines[:5])))
     return (not bad), ("；".join(bad) if bad else "手写文档无 TAB")
+
+
+@check("C-28", "WARN", "本仓 .md 不得含 0x09 TAB（只扫手写中文文档）")
+def c28(c: Ctx):
+    """**只扫 `.md`，WARN 级**——误报成本低，但能覆盖一类真实事故。
+
+    背景：写 CHANGELOG 时用 Python 字符串拼内容，`"\\t"` 被当成**转义**，于是文件里落进一个
+    **真 TAB**（2026-09-19 本人实例）。bat 有 C-22 管，`.py` 的 TAB 是缩进（合法）、`.json`
+    里也可能是合法转义——所以**只挑 `.md`**：本仓的 `.md` 全是手写中文文档，TAB 没有任何
+    正当用途。lead 裁定：不扩到所有文本文件，但这一条值得有。
+
+    **最刺眼的一次**（lead 原话留档）：C-28 的规则文本自己那条 CHANGELOG 里就落进了**两个真
+    TAB**——作者想写两字符的 `` `\\t` ``，写进去的是真 TAB，**且 `HEAD`（`188bbcc`）上就已存在**。
+    **"描述这个坑的文档，本身踩了这个坑"**。已用显式字节值改回两字符（非转义写法），并回读确认。
+    """
+    return check_md_tabs(c.dir)
+
+
+@template_check("C-28", "WARN", "模板仓 .md 不得含 0x09 TAB（同一判据；模板只跑一次）")
+def c28_template(c: Ctx):
+    """模板正本也扫一遍——修 §4.1.18 的盲区（**判据存在 ≠ 被检查对象在范围内**）。
+
+    此前模板仓被 `main()` 的 `d.name not in {..., TEMPLATE_DIR.name}` **显式排除**，于是
+    **模板自己的 `.md` 从未被 C-28 扫过**，而模板正是四份副本之源。lead 裁定用"最省事形态"：
+    只让 C-28 额外扫模板仓、只报一次（不为此给模板开整轮——它没有 `src/` + `build.bat`，
+    整轮会在它身上空转甚至误报）。
+    """
+    return check_md_tabs(c.dir)
 
 
 # ---------------------------------------------------------------- C-29
@@ -1228,6 +1325,17 @@ def c29(c: Ctx):
 _RMTREE_CALL = re.compile(r"(?:shutil\.)?rmtree\s*\(\s*([A-Za-z_]\w*)")
 _ASSIGN_LINE = re.compile(r"^\s*([A-Za-z_]\w*)\s*=")
 _DEF_HEAD = re.compile(r"^\s*def\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*:", re.M)
+# 只排除**非作者手写**的目录（构建产物 / 依赖 / 缓存）。`.verify-scratch` 与
+# `_verify-scratch` 都排除——探针脚本自己不该被当成工具代码。
+_PY_SKIP_DIRS = {".git", "__pycache__", "build", "dist", "release", "out", "_internal",
+                 "node_modules", ".verify-scratch", "_verify-scratch", ".venv", "venv",
+                 "site-packages", ".cache"}
+
+# 不可静态枚举的 mkdtemp 前缀的**登记锚点**：工具仓任意 `.py` 的模块级字面量字典，
+# 键 `"<相对路径>:<行号>"`（posix 分隔符）→ 该处前缀的**等价字面量**（str 或 str 列表）。
+# 判据（本条）与运行期取证（--temp-leak）**都读这张表**——否则把 prefix 改成变量
+# 就能悄悄从覆盖里溜出去，那是"判据可以自己失效"的形态，比泄漏本身更糟。
+_REGISTRY_NAME = "TMP_PREFIX_REGISTRY"
 
 
 def _mkdtemp_producers(texts) -> set:
@@ -1266,7 +1374,233 @@ def _mkdtemp_roots(text, producers) -> set:
     return roots
 
 
-@check("C-30", "FAIL", "测试里对 mkdtemp 根目录的清理必须可验证（禁 ignore_errors 吞掉）")
+def _is_mkdtemp_call(node) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    f = node.func
+    return getattr(f, "attr", "") == "mkdtemp" or getattr(f, "id", "") == "mkdtemp"
+
+
+def _module_constants(trees) -> dict:
+    """模块级**字面量字符串常量**表 `{名字: 值}`（同名冲突则丢弃，宁缺勿猜）。
+
+    这是"低成本第二路径"（lead 2026-09-19 裁定）：`APP_ID = "reme-helper"` 之后
+    `mkdtemp(prefix=f"{APP_ID}-update-")` 其实**推得出**，不必逼作者去写登记表。
+    只认模块级 `NAME = "字面量"`（含带注释的类型注解形态），不做任何运行期求值。
+    """
+    vals, unstable = {}, set()
+    for tree in trees.values():
+        for n in tree.body:
+            if isinstance(n, ast.Assign):
+                targets = [t for t in n.targets if isinstance(t, ast.Name)]
+                value = n.value
+            elif isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name):
+                targets = [n.target]
+                value = n.value
+            else:
+                continue
+            literal = value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+            for t in targets:
+                # 任何"非字面量赋值"或"同名再赋不同值"都让该名字**不可折叠**（宁缺勿猜）：
+                # 运行期可能被改写的值，拿来当常量就是拿假设当事实。
+                if literal is None or (t.id in vals and vals[t.id] != literal.value):
+                    unstable.add(t.id)
+                    vals.pop(t.id, None)
+                    continue
+                if t.id not in unstable:
+                    vals[t.id] = literal.value
+    return vals
+
+
+def _fold_str(node, consts):
+    """把**可折叠**的表达式折成字符串字面量；折不出返回 None（不猜）。"""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name):
+        return consts.get(node.id)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _fold_str(node.left, consts), _fold_str(node.right, consts)
+        return left + right if left is not None and right is not None else None
+    if isinstance(node, ast.JoinedStr):   # f-string：只折叠"常量 + 可折叠常量"两种片段
+        parts = []
+        for piece in node.values:
+            if isinstance(piece, ast.Constant) and isinstance(piece.value, str):
+                parts.append(piece.value)
+            elif isinstance(piece, ast.FormattedValue):
+                if piece.format_spec is not None or piece.conversion not in (-1, 115):
+                    return None
+                v = _fold_str(piece.value, consts)
+                if v is None:
+                    return None
+                parts.append(v)
+            else:
+                return None
+        return "".join(parts)
+    return None
+
+
+def _expr_kind(node) -> str:
+    """给"推不出来的 prefix"一个人能读的原因（而不是把 AST 类名甩给人）。"""
+    if isinstance(node, ast.JoinedStr):
+        return "f-string 拼接"
+    if isinstance(node, ast.Name):
+        return "变量 `%s`" % node.id
+    if isinstance(node, ast.Call):
+        return "函数调用结果"
+    if isinstance(node, ast.Attribute):
+        return "属性取值"
+    if isinstance(node, ast.BinOp):
+        return "字符串运算结果"
+    return type(node).__name__
+
+
+def _py_files_under(root: Path):
+    return sorted(p for p in root.rglob("*.py")
+                  if p.is_file() and not any(part in _PY_SKIP_DIRS for part in p.parts))
+
+
+def _enclosing_map(tree):
+    """节点 → 最近的**外层函数**（名, 形参表, 是否方法）。
+
+    必须按"最近外层"而不是 `ast.walk(fn)`：后者会把**内层函数**的 mkdtemp 算到外层
+    的形参头上，于是"prefix 是形参"的判断会张冠李戴。
+    """
+    enc = {}
+
+    def walk(node, fname, params, method):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                ps = [a.arg for a in list(child.args.args) + list(child.args.kwonlyargs)]
+                walk(child, child.name, ps, bool(ps) and ps[0] in ("self", "cls"))
+            else:
+                enc[id(child)] = (fname, params, method)
+                walk(child, fname, params, method)
+
+    walk(tree, None, [], False)
+    return enc
+
+
+def enumerate_mkdtemp_prefixes(root: Path):
+    """从源码**枚举** mkdtemp 前缀（不猜命名，STANDARDS §D7 硬要求 8）+ 读登记表。
+
+    返回 `(prefixes, opaque, registry, problems)`：
+      * `prefixes` 可静态归属的前缀（字面量实参 + 包装函数调用点传的全是字面量）；
+      * `opaque`   `[(站点 rel, 原因)]`——静态推不出、**必须**在登记表里登记的站点；
+      * `registry` `{站点 rel: [等价前缀]}`（登记表读到的内容）；
+      * `problems` 登记表自身的形态问题（非字面量 / 值读不出来 = 登记了等于没登记）。
+
+    为什么必须从**调用点**解形参：`tests/_cleanup.py` 的 `scratch_dir(prefix)` 内部是
+    `mkdtemp(prefix=prefix)`——只看这一行会报"不可枚举"，而 dsh/ocx/l-s2t **三个工具**
+    的真实前缀全在调用点上写着字面量。**只看被调方，会把三家本来合格的地方全判红。**
+    """
+    trees, sites, calls, defs = {}, [], [], {}
+    for p in _py_files_under(root):
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+        except (SyntaxError, OSError):
+            continue
+        trees[p] = tree
+        enc = _enclosing_map(tree)
+        for n in ast.walk(tree):
+            if _is_mkdtemp_call(n):
+                rel = "%s:%d" % (p.relative_to(root).as_posix(), n.lineno)
+                sites.append((rel, n, enc.get(id(n), (None, [], False))))
+            elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
+                calls.append((n.func.id, n.args, {k.arg: k.value for k in n.keywords}))
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                defs[n.name] = defs.get(n.name, 0) + 1
+
+    consts = _module_constants(trees)
+    prefixes, opaque, weak, folded = set(), [], [], []
+    for rel, node, (fname, params, method) in sites:
+        kw = next((k for k in node.keywords if k.arg == "prefix"), None)
+        if kw is None:
+            # 裸 `mkdtemp()`：前缀是**系统默认值**（`tempfile.gettempprefix()`，通常 "tmp"）。
+            # 它不是"推不出"，而是**推得出但很弱**——`tmp*` 会撞上大量无关临时目录，
+            # 所以腿 A 里单独记，且**腿 B（形态派生）才是它的主判据**（task #43）。
+            import tempfile as _tf
+            pfx = _tf.gettempprefix() or "tmp"
+            prefixes.add(pfx)
+            weak.append((rel, pfx))
+            continue
+        v = kw.value
+        if isinstance(v, ast.Constant) and isinstance(v.value, str) and v.value:
+            prefixes.add(v.value)
+            continue
+        # 第二路径：**可折叠模块常量**（`f"{APP_ID}-update-"` 这类）——能折就不必登记。
+        fold = _fold_str(v, consts)
+        if fold:
+            prefixes.add(fold)
+            folded.append((rel, fold))
+            continue
+        resolvable = (isinstance(v, ast.Name) and fname and not method and v.id in params
+                      and defs.get(fname) == 1)
+        if resolvable:
+            idx = params.index(v.id)
+            vals, bad = [], 0
+            for cname, args, kws in calls:
+                if cname != fname:
+                    continue
+                if v.id in kws:
+                    a = kws[v.id]
+                elif len(args) > idx:
+                    a = args[idx]
+                else:
+                    bad += 1
+                    continue
+                if isinstance(a, ast.Constant) and isinstance(a.value, str) and a.value:
+                    vals.append(a.value)
+                else:
+                    bad += 1
+            if vals and not bad:
+                prefixes.update(vals)
+                continue
+            if not vals:
+                opaque.append((rel, "`prefix` 取自 `%s()` 的形参，但全工具找不到传字面量的调用点"
+                               % fname))
+            else:
+                opaque.append((rel, "`prefix` 取自 `%s()` 的形参，而调用点有 %d 处不是字面量"
+                               % (fname, bad)))
+            continue
+        why = "`prefix` 无法静态归属（%s）" % _expr_kind(v)
+        if method:
+            why += "，且是方法形参（调用点解析不可靠）"
+        opaque.append((rel, why))
+
+    registry, problems = {}, []
+    for p, tree in trees.items():
+        rel_file = p.relative_to(root).as_posix()
+        for n in tree.body:   # 只认**模块级**赋值
+            if not (isinstance(n, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == _REGISTRY_NAME
+                            for t in n.targets)):
+                continue
+            if not isinstance(n.value, ast.Dict):
+                problems.append((rel_file, "`%s` 必须是**字面量字典**（键 \"相对路径:行号\" → "
+                                 "等价前缀字面量），当前是%s——判据读不到它"
+                                 % (_REGISTRY_NAME, _expr_kind(n.value))))
+                continue
+            for k, val in zip(n.value.keys, n.value.values):
+                if not (isinstance(k, ast.Constant) and isinstance(k.value, str)):
+                    problems.append((rel_file, "登记键不是字符串字面量"))
+                    continue
+                key = k.value.strip().replace("\\", "/")
+                items = val.elts if isinstance(val, (ast.List, ast.Tuple)) else [val]
+                got = []
+                for item in items:
+                    if isinstance(item, ast.Constant) and isinstance(item.value, str) and item.value:
+                        got.append(item.value)
+                    else:
+                        problems.append((rel_file, "登记 `%s` 的值不是非空字符串字面量（是%s）——"
+                                         "判据与 %%TEMP%% 取证都读不到，等于没登记"
+                                         % (key, _expr_kind(item))))
+                if got:
+                    registry.setdefault(key, [])
+                    registry[key] += [g for g in got if g not in registry[key]]
+    return sorted(prefixes), opaque, registry, problems, weak, folded
+
+
+@check("C-30", "FAIL", "mkdtemp 临时目录：前缀必须可静态归属，清理必须可验证（禁 ignore_errors 吞掉）")
 def c30(c: Ctx):
     """**"删不掉"必须变成红，而不是被 `ignore_errors=True` 吞掉**（2026-09-19 实测）。
 
@@ -1283,20 +1617,40 @@ def c30(c: Ctx):
     正确形态：删前释放日志句柄（`logging.shutdown()` / 关 FileHandler）→ 删 → **回读确认不存在**
     → 不存在才算成功，失败即红。本条只否掉"吞掉失败"这一种写法，不规定必须用哪个助手。
 
-    **本条不猜命名**（STANDARDS §D7 硬要求 8）：mkdtemp 根目录是**从源码枚举**出来的
-    （赋值语句右侧是否调用 `mkdtemp(`，含 `Path(...)` / `scratch_dir(...)` 等包装形态），
-    **不做 `prefix="xxx"` 的字符串匹配**——前缀怎么改、新增几个，判据自动跟着变。
+    **本条不猜命名**（STANDARDS §D7 硬要求 8）：mkdtemp 根目录与 mkdtemp 前缀都是**从源码
+    枚举**出来的（mkdtemp 调用节点 + 包装函数的**调用点**实参），**不做** `prefix="xxx"` 的
+    字符串匹配——前缀怎么改、新增几个，判据自动跟着变。
+
+    **覆盖缺口必须自己报出来**（review 2026-09-19 裁定）：源码里推不出的 prefix
+    （f-string / 变量 / 无 prefix）**不许静默放过**——否则把 `prefix="reme-x-"` 改成变量
+    就能从判据的覆盖里溜出去，那是"判据可以自己失效"的形态，**比泄漏本身更糟**。
+    这类站点必须在 `TMP_PREFIX_REGISTRY` 登记**等价前缀**，判据与运行期取证都读它。
+
+    **验收口径**（lead 裁定）：不是"现在 %TEMP% 是干净的"，而是**跑完门禁后实测 = 0**。
+    ⚠️ 但"0"必须按时点读，不许当成永恒事实（R-EVID）：lead 在 **16:11** 那一次测量里，
+    dsh 的 3 个残留目录 mtime 正是 **16:11**（门禁运行的当口）→ 当时它们是**跑门禁时产生的**，
+    不是历史存量；而 tpl-keeper 在**晚些时候**用同一批前缀（19 个）复扫 `%TEMP%` 得到
+    **0 命中**——**两次测量各自成立，谁都不能替对方下结论**。"清一遍就好了"之所以不成立，
+    是因为它同样只是一个时点；正确的运行期断言是**增量**（跑测试前记基线 → 跑完比对新增，
+    命令见 `--temp-leak-baseline`），它不依赖任何历史存量。
     """
-    tests = c.dir / "tests"
-    if not tests.is_dir():
-        return True, "无 tests/"
-    files = [p for p in sorted(tests.rglob("*.py")) if "__pycache__" not in p.parts]
-    if not files:
-        return True, "tests/ 下无 .py"
-    texts = [c.read(p) for p in files]
-    producers = _mkdtemp_producers(texts)
-    roots_total, bad = 0, []
-    for p, text in zip(files, texts):
+    if not c.dir.is_dir():
+        return True, "工具目录不存在"
+    prefixes, opaque, registry, problems, weak, folded = enumerate_mkdtemp_prefixes(c.dir)
+    bad = ["登记表 %s：%s" % (rel, why) for rel, why in problems]
+    for rel, why in opaque:
+        if rel not in registry:
+            bad.append("%s mkdtemp %s，且未在 %s 登记等价前缀" % (rel, why, _REGISTRY_NAME))
+
+    # 第二半：mkdtemp 根目录的删除必须可验证。**扫全工具，不只 tests/**——
+    # reme `src/main.py:7405` 的 `work = Path(mkdtemp(prefix=f"..."))` 在 7409 被
+    # `rmtree(work, ignore_errors=True)` 删（下载/校验失败的早退路径），是同一个缺陷的
+    # 生产代码形态；只看 tests/ 会让它整个溜过去。
+    files = _py_files_under(c.dir)
+    texts = [(p, c.read(p)) for p in files]
+    producers = _mkdtemp_producers([t for _, t in texts])
+    roots_total = 0
+    for p, text in texts:
         roots = _mkdtemp_roots(text, producers)
         roots_total += len(roots)
         if not roots:
@@ -1308,18 +1662,482 @@ def c30(c: Ctx):
             # ignore_errors 可能写在续行上——看调用点之后 160 字符，而不是只看同一行
             if "ignore_errors" not in text[m.end():m.end() + 160]:
                 continue
-            bad.append("%s:%d `rmtree(%s, ignore_errors=True)` —— %s 是 mkdtemp 根目录"
+            bad.append("%s:%d `rmtree(%s, ignore_errors=True)` —— `%s` 是 mkdtemp 根目录"
                        % (rel, text[:m.start()].count("\n") + 1, m.group(1), m.group(1)))
     if bad:
-        return False, ("；".join(bad) + "。【正确形态】删前释放日志句柄（logging.shutdown()）、"
-                       "删后**回读确认目录已不存在**，失败即红")
-    if not roots_total:
-        return True, "测试里没有 mkdtemp 根目录（本条不适用）"
-    return True, "%d 个 mkdtemp 根目录都用可验证的清理（无 ignore_errors）" % roots_total
+        return False, ("；".join(bad)
+                       + "。【正确形态①】前缀写字面量，或让包装函数的**每个调用点**都传字面量；"
+                         "确实推不出的（如 f-string 拼 APP_ID）在 %s 登记等价前缀，例如\n"
+                         "    %s = {\"src/main.py:7405\": \"reme-update-\"}   "
+                         "# 键 = 站点「相对路径:行号」，值 = 该处前缀的等价字面量（可为列表）\n"
+                         "【正确形态②】删 mkdtemp 根目录前先释放日志句柄（logging.shutdown() / "
+                         "关 FileHandler），删后**回读确认目录已不存在**，失败即红"
+                       % (_REGISTRY_NAME, _REGISTRY_NAME))
+    if weak and not bad:
+        return False, ("%d 处裸 `mkdtemp()`（前缀是系统默认 %r）——它**推得出但很弱**："
+                       "按前缀取证会撞上大量无关临时目录，主判据是运行期的**形态派生腿**"
+                       "（`--temp-leak` 的腿 B）。建议加家族前缀，或在 %s 登记弱前缀。位置：%s"
+                       % (len(weak), weak[0][1], _REGISTRY_NAME,
+                          ", ".join(r for r, _ in weak))), "WARN"
+    stale = sorted(k for k in registry if k not in {r for r, _ in opaque})
+    if stale:
+        return False, ("前缀与清理都 ok，但 %s 里 %d 条登记**对不上任何不可枚举站点**"
+                       "（行号漂移/已改回字面量？）：%s——登记表必须跟着代码走，"
+                       "过期的登记等于没有覆盖" % (_REGISTRY_NAME, len(stale), ", ".join(stale))), "WARN"
+    if not prefixes and not opaque:
+        return True, "没有 mkdtemp 调用（本条不适用）"
+    return True, ("%d 个前缀可静态归属（登记表 %d 条 / 常量折叠 %d 处），"
+                  "%d 个 mkdtemp 根目录的清理可验证"
+                  % (len(prefixes), len(registry), len(folded), roots_total))
+
+
+# ---------------- 运行期取证 / 验收：%TEMP% 残留（**只读，两条腿**） ----------------
+# 这是 C-30 的**运行期**一半：C-30 本体只做静态的"前缀可归属 + 清理可验证"，
+# "%TEMP% 里还剩几个"必须现场量。
+#
+# **为什么必须两条腿**（2026-09-19 实测，task #43）：光靠"从源码枚举前缀"有**结构性天花板**
+# ——它的覆盖上限 = 源码里出现过的 prefix 字面量。实测 20 个真残留里，`icon-probe-*`、
+# `smoke-proof-*`、`reme-gate-2.2.0`、`tmp0whlwvmi` 这些名字**在四个工具的源码里一个字都
+# 搜不到**（有的来自裸 `mkdtemp()` 的系统默认前缀 `tmp`，有的来自**扫描范围之外**的探针脚本），
+# 于是"前缀法 0 命中"与"真的没有泄漏"在输出上**完全同形**——这正是"判据可以自己假绿"。
+#   腿 A（生成器派生）：源码枚举前缀 + 登记表；裸 `mkdtemp()` → 系统默认前缀（**弱前缀**）。
+#   腿 B（形态派生）：**不看名字**，只看结构签名（下方 `_SHAPE_RULE`）。
+# 口径要求（lead 裁定）：**必须打印扫描面**（扫描目录数 / 前缀数 / 每腿命中数）——
+# "0 命中"与"没扫"必须可区分。
+_TEMP_REGRESSION_20260919 = {
+    "reme-helper": ["reme-helper-builddata", "tmp.pFZVIqwEaS", "tmp.sugjQLprlQ",
+                    "tmp.18X8SOMwNn", "tmp0whlwvmi", "reme-sync-2.2.0-check",
+                    "reme-gate-2.2.0", "reme-neg-ctl"],
+    "dsh-helper": ["icon-probe-077hxtaw", "icon-probe-hjbanmd1", "icon-probe-tlqg0adv",
+                   "smoke-proof-iv0gm2p4", "smoke-proof-nl6gj9kf", "tmp2k2z1nt2"],
+    "opencodex-helper": ["icon-probe-f6pwh8sm", "icon-probe-r28q2h6d",
+                         "smoke-proof-4ibz3s31", "smoke-proof-a15nu1_k", "tmpq_u7g0sl"],
+    "local-speak2text": ["tmp.kFj54SLt7t"],
+}
+# 负样本回归集（2026-09-19 实测，20 个当时**全部仍在** %TEMP%）：
+#   * 腿 B 的**宽松**签名（要求 `*.log` **存在**而非非空）覆盖 **20/20**，且在当时
+#     112 个顶层目录里**零误报**；
+#   * 若把签名写成"`log/*.log` **非空**"则只覆盖 **11/20**——漏掉的全是 log 为 0 字节的
+#     那一批（dsh 3 + ocx 5 + tmp2k2z1nt2）。**空文件/空目录同样是残留**，
+#     这正是 C-30 从第一版起就坚持的口径（"清理跑过了 ≠ 清理成功了"）。
+_SHAPE_RULE = ("顶层目录下**恰好一个子目录**，该子目录内有 `config.json`，"
+               "且该顶层目录下**至少存在一个 `*.log`**（不要求非空）")
+
+
+def _shape_hits(T: Path):
+    """腿 B：按**结构签名**找残留（不看目录名，免疫命名猜测）。"""
+    hits = []
+    for d in sorted(T.iterdir()):
+        if not d.is_dir():
+            continue
+        try:
+            subs = [e for e in d.iterdir() if e.is_dir()]
+            if len(subs) != 1 or not (subs[0] / "config.json").is_file():
+                continue
+            if not any(f.is_file() for f in d.rglob("*.log")):
+                continue
+        except OSError:
+            continue
+        hits.append(d.name)
+    return hits
+
+
+def _temp_hits(prefixes, T):
+    """腿 A：按**从源码枚举/登记**的前缀找残留。返回 [(前缀, 目录名, mtime, 文件数)]。"""
+    import time
+    hits = []
+    for d in sorted(T.iterdir()):
+        if not d.is_dir():
+            continue
+        for pref in prefixes:
+            if pref and d.name.startswith(pref):
+                try:
+                    nfiles = len([f for f in d.rglob("*") if f.is_file()])
+                    mtime = time.strftime("%m-%d %H:%M", time.localtime(d.stat().st_mtime))
+                except OSError:
+                    nfiles, mtime = 0, "(不可读)"
+                hits.append((pref, d.name, mtime, nfiles))
+                break
+    return hits
+
+
+def temp_leak_main(names, save=None, baseline=None) -> int:
+    """列出/比对 `%TEMP%` 里的残留目录，**两条腿**。只 listdir + stat，**绝不删任何东西**。
+
+    `--temp-leak`          列出当前命中（永远 exit 0）：这是**取证**，不是判据——
+                           历史存量会让它恒红，而"清一遍"在清理代码修好前不可能成立。
+    `--temp-leak-save F`   把当前命中目录名写进 F（作为基线）。
+    `--temp-leak-baseline F` 与基线比对，**只对"新增"报红**（残留免疫）。这就是
+                           lead 定的验收口径"跑完门禁后实测 = 0"的可执行形态：
+                           跑门禁前 save，跑完 baseline，新增必须为空。
+
+    **两条腿都要，且必须打印扫描面**（task #43）：腿 A 的覆盖上限 = 源码里出现过的 prefix
+    字面量；实测 20 个真残留里有一大半**在四个工具源码里一个字都搜不到**（裸 `mkdtemp()`
+    的默认前缀 `tmp`、以及扫描范围之外的探针脚本），此时"腿 A 0 命中"与"真的没泄漏"
+    在输出上完全同形。腿 B 看结构不看名字，是那些情况的唯一判据。
+    """
+    import tempfile
+    per_tool, all_prefs, all_weak = [], [], []
+    for name in names:
+        root = ROOT / name
+        if not root.is_dir():
+            print("[skip] %s: no such dir" % name)
+            continue
+        prefixes, opaque, registry, problems, weak, folded = enumerate_mkdtemp_prefixes(root)
+        for vals in registry.values():
+            prefixes = sorted(set(prefixes) | set(vals))
+        uncovered = [r for r, _ in opaque if r not in registry]
+        per_tool.append((name, prefixes, uncovered, problems, weak, folded))
+        all_prefs += prefixes
+        all_weak += weak
+    all_prefs = sorted(set(all_prefs))
+    T = Path(tempfile.gettempdir())
+
+    print("== 扫描面 ==")
+    print("  目录: %s" % T)
+    print("  腿 A 前缀 %d 个（从源码枚举 + 登记表；其中弱前缀 %d 处来自裸 mkdtemp）"
+          % (len(all_prefs), len(all_weak)))
+    print("  腿 B 规则: %s" % _SHAPE_RULE)
+    for name, prefixes, uncovered, problems, weak, folded in per_tool:
+        print("    %-22s 前缀 %2d 个%s%s" % (name, len(prefixes),
+              ("，弱前缀: " + ", ".join(p for _, p in weak)) if weak else "",
+              ("，常量折叠 %d 处" % len(folded)) if folded else ""))
+        for rel, why in problems:
+            print("        [登记表形态问题] %s %s" % (rel, why))
+        for rel in uncovered:
+            print("        [不可枚举且未登记] %s" % rel)
+
+    hits_a = _temp_hits(all_prefs, T)
+    names_a = sorted({d for _, d, _, _ in hits_a})
+    names_b = _shape_hits(T)
+    union = sorted(set(names_a) | set(names_b))
+    print("== 腿 A：生成器派生（前缀）命中 %d ==" % len(names_a))
+    by_pref = {}
+    for pref, dname, ts, nfiles in hits_a:
+        by_pref.setdefault(pref, []).append((dname, ts, nfiles))
+    for pref, items in sorted(by_pref.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        print("  %-26s %2d 个" % (pref, len(items)))
+        for dname, ts, nfiles in items[:3]:
+            print("        %-30s %s 文件%2d%s" % (dname, ts, nfiles, "" if nfiles else " (空目录)"))
+        if len(items) > 3:
+            print("        ... 还有 %d 个" % (len(items) - 3))
+    print("== 腿 B：形态派生（不看名字）命中 %d ==" % len(names_b))
+    only_b = [d for d in names_b if d not in names_a]
+    for d in names_b[:12]:
+        print("        %-30s%s" % (d, "" if d in names_a else "   <- 腿 A 的盲区"))
+    if len(names_b) > 12:
+        print("        ... 还有 %d 个" % (len(names_b) - 12))
+    reg = {n for v in _TEMP_REGRESSION_20260919.values() for n in v}
+    print("== 并集 %d 个；其中 %d 个在腿 A 命中之外（腿 B 独有）；"
+          "命中已登记回归集 %d/%d =="
+          % (len(union), len(only_b), len(set(union) & reg), len(reg)))
+    print("RESULT: 扫描顶层目录 %d 个 / 腿 A 前缀 %d 个 / 命中 A=%d B=%d 并集=%d"
+          % (len([d for d in T.iterdir() if d.is_dir()]), len(all_prefs),
+             len(names_a), len(names_b), len(union)))
+    if save:
+        Path(save).write_text("\n".join(union) + "\n", encoding="utf-8")
+        print("已写基线: %s（%d 条，并集）" % (save, len(union)))
+    if baseline:
+        bp = Path(baseline)
+        if not bp.exists():
+            print("[判不了] 基线文件不存在: %s——先在跑测试前 --temp-leak-save" % bp)
+            return 2
+        old = {ln.strip() for ln in bp.read_text(encoding="utf-8").splitlines() if ln.strip()}
+        cur = set(union)
+        new = sorted(cur - old)
+        gone = sorted(old - cur)
+        print("基线 %d 条；本次新增 %d 条；基线里已消失 %d 条" % (len(old), len(new), len(gone)))
+        for d in new:
+            print("  [泄漏复现] %s" % d)
+        if new:
+            return 1
+        print("增量 = 0：本轮没有新增残留（**这才是验收判据**；历史存量不计）")
+    return 0
+
+
+# ---------------------------------------------------------------- C-32
+# 窄版（复核员定稿、lead 裁定）：**读同一对象 → 删它 → 再 log 用那个值**，三条同时满足：
+#   D：`unlink/remove/rmtree/rmdir`，接收者记 `rcv`；
+#   A：函数内**任意一条**早于 D 的赋值，右值**含** `read_text/read_bytes` 且接收者与 `rcv`
+#      **AST 相同**（`ast.dump` 相等）；
+#   R：晚于 D 的 log 调用，参数引用了 A 的名字。
+# 为什么不是"同一语句块"：加了它 → **漏掉正典**（命中 0）；为什么不是"最近一条赋值"：
+# 加了它 → 落在 `except` 分支的 `detail = ""` 上（同一变量两条赋值），命中 4、**漏了 reme**。
+# 改"遍历所有先前赋值"才得到 5 处全真、零假阳性（复核员逐条回验）。见设计纪律第 5 条。
+_READ_CALLS = ("read_text", "read_bytes")
+_DELETE_NAMES = ("unlink", "remove", "rmtree", "rmdir")
+_LOG_NAMES = ("log", "_log")
+
+
+def _call_name(call):
+    """`marker.unlink()` → `(接收者表达式, 'unlink')`；`os.remove(x)` → `(None, 'remove')`。"""
+    f = call.func
+    if isinstance(f, ast.Attribute):
+        return f.value, f.attr
+    if isinstance(f, ast.Name):
+        return None, f.id
+    return None, None
+
+
+def _iter_no_defs(node):
+    """遍历子树但**不进嵌套函数/类/lambda**：否则内层函数的读写会被算到外层头上。"""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        yield child
+        yield from _iter_no_defs(child)
+
+
+def _evidence_order_hits(fn):
+    """窄版 D/A/R 的三元组命中：`[(读行, 变量, 删行, log行)]`。"""
+    reads, dels, logs_ = [], [], []
+    for node in _iter_no_defs(fn):
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)):
+            # 右值本身也要看（`detail = marker.read_text()` 的读调用就是右值根节点，
+            # 只看子孙会整个漏掉——首跑样本当场打出来的漏报）。
+            for c in itertools.chain([node.value], _iter_no_defs(node.value)):
+                if isinstance(c, ast.Call):
+                    rcv, name = _call_name(c)
+                    if rcv is not None and name in _READ_CALLS:
+                        reads.append((node.lineno, node.targets[0].id, ast.dump(rcv)))
+                        break
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            rcv, name = _call_name(node.value)
+            if name in _DELETE_NAMES:
+                subj = rcv if rcv is not None else (
+                    node.value.args[0] if node.value.args else None)
+                if subj is not None:
+                    dels.append((node.lineno, ast.dump(subj)))
+        if isinstance(node, ast.Call):
+            _rcv, name = _call_name(node)
+            if name in _LOG_NAMES:
+                names = {n.id for n in _iter_no_defs(node) if isinstance(n, ast.Name)}
+                logs_.append((node.lineno, names))
+    hits = []
+    for d_line, d_rcv in dels:
+        for a_line, var, a_rcv in reads:
+            if a_line >= d_line or a_rcv != d_rcv:
+                continue
+            for r_line, names in logs_:
+                if r_line > d_line and var in names:
+                    hits.append((a_line, var, d_line, r_line))
+                    break
+    return hits
+
+
+def check_evidence_order(root: Path):
+    """按窄版 D/A/R 找"读证据 → 删证据 → 报告"。返回 `(ok, detail)`。"""
+    bad = []
+    for p in _py_files_under(root):
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+        except (SyntaxError, OSError):
+            continue
+        base_rel = p.relative_to(root).as_posix()
+        for fn in [n for n in ast.walk(tree)
+                   if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+            for a_line, var, d_line, r_line in _evidence_order_hits(fn):
+                bad.append("%s: %s():%d 读 `%s` → :%d 删同一接收者 → :%d 才 log 它"
+                           % (base_rel, fn.name, a_line, var, d_line, r_line))
+    if bad:
+        return False, ("；".join(bad) + "。【为什么是硬违规】不可逆动作（删证据）排在"
+                       "**调用边界可能失败的语句**之前：arity/签名不符、属性不存在这类错误"
+                       "在**进入被调方之前**就抛出，**被调方内部的 try/except 保护不了它**"
+                       "——l-s2t 就是这么真炸的（TypeError + marker 已删 + 提示消失）。"
+                       "【正确形态】先算文案 → 先报告 → **最后**删证据（删不掉就留给下次再报）")
+    return True, "没有「读证据→删证据→报告」的危险顺序"
+
+
+# ---------------------------------------------------------------- C-33
+# **禁止拿 `ping` 当等待节拍**。它不是"睡 1 秒"，而是"发 N 个 ICMP 等回包"——
+# 在**丢弃 loopback ICMP** 的机器上每个包要等满超时：`ping -n 2 127.0.0.1` 实测 **9.0s**
+# （两次 4.5s），于是名义 120s 的等待变成 ~18 分钟，而 `:giveup` 还打印 "after 120s"
+# ——**日志说谎**。这是"以未验证的单位假设写等待/超时"的一族（同类：robocopy rc=0 其实是
+# "没拷文件"）。判据口径：`.py`/`.bat` 里出现 `ping` 且带 `-n`/`-w` 参数即**确证违规**
+# （本家族没有任何"真的需要 ping 网络"的用途；有求真的用法再给它开单独形态）。
+_PING_TICK = re.compile(r"\bping(?:\.exe)?\b[^\n]*?\s-(?:n|w)\b", re.I)
+
+
+def _code_only_text(p: Path, text: str) -> str:
+    """**注释不算违规**（纪律 ④(c)：这里要抓的是会被执行的节拍）。
+
+    `.py`：用 `tokenize` 把 `COMMENT` 词法单元挖掉（不碰字符串——渲染 bat 的 `.py` 模板
+    正是**字符串**，那才是要查的东西）；`.bat`/`.cmd`：逐行丢掉 `rem` / `::`。
+    **两件都做**：渲染出来的 bat 会以 `rem` 行形式存在字符串里。
+    """
+    if p.suffix.lower() == ".py":
+        import io
+        import tokenize
+        try:
+            out = []
+            for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+                if tok.type == tokenize.COMMENT:
+                    out.append("\n" * tok.string.count("\n") + " " * (len(tok.string) - tok.string.count("\n")))
+                else:
+                    out.append(tok.string)
+            text = " ".join(out)   # 行号不再对应原文，故下面按"逻辑行"报
+        except (tokenize.TokenError, IndentationError, SyntaxError):
+            pass
+    kept = []
+    for line in text.splitlines():
+        s = line.strip().lower()
+        if s.startswith("rem ") or s == "rem" or s.startswith("::"):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def check_ping_tick(root: Path):
+    """`root` 下的 `.py`/`.bat`/`.cmd` 不得用 `ping -n/-w` 当节拍。返回 `(ok, detail)`。"""
+    hits = []
+    files = [p for p in root.rglob("*")
+             if p.is_file() and p.suffix.lower() in (".py", ".bat", ".cmd")
+             and not any(part in _PY_SKIP_DIRS for part in p.parts)]
+    for p in sorted(files):
+        text = _code_only_text(p, p.read_text(encoding="utf-8", errors="replace"))
+        rel = p.relative_to(root).as_posix()
+        for n, m in enumerate(_PING_TICK.finditer(text), 1):
+            hits.append("%s(命中%d) `%s`" % (rel, n, m.group(0).strip()[:40]))
+    if hits:
+        return False, ("%d 处用 ping 当等待节拍：%s。【为什么是硬违规】`ping -n 2` 的\"1 秒\""
+                       "只在 loopback ICMP 有响应时成立；丢弃 ICMP 的机器上实测 **9.0s/拍**"
+                       "（两次 4.5s 超时），名义 120s→实际 ~18 分钟，而超时日志仍写\"120s\""
+                       "（**日志说谎**）。改用不依赖网络的睡眠："
+                       "`powershell -NoProfile -Command \"Start-Sleep -Milliseconds 1000\"`"
+                       "（DETACHED 进程无 console，子进程不会弹窗）"
+                       % (len(hits), ", ".join(hits[:8])))
+    return True, "没有把 ping 当等待节拍"
+
+
+@check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
+def c33(c: Ctx):
+    """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
+    return check_ping_tick(c.dir)
+
+
+@template_check("C-33", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+def c33_template(c: Ctx):
+    """模板侧只扫 `modules/**`——那是会被拷进工具的正本代码（含渲染 bat 的 `.py` 模板）。"""
+    return check_ping_tick(c.dir / "modules")
+
+
+# ---------------------------------------------------------------- C-31
+# 派发件 = 会被"整文件夹"拷进四个工具的模块内容（`modules/<模块>/` 下的 .py/.md）。
+# 模板专属件不在其列：`build_release/`（模板自己的构建工具）与 `baseline/`（历史件）。
+_DISPATCH_SKIP_DIRS = {"__pycache__", "build_release", "baseline"}
+_DISPATCH_EXTS = (".py", ".md")
+
+
+def _dispatched_files(root: Path):
+    mods = root / "modules"
+    if not mods.is_dir():
+        return []
+    return [p for p in sorted(mods.rglob("*"))
+            if p.is_file() and p.suffix.lower() in _DISPATCH_EXTS
+            and not any(part in _DISPATCH_SKIP_DIRS for part in p.parts)]
+
+
+def _first_lone_lf(blob: bytes) -> int:
+    """第一个"前一字节不是 \\r 的 \\n"所在行号（1 基）；没有则返回 0。"""
+    line, i = 1, 0
+    while i < len(blob):
+        if blob[i:i + 1] == b"\n":
+            if i == 0 or blob[i - 1:i] != b"\r":
+                return line
+            line += 1
+        i += 1
+    return 0
+
+
+def check_dispatched_eol(root: Path):
+    """派发件（`.py`/`.md`）必须全程 CRLF。返回 `(ok, detail)`。
+
+    为什么要有这条：模板是**拷贝式分发**（B4）——**正本的行尾就是四份副本的行尾**。
+    正本被某个编辑器整文件写成 LF-only 时：`py_compile` 照旧绿、`sync_check` 照旧
+    `[ok]`（两边同为 LF，归一化哈希一致）、C-22 只管 `.bat`/`.cmd`——**没有任何一层
+    会报**。实测现场（2026-09-19）：`modules/log_kit/log_kit.py` 被整文件重写成 LF，
+    是**读回字节**才发现的。**没人查的一致性问题一定会漂**，所以给它一条可见的 WARN。
+    """
+    files = _dispatched_files(root)
+    if not files:
+        return True, "模板 modules/ 下没有 .py/.md（判据不适用）"
+    bad = []
+    for p in files:
+        blob = p.read_bytes()
+        crlf = blob.count(b"\r\n")
+        lone = blob.count(b"\n") - crlf
+        if lone:
+            bad.append("%s:%d 行尾是 LF（共 %d 处；CRLF %d 处）"
+                       % (p.relative_to(root).as_posix(), _first_lone_lf(blob), lone, crlf))
+    if bad:
+        return False, ("%d/%d 个派发件不是全程 CRLF：%s。【正确形态】统一 CRLF——"
+                       "正本的行尾会被原样拷进四个工具，而 LF-only 不报错、不触发任何"
+                       "现有判据（C-22 只管 .bat/.cmd），只能靠本条可见"
+                       % (len(bad), len(files), "；".join(bad)))
+    return True, "%d 个派发件（.py/.md）全部 CRLF" % len(files)
+
+
+@template_check("C-31", "WARN", "模板派发件（.py/.md）必须全程 CRLF（C-22 只管 bat/cmd）")
+def c31(c: Ctx):
+    return check_dispatched_eol(c.dir)
+
+
+@check("C-32", "FAIL", "禁「读证据 → 删证据 → 报告」的危险顺序（调用边界一失败就先删了证据）")
+def c32(c: Ctx):
+    """**不可逆动作不得排在"调用边界可能失败的语句"之前**（复核员精确化 + lead 裁定）。
+
+    为什么**不上通用版**："不可逆动作必须排在所有可能抛异常的语句之后"太宽——`log_kit.log()`
+    内部是 `try/except Exception: pass`，**本函数不抛**，于是 `quit_watch_loop` 的
+    `unlink → log`（模板 + 4 份副本）会被误报 5 处。**假阳性比漏报更伤信任**（纪律 ①）。
+
+    为什么**仍要立**：arity/签名不符、属性不存在、名字未定义这类错误在**进入被调方之前**
+    就抛出，被调方内部的 try/except 保护不了它——C-29 的契约冲突下 l-s2t **真的炸了**
+    （`TypeError` + marker 已被删 + 提示消失）。修完 C-29 后这类危险退化成潜伏态，
+    但下次契约冲突还会以同样方式炸。
+
+    **窄版判据**（复核员定稿）：D（删除，记接收者）+ A（函数内**任意**更早的赋值，右值含
+    `read_text`/`read_bytes` 且接收者与 D **AST 相同**）+ R（更晚的 `log` 引用 A 的名字），
+    三条同时满足才报。**限定词必须逐条用已知正例回验**（设计纪律 ⑤）："同一语句块"会漏掉正典
+    （命中 0）、"最近一条赋值"会落在 `except` 里的 `detail = ""` 上（命中 4、漏 reme）。
+    样本 7 条，含 `quit_watch_loop` 那种"删除后写日志但**没有读证据**"的形态（必须放行）。
+    """
+    return check_evidence_order(c.dir)
+
+
+@template_check("C-32", "FAIL", "模板派发件（modules/**）里的同一形态（模板正本只跑一次）")
+def c32_template(c: Ctx):
+    """模板侧只扫 `modules/**`——那才是会被拷进工具的正本代码。
+
+    教训见 §4.1.18：判据存在 ≠ 被检查对象在范围内。模板 `update_helper` 正是这条判据的
+    活样本（`pop_failed_update_note` 的"读 → 删 → log"顺序），不扫模板就等于不扫源头。
+    """
+    return check_evidence_order(c.dir / "modules")
+
+
+def _rmtree_strict(path, tries=10):
+    """删 + 回读确认；删不掉就重试，仍删不掉**抛错**（绝不 `ignore_errors` 吞掉）。
+
+    本工具是 C-30 的作者，**自己先得守 C-30**：selftest 的临时目录以前用
+    `rmtree(base, ignore_errors=True)` 收尾——那正是本条判红的那种写法（"清理跑过了"
+    被当成"清理成功了"）。同一个 `%TEMP%` 前缀泄漏形态，工具自己也会犯。
+    """
+    import shutil
+    import time
+    last = ""
+    for _ in range(max(1, tries)):
+        try:
+            shutil.rmtree(path)
+        except OSError as exc:
+            last = repr(exc)
+            time.sleep(0.2)
+        if not Path(path).exists():
+            return True
+    raise OSError("临时目录删不掉（%s）：%s" % (path, last or "still exists"))
 
 
 def selftest() -> int:
-    """C-21..C-29 反向自证：合成样本，正例须点名，反例须放行。"""
+    """C-21..C-30 反向自证：合成样本，正例须点名，反例须放行。"""
     import shutil
     import tempfile
     base = Path(tempfile.mkdtemp(prefix="conf_selftest_"))
@@ -1605,8 +2423,76 @@ def selftest() -> int:
             print("[selftest] %s  C-29 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-30：只有"mkdtemp 根目录被 ignore_errors 吞掉"才报；子目录/固定路径要放行。
+        # C-30 上半：mkdtemp 前缀必须可静态归属，推不出的必须在 TMP_PREFIX_REGISTRY 登记。
         # 命名按该不该报写清楚（与 C-29 同一约定），不靠 pos/neg 猜。
+        # `param_prefix_literal_calls_ok` 钉的是 **dsh/ocx/l-s2t 三个工具的真实形态**
+        # （`tests/_cleanup.py: scratch_dir(prefix)` 内部 mkdtemp，前缀全在调用点上是字面量）：
+        # 少了它，判据的下一版很容易改成"形参=不可枚举"，**一次把三家全判红**。
+        _prefix_cases = (
+            ("literal_ok",
+             "import tempfile\nTMP = tempfile.mkdtemp(prefix='app-test-')\n", True, None),
+            ("param_prefix_literal_calls_ok",
+             "import tempfile\n\n\n"
+             "def scratch_dir(prefix):\n"
+             "    return tempfile.mkdtemp(prefix=prefix)\n"
+             "\n\n"
+             "TMP = scratch_dir('app-test-')\n", True, None),
+            ("param_prefix_nonliteral_call_flagged",
+             "import tempfile\n\n\n"
+             "def scratch_dir(prefix):\n"
+             "    return tempfile.mkdtemp(prefix=prefix)\n"
+             "\n\n"
+             "TMP = scratch_dir(APP_ID + '-test-')\n", False, None),
+            # 第二路径（lead 2026-09-19 裁定的"低成本做法"）：**可折叠模块常量**。
+            # reme `src/main.py:6 APP_ID = "reme-helper"` + 前缀 `f"{APP_ID}-update-"` 就是这一形态
+            # ——能折出来就不该逼作者写登记表。
+            ("foldable_module_constant_ok",
+             "import tempfile\n"
+             "APP_ID = 'app'\n"
+             "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n", True, None),
+            ("foldable_concat_ok",
+             "import tempfile\n"
+             "BASE = 'app-'\n"
+             "TMP = tempfile.mkdtemp(prefix=BASE + 'test-')\n", True, None),
+            # 同名不同值 → 折不出来（宁缺勿猜）⇒ 仍要登记
+            ("conflicting_constants_flagged",
+             "import tempfile\n"
+             "APP_ID = 'one'\n"
+             "APP_ID = 'two'\n"
+             "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n", False, None),
+            ("fstring_prefix_unregistered_flagged",
+             "import tempfile\nTMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n", False, None),
+            # 登记表放**文件后半段**也能被认（判据按模块级常量找，不按位置猜）；
+            # 键必须与站点 `相对路径:行号` **逐字对上**——对不上就是过期 WARN。
+            ("fstring_prefix_registered_ok",
+             "import tempfile\n"
+             "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n"
+             "\n"
+             "TMP_PREFIX_REGISTRY = {\n"
+             "    'src/main.py:2': 'app-update-',\n"
+             "}\n", True, None),
+            ("registry_value_not_literal_flagged",
+             "import tempfile\n\n"
+             "TMP_PREFIX_REGISTRY = {'src/main.py:4': PREFIX}\n\n"
+             "TMP = tempfile.mkdtemp(prefix=f'{APP_ID}-update-')\n", False, None),
+            ("registry_stale_entry_warn",
+             "import tempfile\n\n"
+             "TMP_PREFIX_REGISTRY = {'src/main.py:99': 'app-old-'}\n\n"
+             "TMP = tempfile.mkdtemp(prefix='app-test-')\n", False, "WARN"),
+        )
+        for name, body, want, want_sev in _prefix_cases:
+            d = base / ("c30p_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(body, encoding="utf-8")
+            res = c30(Ctx(name, base / ("c30p_" + name)))
+            ok, detail = res[0], res[1]
+            sev = res[2] if len(res) == 3 else "FAIL"
+            good = (ok == want) and (want_sev is None or sev == want_sev)
+            failed += 0 if good else 1
+            print("[selftest] %s  C-30/prefix %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:100]))
+
+        # C-30 下半：只有"mkdtemp 根目录被 ignore_errors 吞掉"才报；子目录/固定路径要放行。
         _cleanup_ok = ("import shutil, logging, tempfile\n"
                        "TMP = tempfile.mkdtemp(prefix='t-')\n"
                        "logging.shutdown()\n"
@@ -1634,26 +2520,142 @@ def selftest() -> int:
             ("ignore_errors_on_scratch_subdir_ok", _cleanup_subdir, True),
         )
         for name, body, want in c30_cases:
-            d = base / ("c30_" + name) / "tests"
+            d = base / ("c30_" + name) / "src"
             d.mkdir(parents=True)
             (d / "test_x.py").write_text(body, encoding="utf-8")
             ok, detail = c30(Ctx(name, base / ("c30_" + name)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-30 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  C-30/cleanup %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-30/腿 B：形态派生签名（不看名字）。样本**故意用回归集里的真实名字**
+        # （`icon-probe-*` 在四个工具源码里搜不到）——它必须被找到，才证明"不看名字"成立。
+        fake_tmp = base / "c30_shape_tmp"
+        cases = (
+            # (路径, 内容) —— cfg=是否有 config.json, log=是否有 *.log, subs=子目录数
+            ("icon-probe-077hxtaw", True, True, 1),    # 回归集真名 → 必须命中
+            ("smoke-proof-nl6gj9kf", True, True, 1),   # log 为 0 字节也算（宽松口径）
+            ("plain-scratch", True, False, 1),         # 有 config.json 无 log → 不命中
+            ("two-subs", True, True, 2),               # 子目录不唯一 → 不命中
+            ("no-config", False, True, 1),             # 无 config.json → 不命中
+        )
+        for dirname, cfg, log, nsubs in cases:
+            d = fake_tmp / dirname
+            for i in range(nsubs):
+                sub = d / ("app" if i == 0 else "other%d" % i)
+                (sub / "log").mkdir(parents=True)
+                if cfg:
+                    (sub / "config.json").write_text("{}", encoding="utf-8")
+                if log:
+                    (sub / "log" / "app.log").write_bytes(b"")   # 0 字节：仍算残留
+        (fake_tmp / "just-a-file.txt").write_bytes(b"x")
+        got_shape = set(_shape_hits(fake_tmp))
+        want_shape = {"icon-probe-077hxtaw", "smoke-proof-nl6gj9kf"}
+        good = got_shape == want_shape
+        failed += 0 if good else 1
+        print("[selftest] %s  C-30/shape %s: got=%s want=%s"
+              % ("PASS" if good else "FAIL", "name_agnostic_shape", sorted(got_shape),
+                 sorted(want_shape)))
+
+        # C-32：读证据 → 删证据 → 报告。样本必须用**真实现场的形状**——首版就是被
+        # `marker.read_text(...).strip()` 的链式包装 + `except: return` 挡住而**零命中**，
+        # 是真实树首跑（模板 update_helper 竟然 [ok]）把这个漏报打出来的。
+        c32_cases = (
+            ('template_shape_flagged',
+             chr(10).join(["def f(marker, log):", "    try:", "        detail = marker.read_text(encoding='utf-8').strip()", "        marker.unlink()", "    except OSError as exc:", "        log('read error:', exc)", "        return ''", "    log('previous update failed:', detail)", "    return detail"]) + chr(10),
+             False),
+            ('reme_old_shape_flagged',
+             chr(10).join(["def f(marker, log):", "    try:", "        detail = marker.read_text().strip()", "    except OSError:", "        detail = ''", "    marker.unlink()", "    log('previous update failed:', detail)"]) + chr(10),
+             False),
+            ('log_before_delete_ok',
+             chr(10).join(["def f(marker, log):", "    detail = marker.read_text()", "    log('previous update failed:', detail)", "    marker.unlink()"]) + chr(10),
+             True),
+            ('delete_without_read_ok',
+             chr(10).join(["def f(marker, log):", "    marker.unlink()", "    log('watch loop stopped')"]) + chr(10),
+             True),
+            ('read_then_delete_no_log_ok',
+             chr(10).join(["def f(marker, log):", "    detail = marker.read_text()", "    marker.unlink()", "    return detail"]) + chr(10),
+             True),
+            ('different_receiver_ok',
+             chr(10).join(["def f(a, b, log):", "    detail = a.read_text()", "    b.unlink()", "    log(detail)"]) + chr(10),
+             True),
+            ('idempotent_delete_still_flagged',
+             chr(10).join(["def f(marker, log):", "    detail = marker.read_text()", "    marker.unlink(missing_ok=True)", "    log(detail)"]) + chr(10),
+             False),
+        )
+        for name, body, want in c32_cases:
+            d = base / ("c32_" + name) / "src"
+            d.mkdir(parents=True)
+            (d / "main.py").write_text(body, encoding="utf-8")
+            ok, detail = check_evidence_order(base / ("c32_" + name))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-32 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-33：禁拿 ping 当节拍。**注释/rem 行不算**（要抓的是会被执行的节拍），
+        # 而渲染 bat 的 .py 模板里那句真节拍是**字符串**，必须抓住。
+        c33_cases = (
+            ("ping_tick_in_py_flagged",
+             {"src/main.py": "BAT = '''ping -n 2 127.0.0.1 >nul'''\n"}, False),
+            ("ping_tick_in_bat_flagged",
+             {"scripts/apply.bat": "@echo off\r\nping -n 2 127.0.0.1 >nul\r\n"}, False),
+            ("start_sleep_ok",
+             {"src/main.py": "BAT = '''powershell -NoProfile -Command "
+                             "\"Start-Sleep -Milliseconds 1000\" >nul'''\n"}, True),
+            ("ping_in_py_comment_ok",
+             {"src/main.py": "# 旧写法是 ping -n 2 127.0.0.1，实测 9 秒\nX = 1\n"}, True),
+            ("ping_in_bat_rem_ok",
+             {"scripts/apply.bat": "@echo off\r\nrem ping -n 2 127.0.0.1 was wrong\r\n"}, True),
+        )
+        for name, files, want in c33_cases:
+            d = base / ("c33_" + name)
+            for rel, body in files.items():
+                fp = d / rel
+                fp.parent.mkdir(parents=True, exist_ok=True)
+                fp.write_text(body, encoding="utf-8", newline="")
+            ok, detail = check_ping_tick(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-33 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-31：派发件行尾。正 / 负样本各一，另加一条"范围"样本——
+        # 模板专属目录（build_release/）里的 LF 不算，防止判据扩成"模板全仓"后误伤。
+        c31_cases = (
+            ("crlf_dispatched_ok",
+             {"modules/demo/a.py": b"x = 1\r\ny = 2\r\n",
+              "modules/demo/README.md": b"# demo\r\n"}, True),
+            ("lf_only_dispatched_flagged",
+             {"modules/demo/a.py": b"x = 1\ny = 2\n"}, False),
+            ("mixed_eol_flagged",
+             {"modules/demo/a.py": b"x = 1\r\ny = 2\n"}, False),
+            ("template_only_dir_ignored",
+             {"modules/build_release/tool.py": b"x = 1\n"}, True),
+        )
+        for name, files, want in c31_cases:
+            d = base / ("c31_" + name)
+            for rel, blob in files.items():
+                fp = d / rel
+                fp.parent.mkdir(parents=True, exist_ok=True)
+                fp.write_bytes(blob)   # 显式字节：行尾样本绝不能经字符串转义构造
+            ok, detail = check_dispatched_eol(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-31 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         return 1 if failed else 0
     finally:
-        shutil.rmtree(base, ignore_errors=True)
+        _rmtree_strict(base)   # 不吞错：删不掉就让 selftest 崩（C-30 作者守 C-30）
 
 
 # ---------------------------------------------------------------- 主流程
-def run_tool(name: str, only=None) -> tuple:
-    c = Ctx(name, ROOT / name)
+def _run_checks(c: Ctx, checks, only=None):
     rows = []
-    for cid, severity, title, fn in CHECKS:
+    for cid, severity, title, fn in checks:
         if only and cid not in only:
             continue
         try:
@@ -1667,7 +2669,24 @@ def run_tool(name: str, only=None) -> tuple:
         except Exception as exc:  # 检查自身出错不应让整轮崩
             ok, detail = False, "检查异常: %r" % (exc,)
         rows.append((cid, severity, title, ok, detail))
-    return c, rows
+    return rows
+
+
+def run_tool(name: str, only=None) -> tuple:
+    c = Ctx(name, ROOT / name)
+    return c, _run_checks(c, CHECKS, only)
+
+
+def _print_rows(rows, fails, warns):
+    for cid, severity, title, ok, detail in rows:
+        tag = "ok  " if ok else ("FAIL" if severity == "FAIL" else "WARN")
+        if not ok:
+            if severity == "FAIL":
+                fails += 1
+            else:
+                warns += 1
+        print("  [%s] %-5s %-46s %s" % (tag, cid, title, detail))
+    return fails, warns
 
 
 def main() -> int:
@@ -1676,7 +2695,13 @@ def main() -> int:
     ap.add_argument("--strict", action="store_true", help="WARN 也计入退出码")
     ap.add_argument("--only", nargs="*", default=None, help="只跑指定检查 ID")
     ap.add_argument("--selftest", action="store_true",
-                    help="用合成样本反向自证 C-21（状态副本检测器）后退出")
+                    help="用合成样本反向自证 C-21..C-30（各检查的正反例）后退出")
+    ap.add_argument("--temp-leak", action="store_true",
+                    help="只读列出 %%TEMP%% 里命中家族 mkdtemp 前缀的目录（取证，永远 exit 0）")
+    ap.add_argument("--temp-leak-save", default=None,
+                    help="把当前命中目录名写入该文件，作为增量验收的基线")
+    ap.add_argument("--temp-leak-baseline", default=None,
+                    help="与基线文件比对，**只对新增残留**报红（残留免疫，历史存量不计）")
     args = ap.parse_args()
     if args.selftest:
         return selftest()
@@ -1693,24 +2718,31 @@ def main() -> int:
         and is_family_tool(d)
     )
 
+    if args.temp_leak or args.temp_leak_save or args.temp_leak_baseline:
+        return temp_leak_main(names, args.temp_leak_save, args.temp_leak_baseline)
+
     fails = warns = 0
+    only = set(args.only) if args.only else None
+
+    # 模板正本跑一次（不按工具跑 N 次——它检查的东西与具体工具无关，重复输出只会淹信号）。
+    trows = _run_checks(Ctx(TEMPLATE_DIR.name, TEMPLATE_DIR), TEMPLATE_CHECKS, only)
+    if trows:
+        print("=" * 78)
+        print("%s  (模板正本, 只跑 TEMPLATE_CHECKS)" % TEMPLATE_DIR.name)
+        print("=" * 78)
+        fails, warns = _print_rows(trows, fails, warns)
+        print()
+
     for name in names:
         tool_dir = ROOT / name
         if not tool_dir.is_dir():
             print("[skip] %s: no such dir" % name)
             continue
-        c, rows = run_tool(name, set(args.only) if args.only else None)
+        c, rows = run_tool(name, only)
         print("=" * 78)
         print("%s  (APP_ID=%s)" % (name, c.app_id))
         print("=" * 78)
-        for cid, severity, title, ok, detail in rows:
-            tag = "ok  " if ok else ("FAIL" if severity == "FAIL" else "WARN")
-            if not ok:
-                if severity == "FAIL":
-                    fails += 1
-                else:
-                    warns += 1
-            print("  [%s] %-5s %-46s %s" % (tag, cid, title, detail))
+        fails, warns = _print_rows(rows, fails, warns)
         print()
 
     print("summary: %d FAIL, %d WARN" % (fails, warns))

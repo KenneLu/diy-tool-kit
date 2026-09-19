@@ -352,7 +352,9 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
     dead_i = idx(":install_dead")
     keep_i = idx(":cleanup_keep")
     return [
-        ("等待循环 :wait", ":wait" in text and has("ping -n 2 127.0.0.1")),
+        # 节拍必须是**不依赖网络配置**的睡眠：`ping` 在丢 loopback ICMP 的机器上一拍 9.0s
+        # （实测），名义 120s 变 ~18 分钟。见 C-33 / CONFORMANCE §4.1.20。
+        ("等待循环 :wait", ":wait" in text and has("Start-Sleep -Milliseconds")),
         ("tasklist 行不含管道", bool(tl) and all("|" not in ln for ln in tl)),
         ("tasklist 写文件", any(">" in ln for ln in tl)),
         ("find 读该文件", bool(fl) and all('"%POLL%"' in ln for ln in fl)),

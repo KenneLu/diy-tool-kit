@@ -2,6 +2,125 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-30 grew a coverage-gap alarm; `conformance_check` 1.9.0)
+
+A check whose coverage can be switched off by renaming a literal to a variable is worse than
+the leak it was supposed to catch. C-30 v1 only asked "is the cleanup of a mkdtemp root
+verifiable?" and never asked **where the prefix came from**.
+
+- **Prefixes are enumerated from source, never guessed.** `mkdtemp(prefix=...)` arguments are
+  read via AST — including the **call sites of wrapper functions**: `tests/_cleanup.py` is
+  `def scratch_dir(prefix): return mkdtemp(prefix=prefix)`, and dsh/ocx/l-s2t all pass their
+  real prefixes as literals at the call sites. Judging the callee alone would paint all three
+  red. (Guessing was already disproven twice: `opencodex-*` guessed vs `ocx-*` real — zero of 42
+  matched; a `*/log/*.log` shape signature then missed ~14 more.)
+- **Opaque prefixes must be registered, or the check goes red.** f-string / variable / missing
+  `prefix` sites must appear in a module-level literal
+  `TMP_PREFIX_REGISTRY = {"<relpath>:<lineno>": "equivalent-prefix"}`. Both the check and the
+  runtime forensics read that table. A registry value that is not a literal is **red** (the check
+  cannot read it, so it is a registration in name only); an entry that no longer matches any site
+  (line drift) is **WARN**. Otherwise `prefix="reme-x-"` becomes `prefix=name` and silently
+  leaves the coverage — the check would be able to disable itself.
+- **The cleanup half now scans the whole tool, not just `tests/`.** That immediately surfaced
+  **reme `src/main.py:7409`**: `work = Path(tempfile.mkdtemp(prefix=f"{APP_ID}-update-"))` at 7405,
+  then `shutil.rmtree(work, ignore_errors=True)` on the download/verify early-exit path. Same
+  defect, production code, previously invisible.
+- **Acceptance is an increment, not a state.** `--temp-leak` lists `%TEMP%` hits (read-only,
+  always exits 0 — historical residue must not paint it red); `--temp-leak-save` records a
+  baseline and `--temp-leak-baseline` reports red **only on directories that appeared while the
+  gate ran**. "Just clean it once" is not evidence — it is a single point in time. So is any
+  measurement that finds residue: at 16:11 dsh's three leftovers were stamped 16:11 (the gate was
+  running, so they were being produced then), while a later re-scan of the same 19 prefixes found
+  **0 hits**. Both readings are true of their own moment; only the increment assertion can settle
+  whether the leak still reproduces.
+- **The runtime forensics grew a second leg, because prefix enumeration has a structural
+  ceiling** (its coverage can never exceed the prefix literals in the scanned source). Measured
+  on this machine: leg A (generator-derived prefixes) found **0**, while leg B — a name-agnostic
+  **shape** signature — found **20**. Those 20 names (`icon-probe-*`, `smoke-proof-*`,
+  `reme-gate-2.2.0`, `tmp*`) appear **nowhere** in the four tools' sources: some are bare
+  `mkdtemp()` (system default prefix `tmp`), others come from probe scripts outside the scanned
+  roots. "Leg A found nothing" and "there is nothing" were **the same output** — a check that
+  could quietly go green. Shape rule, calibrated against the real objects:
+  `<top>/<exactly one subdir>/config.json` **plus** any `*.log` under `<top>` — with
+  "log must be non-empty" it would only have covered 11/20 (the rest have 0-byte logs; an empty
+  file is still residue). The 20 are registered as the negative-sample regression set, and
+  `--temp-leak` now always prints its **scan surface** (temp path, top-level dir count, prefix
+  count, hits per leg), so "nothing found" can never again be confused with "nothing scanned".
+  Bare `mkdtemp()` moved from FAIL to WARN in C-30 (derivable but weak — leg B is its real
+  judge).
+- **Opaque prefixes got a cheap second path: foldable module constants.** `APP_ID = "reme-helper"`
+  plus `prefix=f"{APP_ID}-update-"` *is* derivable — constant-folding (module-level string
+  literals only; a name reassigned or assigned a non-literal makes it unfoldable, "when in doubt,
+  do not guess") turned reme's site green without asking anyone to write a registry entry. The
+  remaining rule is two-state, as the reviewer upgraded it: **unregistered → FAIL, registered →
+  OK** (leaving it at WARN would let "rename the literal to a variable" downgrade a FAIL to a
+  WARN while the leak stayed). After folding, C-30's only real-tree red is reme's
+  `rmtree(work, ignore_errors=True)`.
+- **The template's own `.md` are now scanned too (C-28 pass over the template repo, once).**
+  It turned out `main()` excluded the template with `d.name not in {..., TEMPLATE_DIR.name}`, so
+  C-28 had never looked at the very files every copy descends from — **"a check exists" is not
+  "the checked object is in scope"** (CONFORMANCE §4.1.18). Worst instance of the class: the
+  C-28 rule text itself had **two real TABs** in its own CHANGELOG entry — the author meant the
+  two characters `` `\t` `` and wrote a real TAB instead — and it was already in `HEAD`
+  (`188bbcc`). *The document describing the trap had fallen into it.* The template pass runs
+  through the new `TEMPLATE_CHECKS` registry (once, not once per tool).
+- **New C-32 (FAIL): no "read the evidence -> delete the evidence -> report it" order.** The
+  irreversible step must not precede a statement whose *call boundary* can fail: arity/signature
+  mismatches, missing attributes and undefined names are raised **before** the callee's body runs,
+  so the callee's own `try/except` cannot protect you — that is exactly how l-s2t really blew up
+  under the C-29 contract conflict (TypeError + marker already deleted + the notice gone). The
+  lead's first phrasing ("irreversible actions must come after every statement that might raise")
+  was rejected as too wide: `log_kit.log()` swallows everything internally and **never raises**,
+  so it would have reported `quit_watch_loop`'s `unlink -> log` five times. Final narrow form
+  (the reviewer's third try, all three conditions at once): **D** a delete (`unlink/remove/
+  rmtree/rmdir`) with receiver `rcv`; **A** *any* earlier assignment in the same function whose
+  right-hand side **contains** `read_text`/`read_bytes` and whose receiver is **AST-identical**
+  to `rcv`; **R** a later `log` call referencing A's name. Seven samples. Why the qualifiers had
+  to be re-validated one by one (design discipline ⑤, now in CONFORMANCE): adding "same
+  statement block" missed the canonical case entirely (0 hits); adding "the most recent
+  assignment" landed on the `detail = ""` inside `except` (two assignments to one name) and got
+  4 hits, **missing reme**; only "any earlier assignment" reached 5/5 true, zero false positives.
+  The detector also needed to inspect the assignment's **right-hand side root**, not just its
+  descendants — `detail = marker.read_text()` is a read when the call *is* the RHS, which the
+  first version skipped (found by the sample, not by luck). Live findings: template + **dsh +
+  ocx** `update_helper.pop_failed_update_note():385 -> 386 -> 390`; l-s2t and reme are already
+  fixed (report first, delete last). Fixing the template implies the same "re-copyable freeze"
+  constraint as C-31 for the dsh/ocx copies.
+- **`ping -n 2 127.0.0.1` is not a one-second sleep, and the wait loop was lying about it.**
+  On a machine that drops loopback ICMP (this one), each packet waits out the full timeout:
+  `cmd /c "ping -n 2 127.0.0.1"` measured **9.04 / 9.00 / 9.00 s**. So the "1 s" tick was 9 s, the
+  `UPDATE_WAIT_LIMIT = 120` "120 seconds" was ~18 minutes, and `:giveup` still logged
+  `still running after 120s` — a log that lies. Same line shipped in the template plus four
+  copies (dsh/ocx `update_helper.py`, l-s2t `updater.py`, reme `main.py`; reme also has
+  `ping -n 9` in `scripts/build.bat`). The template now ticks with
+  `powershell -NoProfile -Command "Start-Sleep -Milliseconds 1000"` (ICMP-free; launched from a
+  DETACHED process it inherits no console, so no window appears; measured 1.29 s per tick
+  including PowerShell startup), splits the constants into **polls** (`UPDATE_WAIT_LIMIT`) ×
+  **ms per tick** (`UPDATE_WAIT_TICK_MS`) = nominal budget (`UPDATE_WAIT_BUDGET_S`, a **lower
+  bound**), and the timeout line now reports `%tries% polls x {tick_ms}ms` instead of a "seconds"
+  figure nobody measured. New mechanical check **C-33** forbids `ping` as a wait tick (comments
+  and `rem` lines excluded — the thing to catch is the executed tick, including the one rendered
+  from a `.py` string template); `sync_check.py`'s bat-semantics assertion follows. Same family as
+  "robocopy rc=0 means *nothing was copied*": **every unit assumption in a wait/timeout must be
+  measured, not assumed.**
+- The tool now obeys its own rule: the selftest scratch dir is removed with `_rmtree_strict`
+  (delete, read back, raise on failure) instead of `rmtree(..., ignore_errors=True)`.
+- First run on the real tree: C-30 is 1 FAIL (reme, both halves), other three tools green.
+  Samples grew to 11 (7 prefix + 4 cleanup), selftest ALL PASS.
+- **New C-31 (WARN, template-only): dispatched `.py`/`.md` must be CRLF throughout.** C-22 only
+  covers `.bat`/`.cmd`, so a dispatched `.py`/`.md` rewritten with LF line endings by an editor
+  passes every layer — `py_compile` is green, and `sync_check` is green too (both sides LF, the
+  normalized hashes still match). That is exactly how `log_kit.py` was caught: by reading the
+  bytes back, not by a check. Since the template is copied, the template's line endings become
+  the four tools' line endings. A new `TEMPLATE_CHECKS` registry runs template-scoped checks
+  **once** (they describe the source, not any one tool), so C-31 does not print the same row four
+  times. Scoped to `modules/**` `.py`/`.md`, excluding the template-only `build_release/` and
+  `baseline/`. Four samples (CRLF ok / LF-only / mixed / template-only dir not flagged).
+  First real run: **4 of 27 flagged** (`modules/autostart/autostart.py`, `modules/icons/icons.py`,
+  `modules/service_link/README.md`, `modules/service_link/service_link.py`) — and the tool-side
+  copies are LF too, so normalizing is a "re-copyable freeze" event (template + every affected
+  copy in one wave); changing only the template would turn those copies into `[DIFF]` at once.
+
 ## 2026-09-19 (log contract: two shipped modules disagreed; `log_kit` 1.0.3; new C-29)
 
 Two dispatched modules said different things, and **three tools each hid it in their own way**.
