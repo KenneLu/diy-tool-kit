@@ -47,6 +47,8 @@
 | 2026-09-18 | R1+R2 | W-e/W-f 收尾 + reme 全量模板化（文档三裁决后） | ✅ 全绿 | sync_check 全家族 0 漂移（模板红灯→dsh/ocx 副本同步→归零，"接口不动实现换血"首次实战：log_kit 1.0.2 回退分支 / tray_kit 1.0.1 探测函数 / i18n 2.1.0 向上查找）；reme：--smoke PASS、8 套件绿、lang-audit missing=0；l-s2t/dsh 冻结冒烟 PASS；reme 冻结冒烟留版本号落定后（W-g） | AI |
 | 2026-09-19 | R1+R2+R3（新增 CONFORMANCE 层） | 四工具 76 条款全量审计（9 智能体，含对抗复核）+ l-s2t 首轮整改 | ✅ 审计完成；l-s2t 修复后 **1 FAIL / 2 WARN**（修前 5 FAIL）；全门禁绿 | **根因**：l-s2t 单实例互斥体名 `Local\<app>\SingleInstance` 含第二个反斜杠 → `CreateMutexW` 恒失败 → 被当成"已有实例" → 自 1.2.0 起完全无法启动，而 --smoke 绕过守卫使三层防护全绿。已修：合法命名 + 失败放行 + 两个新回归套件进 GATE 2b + `_DATA_DIR` 数据根重定向 + 冒烟双 env 隔离 + 测试注册表备份还原 + README 切换行 + 词表补 2 键。**新增 CONFORMANCE.md（76 条款矩阵）与 conformance_check.py（20 项机械检查，首版修掉 6 处误判）**。未做：C-12 菜单签名重画（需 GUI 目视）、T4/T5 自检命令、T7 guide、E2-06 --quit | AI |
 
+| 2026-09-19 | R2 | 语言菜单文案统一（`menu_language` → `English / 中文`） | ✅ 全绿 | 用户裁定：语言切换项应**直接列出两个语言名**（reme 形态），不用 "Language 语言" 这类功能名。模板 `modules/i18n/README.md` 采纳步骤 3 已改，并**逐字节重拷** dsh/ocx/l-s2t 三份副本；三家 `locales/{zh,en}.json` 的 `menu_language` 值同步统一（每仓 2 文件各 1 行，**行尾剖面不变**：dsh/ocx 保持 LF、l-s2t 保持 CRLF）。`sync_check` 0 undeclared drift / 0 doc byte-diff。reme 本来就是该形态（蓝图），未动。**产物生效需重建**（并入下一波，本波不构建） | AI |
+
 ## 四、发现登记簿（跨轮待办）
 
 | # | 发现 | 处置 | 状态 |
