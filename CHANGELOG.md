@@ -2,6 +2,39 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-43: `:~` in an `if` condition aborts the whole script; narrow boundary)
+
+- **C-43 (FAIL, tool + template channel), boundary pinned by ls2t-dev and adopted.** Only **one
+  shape** is dangerous: a `:~` trailing/substring expansion (`:~-1` / `:~0,-1`) **inside a same-line
+  `if` condition**. `%` expansion happens **before** the `if` is evaluated, so with the variable
+  undefined the expansion drops a literal into the quotes, cmd reports
+  `The syntax of the command is incorrect.` and **aborts the entire script** (it does not skip the
+  line). Fix: use `for %%d in ("%VAR%") do set "VAR=%%~fd"` — `%%~f` does no substring expansion at
+  parse time and cannot produce a broken quote.
+  * **Nested `if` is harmless**: `local-speak2text/build.bat:84`
+    (`if defined RUNNING_DIR if /i "%RUNNING_DIR%"=="%TARGET_DIR%" (`) contains **zero** `:~`, so it
+    is plain `%VAR%` expansion — undefined yields `""` and the syntax still holds ⇒ **green**. A
+    wide version ("flag any nested `if`") would have made **this very line a live false positive —
+    in our own repo**, which is why the line is now a negative sample in the self-test, copied
+    verbatim.
+  * **Condition vs action** (measured here): `if defined X set "Y=%X:~0,-1%"` (dsh/ocx
+    `build.bat:87`) has the `:~` on the **action** side, guarded by `if defined`, so an undefined
+    variable expands to empty ⇒ **green**. The criterion therefore draws its line at "does `:~`
+    appear **before** the action keyword".
+  * **Measured: all four tools and the template are `[ok]`**; four self-test legs, three of them
+    built from **real lines in our repos**.
+- **Probe discipline for this class, recorded as §4.1.45-补** (ls2t-dev's method, reusable):
+  ① the probe must take **only the guard region** and run with `cwd=<repo>` — the head's
+  "release dir already exists" check exits first, so a whole-bat probe never reaches the guard (his
+  first attempt was wasted that way); ② decide by **`rc` + marker, never by matching the text**
+  `Syntax of the command is incorrect.` — cmd writes in the **OEM code page**, so a UTF-8 decode
+  fails to match and **both cases read 0** (a false green). ⇒ **Do not build a criterion on text
+  that may be misdecoded** (same family as §4.1.37 and discipline ⑪).
+- **D1-04 gets its first positive instance**: ls2t-dev's **17:25 full build reached `[DONE]` with no
+  instance running at all** (measured process count = 0 before the 1.4.0 directory was removed).
+  Recorded next to the dsh/ocx negative instances — **a requirement with only counter-examples can't
+  be told apart from an impossible one**; with a positive instance it becomes a proven operation.
+
 ## 2026-09-19 (C-42: `dev/null` in redirect position; and why the self-check was green anyway)
 
 - **C-42 (FAIL, tool + template channel), narrowed on the lead's instruction.** In `.py`/`.bat`/`.cmd`

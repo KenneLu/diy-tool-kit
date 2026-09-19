@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.8
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.9
+# 1.9.9：**新增 C-43**（FAIL）= **`if` 条件里的 `:~` 子串扩展**（未定义时会中止整个脚本）——**窄版**：嵌套 `if`（无 `:~`）与动作一侧的 `:~` 均判绿，自证 4 条腿。
 # 1.9.8：**新增 C-42**（FAIL）= **重定向位置不得出现 `dev/null`**（收窄版：不写成“全文不得出现 dev/”，否则注释里的路径与 URL 会误报）；文本口径与 C-33 同一条边界（正文保留、散文不算），自证 5 条腿。
 # 1.9.7：**新增 C-41**（FAIL）= 退出确认的「链路不可用」分支必须固定为**不停服务**（不得沿用已存勾选）——判据只看降级分支，**原生框那一支不算**；
 #   实测模板 + 四家全绿（今天无违规，立判据是为了防 `tray_kit` 统一之后长回去），自证 5 条腿。
@@ -3078,6 +3079,73 @@ def c42_template(c: Ctx):
     return check_devnull_redirect(c.dir)
 
 
+# ---------------------------------------------------------------- C-43
+# **`if` **条件**里的 `:~` 子串扩展**（lead 2026-09-19 定；边界由 ls2t-dev 钉准）。
+# **危险的只有一种形态**：**同一行条件里**带 `:~` 尾/子串扩展（`:~-1` / `:~0,-1`）——
+#   它在变量未定义时把字面量塞进引号，cmd 报语法错并**中止整个脚本**。
+# **嵌套 `if` 本身无害**：`local-speak2text/build.bat:84`
+#       if defined RUNNING_DIR if /i "%RUNNING_DIR%"=="%TARGET_DIR%" (
+#   **含 `:~` 次数 = 0** ⇒ 只是普通 `%VAR%` 展开，未定义时得 `""`、语法仍成立 ⇒ **判绿**。
+#   （按"打嵌套 `if`"的宽版写，这一行就是**现成的假阳性**——而它就在我们自己的仓里。）
+#
+# **条件 vs 动作**：`if defined X set "Y=%X:~0,-1%"`（dsh/ocx `build.bat:87`）里，
+#   `:~` 落在**动作**（`set`）一侧、且被 `if defined` 守着 ⇒ 未定义时展开为空、无害 ⇒ **判绿**。
+#   判据因此必须把"同一行里 `:~` 出现在**动作关键字之前**"当作"在条件里"。
+#   **动作关键字集合**：`set` / `call` / `echo` / `goto` / `exit` / `for` / `rem`。
+_IF_COND_TILDE = re.compile(r"^\s*if\b", re.I)
+_ACTION_KW = re.compile(r"(?i)(?:^|\s)(set|call|echo|goto|exit|for|rem)\s")
+_ACTION_KW_STRICT = re.compile(r"(?i)(?:^|\s)set\s")
+
+
+def check_if_substr_expansion(root: Path):
+    """`root` 下的 `.bat`/`.cmd`：**同一行 `if` 条件里不得出现 `:~` 子串扩展**。"""
+    hits, scanned = [], 0
+    files = [p for p in root.rglob("*")
+             if p.is_file() and p.suffix.lower() in (".bat", ".cmd")
+             and not any(part in _PY_SKIP_DIRS for part in p.parts)]
+    for p in sorted(files):
+        scanned += 1
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        rel = p.relative_to(root).as_posix()
+        for n, line in enumerate(text.splitlines(), 1):
+            s = line.strip()
+            if s.lower().startswith("rem ") or s.startswith("::"):
+                continue
+            if not _IF_COND_TILDE.match(line) or ":~" not in line:
+                continue
+            # 动作关键字之前的 `:~` 才算"在条件里"（之后的属动作一侧，见上方注释）
+            act = _ACTION_KW_STRICT.search(line)
+            cond_part = line[:act.start()] if act else line
+            if ":~" in cond_part:
+                hits.append("%s:%d `%s`" % (rel, n, line.strip()[:70]))
+    if hits:
+        return False, ("%d 处在 **`if` 条件里**使用 `:~` 子串扩展：%s。【为什么是硬违规】"
+                       "`%%` 展开发生在 `if` 求值**之前**，变量未定义时该展开会把字面量塞进引号，"
+                       "cmd 报 `The syntax of the command is incorrect.` 并**中止整个脚本**"
+                       "（不是跳过那一行）。【正确形态】用 `for %%%%d in (\"%%VAR%%\") do set \"VAR=%%%%~fd\"`"
+                       "——`%%%%~f` 在解析期不做子串扩展，未定义时也不会拼出坏引号。"
+                       "【边界】**嵌套 `if` 本身无害**（`if defined X if /i \"%%X%%\"==\"%%Y%%\" (` 判绿）；"
+                       "`:~` 落在**动作**一侧（`if defined X set \"Y=%%X:~0,-1%%\"`）同样判绿。"
+                       "【扫描面】%d 个 .bat/.cmd" % (len(hits), "；".join(hits[:5]), scanned))
+    return True, ("`if` 条件里无 `:~` 子串扩展。扫描面：%d 个 .bat/.cmd"
+                  "（嵌套 if 与「动作一侧的 :~」都按绿处理——后者被 `if defined` 守着且展开为空）"
+                  % scanned)
+
+
+@check("C-43", "FAIL", "`if` 条件里不得用 `:~` 子串扩展（未定义时会中止整个脚本）")
+def c43(c: Ctx):
+    """见上方注释。**宽版（凡嵌套 `if` 就报）会在我们自己的仓里立刻假阳性**，故按窄版写。"""
+    return check_if_substr_expansion(c.dir)
+
+
+@template_check("C-43", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+def c43_template(c: Ctx):
+    return check_if_substr_expansion(c.dir)
+
+
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
@@ -4118,6 +4186,39 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-42 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
+
+        # C-43（2026-09-19，lead 定 / 边界由 ls2t-dev 钉准）：**`if` 条件里的 `:~`**。
+        # 四格：真危险形态（红）+ **我们仓里那行现成的假阳性**（绿，逐字搬入）+ 动作一侧（绿）
+        # + 普通 `%VAR%` 展开（绿）。
+        c43_cases = (
+            # 1) 历史中止形态：`:~-1` 在**条件**里，且后面跟着坏引号
+            ("if_cond_substr_flagged",
+             {"build.bat": '@echo off\r\nif defined X if "%X:~-1%"=="\\" set "X=bad"\r\n'}, False),
+            # 2) **逐字搬入本仓真实行**（l-s2t build.bat:84）：嵌套 if、零个 `:~` ⇒ 必须绿
+            ("nested_if_without_substr_ok",
+             {"build.bat": '@echo off\r\n'
+                          'if defined RUNNING_DIR if /i "%RUNNING_DIR%"=="%TARGET_DIR%" (\r\n'
+                          '  echo refuse\r\n'
+                          ')\r\n'}, True),
+            # 3) `:~` 在**动作**一侧、被 `if defined` 守着（dsh/ocx build.bat:87 的真实形态）
+            ("substr_in_action_ok",
+             {"build.bat": '@echo off\r\n'
+                          'if defined RUNNING_DIR set "RUNNING_DIR=%RUNNING_DIR:~0,-1%"\r\n'}, True),
+            # 4) 与本判据无关的普通展开（反向格：证明不是"见 % 就报"）
+            ("plain_expansion_ok",
+             {"build.bat": '@echo off\r\nif /i "%A%"=="%B%" echo same\r\n'}, True),
+        )
+        for name, files, want in c43_cases:
+            d = base / ("c43_" + name)
+            for rel, body in files.items():
+                fp = d / rel
+                fp.parent.mkdir(parents=True, exist_ok=True)
+                fp.write_text(body, encoding="utf-8", newline="")
+            ok, detail = check_if_substr_expansion(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-43 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
