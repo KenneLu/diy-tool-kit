@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.10
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.11
+# 1.9.11：**新增 C-45**（WARN）= **工具侧副本（`src/modules/**` 的 .py/.md）必须全程 CRLF**（`sync_check` 按 read_text 比、行尾被归一化），按字节判；自证 3 条腿。
 # 1.9.10：**新增 C-44**（FAIL）= **bat 里闭集命令（find/findstr/ping/tasklist/robocopy/where/reg/timeout）必须用绝对路径**，与 C-33（ping 当节拍）**独立**；只看命令位置，自证 5 条腿。
 # 1.9.9：**新增 C-43**（FAIL）= **`if` 条件里的 `:~` 子串扩展**（未定义时会中止整个脚本）——**窄版**：嵌套 `if`（无 `:~`）与动作一侧的 `:~` 均判绿，自证 4 条腿。
 # 1.9.8：**新增 C-42**（FAIL）= **重定向位置不得出现 `dev/null`**（收窄版：不写成“全文不得出现 dev/”，否则注释里的路径与 URL 会误报）；文本口径与 C-33 同一条边界（正文保留、散文不算），自证 5 条腿。
@@ -3438,6 +3439,54 @@ def c31(c: Ctx):
     return check_dispatched_eol(c.dir)
 
 
+# ---------------------------------------------------------------- C-45
+# **工具侧副本的行尾也必须是 CRLF**（lead 2026-09-19 升为本波必办）。
+# **为什么必须补这条**：`sync_check` 按 `read_text()` 比内容 ⇒ **CRLF/LF 被归一化**，
+#   于是"模板侧把 4 份派发件从 LF 改成 CRLF"**在 `sync_check` 眼里是零效果、照旧 `[ok]`**
+#   ——**"CRLF 波完成" 可以与 "零效果 + 全绿" 同时成立**（本轮实测：`icons.py`×3、
+#   `service_link.py`×1 属此类）。这与"`sync_check` 剔掉 `# TEMPLATE-*` 行、而缺陷恰好
+#   住在那一行里"是**同一族**：**判据看不见的那一层，等于没改**。
+# **扫描面**：工具侧 `src/modules/**` 的 `.py`/`.md`（= 模板派发件的副本）。
+#   **不扫** `src/*.py`、`tests/`、`tools/`、`CHANGELOG.md` 等**非派发件**——l-s2t 有 24 个
+#   非派发 `.py`/`.md` 是 LF-only，那是**各仓自有风格**，不在本条范围（避免误伤）。
+# **按字节判**：读 `bytes`，数 `\n` 与 `\r\n`，不看归一化后的文本。
+_TOOL_COPY_SKIP = {"__pycache__"}
+
+
+def check_tool_copy_eol(root: Path, sub: str = "src"):
+    """工具侧副本（`<sub>/modules/**` 的 `.py`/`.md`）必须全程 CRLF。"""
+    base = root / sub / "modules"
+    if not base.is_dir():
+        return True, "扫描面：无 %s/modules/（该工具不消费模板模块，判据不适用）" % sub
+    files = [p for p in sorted(base.rglob("*"))
+             if p.is_file() and p.suffix.lower() in _DISPATCH_EXTS
+             and not any(part in _TOOL_COPY_SKIP for part in p.parts)]
+    if not files:
+        return True, "扫描面：%s/modules/ 下没有 .py/.md（判据不适用）" % sub
+    bad = []
+    for p in files:
+        blob = p.read_bytes()
+        crlf = blob.count(b"\r\n")
+        lone = blob.count(b"\n") - crlf
+        if lone:
+            bad.append("%s:%d 行尾是 LF（共 %d 处；CRLF %d 处）"
+                       % (p.relative_to(root).as_posix(), _first_lone_lf(blob), lone, crlf))
+    if bad:
+        return False, ("%d/%d 个工具侧副本不是全程 CRLF：%s。【为什么这条必须单独存在】"
+                       "`sync_check` 按 `read_text()` 比内容、**行尾被归一化** ⇒ 只改行尾的"
+                       "重拷在它眼里是**零效果、照旧 `[ok]`**（实测：icons.py×3 + service_link.py×1）。"
+                       "【正确形态】按**字节**统一 CRLF（**不要用 `read_text`/`write_text`**"
+                       "——那一对会改掉你要对比的字节）"
+                       % (len(bad), len(files), "；".join(bad)))
+    return True, "%d 个工具侧副本（%s/modules/** 的 .py/.md）全部 CRLF" % (len(files), sub)
+
+
+@check("C-45", "WARN", "工具侧副本（src/modules/** 的 .py/.md）必须全程 CRLF（sync_check 看不见行尾）")
+def c45(c: Ctx):
+    """见上方注释。**按字节判**：`sync_check` 的归一化会吃掉行尾，故这条必须独立存在。"""
+    return check_tool_copy_eol(c.dir)
+
+
 @check("C-32", "FAIL", "禁「读证据 → 删证据 → 报告」的危险顺序（调用边界一失败就先删了证据）")
 def c32(c: Ctx):
     """**不可逆动作不得排在"调用边界可能失败的语句"之前**（复核员精确化 + lead 裁定）。
@@ -4323,6 +4372,27 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-44 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
+
+        # C-45（2026-09-19，lead 升为本波必办）：**工具侧副本的行尾**。
+        # 三格：LF 副本（红）/ CRLF 副本（绿）/ 无 modules 目录（不适用=绿）。
+        c45_cases = (
+            ("lf_copy_flagged", "modules/mod1/a.py", b"x = 1\ny = 2\n", False),
+            ("crlf_copy_ok", "modules/mod1/a.py", b"x = 1\r\ny = 2\r\n", True),
+            ("no_modules_dir_ok", None, None, True),
+        )
+        for name, rel, blob, want in c45_cases:
+            d = base / ("c45_" + name)
+            if rel:
+                fp = d / "src" / rel
+                fp.parent.mkdir(parents=True, exist_ok=True)
+                fp.write_bytes(blob)
+            else:
+                (d / "src").mkdir(parents=True, exist_ok=True)
+            ok, detail = check_tool_copy_eol(d)
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-45 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；

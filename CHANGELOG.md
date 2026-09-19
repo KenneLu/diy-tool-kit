@@ -2,6 +2,30 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-45: the tool-side copies' line endings were invisible to every judge)
+
+- **C-45 (WARN, tool channel): a tool's copies under `src/modules/**` (`.py`/`.md`) must be all-CRLF,
+  judged on bytes.** Why it has to exist separately: `sync_check` compares via `read_text()`, so
+  **line endings are normalized away** — meaning "the CRLF wave converted those 4 dispatched files"
+  reads as **zero effect, still `[ok]`**. **"The CRLF wave is done" and "nothing changed and
+  everything is green" could both be true at once.** Measured instance: `icons.py` x3 and
+  `service_link.py` x1. Same family as `sync_check` stripping `# TEMPLATE-*` lines while the defect
+  lives on exactly that line: **the layer a judge cannot see is the layer that did not get changed.**
+  * **Scan surface**: `src/modules/**` `.py`/`.md` only — deliberately **not** `src/*.py`, `tests/`,
+  `tools/`, or `CHANGELOG.md`; those are each tool's own style (l-s2t has 24 LF-only non-dispatched
+  files) and are out of scope.
+  * **Measured**: dsh/ocx/l-s2t all `[ok]` (21/21/18 files). **reme = WARN: 4/20 not CRLF** —
+  `src/modules/i18n/__init__.py`, `src/modules/i18n/i18n.py` (**205** lone LFs),
+  `src/modules/i18n/README.md`, `src/modules/service_link/NOT-WIRED.md`. **This is a new finding
+  that no existing judge could see.**
+  * **Three self-test legs**: an LF copy => red; a CRLF copy => green; no `modules/` => not
+    applicable.
+- **Byte-level readings for the four files named in the recopy declaration** (so a recipient can prove
+  the line endings actually landed, rather than trusting a normalized hash):
+  `icons.py` dsh `1e17abea70d98e21` (3202 B, CRLF=64, loneLF=0); `icons.py` l-s2t and ocx both
+  `2f649df731bf44ed` (3098 B, CRLF=63, loneLF=0); `service_link.py` reme `a9323454aba9ef92`
+  (5908 B, CRLF=123, loneLF=0). **All four are already byte-CRLF.**
+
 ## 2026-09-19 (C-44: bare-name external commands in bats; PATH hands you a different program)
 
 - **C-44 (FAIL, tool + template channel).** In `.bat`/`.cmd`, a **closed set of 8 commands**
