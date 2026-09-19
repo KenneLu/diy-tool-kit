@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.5
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.6
+# 1.9.6：**新增 C-40**（FAIL）= 版本目录 ↔ 自启目标必须一致（强断言）+ 孤儿版本目录必须两栏登记（WARN）；读**磁盘 + 注册表**，纯函数 + 可注入 `path_exists` （样本不受活状态污染），自证 6 条。
+#   **实测：dsh = FAIL**（源码 VERSION=1.8.1 而 Run 键指着 `release\dsh-helper-1.8.2\`）。
 # 1.9.5 三条：
 #   ① **新增 C-39**（工具通道 + 模板通道，FAIL）=**派生值必须取自本次调用的实参**：默认参数不得取“会被重绑的模块级名字”或可变字面量，**良性常量必须放行**（三档判别，否则就是噪音判据）。
 #   ② **判据读散文两例已修**（§4.1.37）：`_strip_docstrings` 挖 AST 裸字符串表达式、`_masked_code_text` 就地掩码保行号、扫描面排除仪器自身并打印排除项（C-33 / C-30）。
@@ -2731,6 +2733,162 @@ def c39_template(c: Ctx):
     return check_default_snapshot(c.dir, "modules")
 
 
+# ---------------------------------------------------------------- C-40
+# **版本目录 ↔ 自启目标 必须一致**（ls2t-dev 提议，lead 补两处修正后定）。
+# 它把一条**靠人自觉的纪律**（"每个 owner 写明启动哪个 exe、版本号与源码 VERSION 是否一致"）
+# 换成**可判的性质**——与 C-38「生产者自我标识」同一手法：**纪律 → 可判性质**。
+# 三条都能从**磁盘 + 注册表**直接读，不需要任何人记忆。
+#
+# ⚠️ **不能写成"release/ 的版本目录集合 == {VERSION}"**（lead 的修正，实测两处假红）：
+#   `reme-helper/release/` = 1.2.4 + 1.2.5、`dsh-helper/release/` = 1.8.1 + 1.8.2
+#   ⇒「集合相等」会把**正常的历次构建产物**全判红。⇒ 拆两段、两个等级：
+#   **① 强断言（FAIL）**：**自启目标必须存在**，且其所在目录必须是 `release/<源码 VERSION>/`
+#      **或稳定安装位**（`%LOCALAPPDATA%\<APP_ID>\app`，若该工具已用稳定位）；
+#   **② 登记断言（WARN）**：**不属于当前 VERSION 的版本目录 = 孤儿版本**，必须**声明"是否仍被引用"**。
+#      **被引用的孤儿 = 必须处理；未被引用的 = 可清理**（§4.1.34 第③款）。
+#      **声明条目按纪律 ⑩ 两栏必填**（`why` + `reverify`）——它是**关掉覆盖**的开关。
+#
+# **措辞纪律（ls2t-dev 主动补的，lead 认为比答对更有价值）**：陈述必须区分
+# **"从未发生"（不可验证）** 与 **"发生过且已收敛"（可验证且更诚实）**——
+# 条目一律写成 **"当前态 + 是否曾经出现过 + 如何收敛"**。
+_STABLE_INSTALL_SUBDIR = "app"          # %LOCALAPPDATA%\<APP_ID>\app
+ORPHAN_VERSIONS = {
+    # 目录名 -> {why: 为什么可留 / 被谁引用 / 如何收敛, reverify: 什么情况下必须重验}
+    # 真实形态示例（dsh 那条，见 §4.1.34/MEMO#6）：
+    # "dsh-helper-1.8.2": {
+    #     "why": "Run 键正指着它（**被引用的孤儿**）⇒ 必须处理：扶正为当前 VERSION 重建，"
+    #            "或改引用并删目录。当前态：存在且被引用；曾出现过（临时升号构建）；未收敛",
+    #     "reverify": "dsh 的 Run 键或 release/ 目录集合变化时",
+    # },
+}
+_REQUIRED_ORPHAN_FIELDS = ("why", "reverify")
+
+
+def orphan_entry_problems():
+    """孤儿版本登记表的**两栏必填**校验（纪律 ⑩，与 `TMP_DECLARED_PATHS` 同一形态）。"""
+    out = []
+    for name, entry in sorted(ORPHAN_VERSIONS.items()):
+        if not isinstance(entry, dict):
+            out.append((name, "条目不是 `{why, reverify}` 两栏结构"))
+            continue
+        for field in _REQUIRED_ORPHAN_FIELDS:
+            if not str(entry.get(field, "")).strip():
+                out.append((name, "缺必填栏 `%s`——它是**关掉覆盖**的开关，没写就没人知道何时过期"
+                            % field))
+    return out
+
+
+def tool_version(root: Path):
+    """源码 VERSION（单一事实源）：`src/main.py` 优先，其次 appconfig 的两个落点。"""
+    import ast as _ast
+    for rel in ("src/main.py", "src/appconfig.py", "src/modules/appconfig/appconfig.py"):
+        f = root / rel
+        if not f.exists():
+            continue
+        try:
+            tree = _ast.parse(f.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, SyntaxError):
+            continue
+        for node in tree.body:
+            if isinstance(node, _ast.Assign):
+                for t in node.targets:
+                    if (isinstance(t, _ast.Name) and t.id == "VERSION"
+                            and isinstance(node.value, _ast.Constant)
+                            and isinstance(node.value.value, str)):
+                        return node.value.value, rel
+    return None, None
+
+
+def _run_value(app_id: str):
+    """HKCU\\...\\Run 里该 APP_ID 的值；读不到（非 Windows / 无此项）返回 None。"""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Run",
+                            0, winreg.KEY_READ) as k:
+            v, _ = winreg.QueryValueEx(k, app_id)
+            return v
+    except Exception:
+        return None
+
+
+def judge_version_targets(version, app_id, release_names, run_target, declared,
+                           local_appdata, path_exists=None):
+    """**纯函数**（便于自证）：判"版本目录 ↔ 自启目标"。返回 `(ok, detail, sev_or_None)`。
+
+    `run_target` 为 None = 该工具没有自启项（强断言不适用）；`declared` = 孤儿登记表。
+    两段分开：强断言失败 ⇒ FAIL；仅孤儿未登记 ⇒ WARN。
+    """
+    want_dir = "%s-%s" % (app_id, version) if (app_id and version) else None
+    # `path_exists` 可注入：**纯函数才好自证**——真调用用 `Path.exists`，
+    # 自证用替身（否则样本得先在磁盘上造出那些目录，样本就被活状态污染了）。
+    exists = path_exists or (lambda p: Path(p).exists())
+    fails, warns = [], []
+    if run_target:
+        tgt = Path(run_target.strip().strip('"'))
+        if not exists(str(tgt)):
+            fails.append("自启目标**不存在**：%s" % tgt)
+        else:
+            parent = tgt.parent
+            ok_release = bool(want_dir) and parent.name.lower() == want_dir.lower() \
+                and parent.parent.name.lower() == "release"
+            ok_stable = bool(local_appdata) and \
+                parent == Path(local_appdata) / app_id / _STABLE_INSTALL_SUBDIR
+            if not (ok_release or ok_stable):
+                fails.append("自启目标在 `%s`，而当前源码 VERSION=%s ⇒ 既不是 `release/%s/`，"
+                             "也不是稳定安装位 `%%LOCALAPPDATA%%\\%s\\%s`"
+                             % (parent.name, version, want_dir, app_id, _STABLE_INSTALL_SUBDIR))
+    for name in sorted(release_names):
+        if want_dir and name.lower() == want_dir.lower():
+            continue
+        entry = declared.get(name)
+        if not isinstance(entry, dict) or not str(entry.get("why", "")).strip():
+            warns.append("孤儿版本目录 `%s` **未登记**（须在 ORPHAN_VERSIONS 写明："
+                         "当前态 / 是否曾出现 / 如何收敛 / 是否仍被引用）" % name)
+    if fails:
+        return False, ("；".join(fails) + "。【为什么是硬违规】自启键存的是**全路径**，"
+                        "指到哪个目录就永远启动哪一份；源码已经往前走了而自启没跟，"
+                        "用户重启后跑的是旧镜像（§4.1.34）。"), "FAIL"
+    if warns:
+        return False, ("；".join(warns) + "。【等级 WARN】孤儿目录本身不是缺陷，"
+                       "**被引用而无人认领**才是。"), "WARN"
+    return True, ("自启目标与源码 VERSION 一致（或该工具无自启项）；"
+                  "release/ 目录 %d 个，无未登记孤儿" % len(release_names)), None
+
+
+@check("C-40", "FAIL", "版本目录 ↔ 自启目标必须一致；孤儿版本目录必须登记「是否仍被引用」")
+def c40(c: Ctx):
+    """见上方注释。读**磁盘 + 注册表**（无需任何人记忆）。
+
+    **措辞纪律**：登记条目一律写 **"当前态 + 是否曾经出现过 + 如何收敛"**——
+    "从未发生"不可验证，"发生过且已收敛"可验证且更诚实（ls2t-dev 自曝 l-s2t 正是后者）。
+    """
+    root = c.dir
+    rel_dir = root / "release"
+    rels = [p.name for p in sorted(rel_dir.iterdir()) if p.is_dir()] if rel_dir.is_dir() else []
+    app_id = None
+    ap = root / "src" / "modules" / "appconfig" / "appconfig.py"
+    if ap.exists():
+        m = re.search(r'APP_ID\s*=\s*["\']([^"\']+)',
+                      _masked_code_text(ap.read_text(encoding="utf-8", errors="replace")))
+        app_id = m.group(1) if m else None
+    if not app_id:
+        app_id = root.name if rels else None
+    version, where = tool_version(root)
+    run_target = _run_value(app_id) if app_id else None
+    if not rels and not run_target:
+        return True, "扫描面：release/ 与 Run 键都不存在（判据不适用）"
+    local_appdata = os.environ.get("LOCALAPPDATA", "")
+    ok, detail, sev = judge_version_targets(version, app_id, rels, run_target,
+                                            ORPHAN_VERSIONS, local_appdata)
+    detail = ("扫描面：release/ %d 个目录 / 源码 VERSION=%s（%s）/ Run[%s]=%s；%s"
+              % (len(rels), version, where or "未找到", app_id, run_target or "（无）", detail))
+    for name, why in orphan_entry_problems():
+        detail += "；[BROKEN] 孤儿登记条目不合规：%s —— %s" % (name, why)
+        sev = "FAIL"
+    return (ok, detail) if sev is None else (ok, detail, sev)
+
+
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
@@ -3653,6 +3811,50 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-39 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
+
+        # C-40（2026-09-19，ls2t-dev 提议 + lead 两处修正）：**纯函数**判"版本目录 ↔ 自启目标"。
+        # 六格 = 1 个**真实反例原样搬入**（dsh 当前的真实状态）+ 5 格对照。
+        # 用纯函数是为了**能拿确定输入自证**：注册表与磁盘是活状态，不能当固定样本。
+        _la = r"C:\Users\x\AppData\Local"
+        _dsh = r'"H:\Tools\my_diy_tools\dsh-helper\release\dsh-helper-1.8.2\dsh-helper.exe"'
+        c40_cases = (
+            # 真实反例：**自启目标 1.8.2 ≠ VERSION 1.8.1**（本机实测状态，逐字搬入）
+            ("live_dsh_case_flagged",
+             ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.2"], _dsh, {}, _la),
+             False, "FAIL"),
+            # 反向格①：目标目录 == release/<VERSION> ⇒ 绿（否则成了"凡有自启就报"）
+            ("target_matches_version_ok",
+             ("1.2.1", "opencodex-helper", ["opencodex-helper-1.2.1"],
+              r'"H:\x\opencodex-helper\release\opencodex-helper-1.2.1\opencodex-helper.exe"',
+              {}, _la), True, None),
+            # 反向格②：稳定安装位 ⇒ 绿（更新链的目标形态）
+            ("stable_install_ok",
+             ("1.2.1", "opencodex-helper", ["opencodex-helper-1.2.1"],
+              r'"%s\opencodex-helper\app\opencodex-helper.exe"' % _la, {}, _la), True, None),
+            # 反例③：目标**不存在** ⇒ 红（死链）
+            ("missing_target_flagged",
+             ("1.2.1", "opencodex-helper", [], r'"H:\nope\nope-1.2.1\nope.exe"', {}, _la),
+             False, "FAIL"),
+            # 反例④：孤儿目录**未登记** ⇒ WARN（不是 FAIL：孤儿本身不是缺陷）
+            ("undeclared_orphan_warn",
+             ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.2"],
+              r'"H:\x\dsh-helper\release\dsh-helper-1.8.1\dsh-helper.exe"', {}, _la),
+             False, "WARN"),
+            # 反向格③：同一孤儿**已登记**（两栏齐全）⇒ 绿
+            ("declared_orphan_ok",
+             ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.2"],
+              r'"H:\x\dsh-helper\release\dsh-helper-1.8.1\dsh-helper.exe"',
+              {"dsh-helper-1.8.2": {"why": "曾被 Run 引用；已改为指向 1.8.1；当前态：存在但未被引用",
+                                    "reverify": "Run 键再次指向它，或 release/ 集合变化时"}},
+              _la), True, None),
+        )
+        for name, args, want, want_sev in c40_cases:
+            # 目标存在性用替身：只按"路径里是否含 nope"决定 False——**唯一变量**。
+            ok, _detail, sev = judge_version_targets(*args, path_exists=lambda p: "nope" not in p)
+            good = (ok == want) and (want_sev is None or sev == want_sev)
+            failed += 0 if good else 1
+            print("[selftest] %s  C-40 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, _detail[:90]))
 
         # C-36：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；

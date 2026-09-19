@@ -2,6 +2,47 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-19 (C-40: version directory vs autostart target; plus three escape corruptions repaired)
+
+- **C-40 (FAIL), proposed by ls2t-dev, corrected twice by the lead.** It turns a discipline
+  ("every owner should state which exe starts, and whether the version matches the source") into a
+  **decidable property** — same move as C-38: **discipline -> property**. All three facts are read
+  from **disk + registry**, so nobody has to remember anything.
+  * **The lead's correction matters**: "the set of `release/` dirs == {VERSION}" is **false-red by
+    construction** — `reme-helper/release/` = 1.2.4 + 1.2.5 and `dsh-helper/release/` = 1.8.1 + 1.8.2,
+    i.e. it would flag **normal build history**. So two clauses, two levels:
+    **① strong (FAIL)** the autostart target **must exist** and its directory must be
+    `release/<source VERSION>/` **or** the stable install dir (`%LOCALAPPDATA%\<APP_ID>\app`);
+    **② registry (WARN)** every dir that is not the current VERSION is an **orphan version** and must
+    declare **whether it is still referenced** (`ORPHAN_VERSIONS`, two mandatory fields `why` +
+    `reverify` per discipline ⑨/⑩ — it is a **coverage-off switch**).
+    **Referenced orphan = must handle; unreferenced = cleanable.**
+  * **Measured on this machine**: **dsh = FAIL** — source `main.py:33 VERSION="1.8.1"` while the Run
+    key points at `release\dsh-helper-1.8.2\dsh-helper.exe`; ocx (1.2.1) and reme (1.2.5) match
+    their source ⇒ ok; **l-s2t has no Run entry** ⇒ the strong clause does not apply. The **live dsh
+    state is copied verbatim into the self-test as the positive sample**.
+  * Six self-test legs, three of them reverse cells (target == release/VERSION; stable install dir;
+    the same orphan **declared**). The judgement is a **pure function with an injectable
+    `path_exists`** — otherwise the samples would have to be created on disk and would be **polluted
+    by live state**.
+  * **Wording discipline (ls2t-dev volunteered this; the lead judged it more valuable than the
+    correct answer itself)**: when he confirmed l-s2t was consistent, he **added** that l-s2t *did*
+    exhibit the pattern (`1.4.1` was a temporary version-bump build that ended as an empty shell),
+    it was just **already cleaned up** — so the accurate statement is "**the pattern occurred and
+    this repo has converged**", not "it never happened". ⇒ criteria and registries must distinguish
+    **"never happened" (unverifiable)** from **"happened and converged" (verifiable, and more
+    honest)**: entries are written as **current state + did it ever occur + how it converged**.
+- **Three escape corruptions found in `CONFORMANCE.md` while adding the above, repaired byte-wise.**
+  `\b`/`\a` inside text collapsed into control bytes (`0x08`, `0x07`) in the middle of paths:
+  `reme\scripts\build.bat:22` had become `reme\scripts<0x08>uild.bat` and
+  `%LOCALAPPDATA%\<APP_ID>\app` had become `<APP_ID><0x07>pp` — in **two** places. Repairing the
+  control byte alone was **not enough**: those escapes **ate the following letter** (`\b` -> BEL
+  consumed the `b`), so the fix had to restore `\build.bat` and `\app`, not just the backslash.
+  This is the **same family as the two found earlier today** (§J ⑤/⑥) and it is the third time the
+  shell/JSON layer has mangled backslashes in my pipeline — hence the rule already recorded: write
+  these documents **byte-wise, with `chr(92)` for backslashes**, never through an escaping layer.
+  Scan for leftover control characters is now part of the check (`0` remaining).
+
 ## 2026-09-19 (the declaration format gets a standing line; C-39 closes the snapshot family)
 
 - **The declaration template now carries the `dirty=yes` explanation permanently** (CONFORMANCE
