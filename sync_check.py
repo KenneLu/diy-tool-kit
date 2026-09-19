@@ -246,15 +246,54 @@ def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
 BLUEPRINTS = load_blueprints()
 
 
+def _i18n_state_cases():
+    """D 组：模板 `modules/i18n` 包状态回归（2.1.1）。返回 [(label, ok, detail)]。
+
+    缺陷原型：包门面 `from .i18n import *` 把 `LANG` 拷成静态副本 → `init('en')` 后
+    从**包命名空间**读仍是 'zh'，而 `t()` 已英文。断言必须**从包读**（只读子模块测不出）。
+    """
+    import importlib.util
+    pkg_init = TEMPLATE_DIR / "modules" / "i18n" / "__init__.py"
+    if not pkg_init.exists():
+        return [("D i18n package state", False, "模板 modules/i18n/__init__.py 不存在")]
+    name = "_tpl_i18n_selftest"
+    spec = importlib.util.spec_from_file_location(
+        name, pkg_init, submodule_search_locations=[str(pkg_init.parent)])
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    out = []
+    try:
+        spec.loader.exec_module(mod)
+        out.append(("D1 LANG not a static copy in package ns",
+                    "LANG" not in vars(mod),
+                    "package ns: " + ",".join(sorted(
+                        k for k in vars(mod) if not k.startswith("__")))))
+        mod.init("en")
+        out.append(("D2 package ns reports en after init('en')", mod.LANG == "en", str(mod.LANG)))
+        out.append(("D3 current_lang()", mod.current_lang() == "en", str(mod.current_lang())))
+        out.append(("D4 t() follows", mod.t("menu_quit") == "Quit", str(mod.t("menu_quit"))))
+        mod.init("zh")
+        out.append(("D5 switch back immediate (package)", mod.LANG == "zh", str(mod.LANG)))
+        out.append(("D6 t() follows back", mod.t("menu_quit") == "退出", str(mod.t("menu_quit"))))
+    except Exception as exc:   # 导入即坏（例如改了包结构）也要报，不能静默
+        out.append(("D i18n package state", False, "异常: %r" % (exc,)))
+    finally:
+        for k in (name, name + ".i18n"):
+            sys.modules.pop(k, None)
+    return out
+
+
 def selftest() -> int:
-    """回归样本（`--selftest`，可重复执行）：用合成样本锁死 .md 判定语义。
+    """回归样本（`--selftest`，可重复执行）：锁死本家族两条判据。
 
       A 带 TEMPLATE 头的 .md            → 必须 [DIFF]（旧归一化会误判 [ok]，§4.1.10a）
       B 逐字节相同的 .md                → 必须 [ok]
       C 同模块 .py 带 OVERRIDE、README 不同 → 必须 [decl]
+      D 模板 i18n 包状态（2.1.1）：init 切换后**从包命名空间**读到的语言必须立即变
 
     为什么固化成开关而不是跑一次：一次性命令会随会话消失，判据下次被改坏时无人察觉
-    ——"已知样本反向验证"必须是可重跑的资产。
+    ——"已知样本反向验证"必须是可重跑的资产。D 组原先是一个根目录独立脚本，无调用方
+    （=死代码），折进来后自动获得"改坏即 exit 1"的保障（CONFORMANCE §4.1.13 同款教训）。
     """
     tpl = TEMPLATE_DIR / "modules" / "paths" / "README.md"
     if not tpl.exists():
@@ -293,6 +332,11 @@ def selftest() -> int:
             failed += 0 if ok else 1
             print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: "
                   f"got {got}{note!r}, want {want}")
+
+        for label, ok, detail in _i18n_state_cases():
+            failed += 0 if ok else 1
+            print(f"[selftest] {'PASS' if ok else 'FAIL'}  {label}: {detail}")
+
         print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
         return 1 if failed else 0
     finally:

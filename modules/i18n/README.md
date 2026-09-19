@@ -23,7 +23,8 @@
 > `LANG` 拷成静态副本，`init('en')` 后从包读仍是旧值，而 `t()` 已是英文。
 > 症状：菜单签名算出来不变 → 切了语言**菜单不重建**（通知英文、菜单中文）。
 > 实现为"只绑函数 + PEP 562 `__getattr__` 委派子模块"，故 `LANG` 每次读取都取真值。
-> 回归：`python my-diy-tool-template/test_i18n_state.py`（**必须从包命名空间读**才测得出）。
+> 回归：`python my-diy-tool-template/sync_check.py --selftest` 的 **D 组**（D1–D6）——
+> **必须从包命名空间读**（`i18n.LANG`）才测得出；只读子模块会全绿。
 
 ## 采纳步骤
 

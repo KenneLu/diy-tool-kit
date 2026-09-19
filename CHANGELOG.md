@@ -20,11 +20,15 @@ notification but never rebuilt the menu — **the menu stayed Chinese forever**.
   mutable globals), which makes the bug structurally impossible.
 - **`modules/i18n/i18n.py` gains `current_lang()`** — the recommended reader. `LANG`
   stays for compatibility and is documented as internal.
-- **`test_i18n_state.py` (new, repeatable)** — asserts the language read *from the
-  package namespace* flips immediately on `init('en')` / back on `init('zh')`, that
-  `t()` follows, and that `LANG` is not a static copy. Reading only the submodule
-  would not catch this bug. Reverse self-proof: re-adding a `LANG` import to the
-  package makes the test fail with exactly the reported symptom.
+- **Regression folded into `sync_check.py --selftest` (group D)** — asserts the
+  language read *from the package namespace* flips immediately on `init('en')` / back
+  on `init('zh')`, that `t()` follows, and that `LANG` is not a static copy. Reading
+  only the submodule would not catch this bug. Reverse self-proof: re-adding a `LANG`
+  import to the package makes D1 (LANG appears in the package namespace) and D2
+  (reports `zh`) fail, with the exit code at 1.
+  Why folded in rather than kept as a root-level script: a script with no caller is
+  dead code — it would never run again. `--selftest` is the family's established
+  "repeatable reverse proof" slot, so the assertion inherits "breaks → exit 1".
 - **VERSION 2.1.0 → 2.1.1**; `modules/i18n/README.md` documents `current_lang()` and
   the rule "state is read through an accessor, never as a mutable global".
 - **Docs (task #9): release cadence recorded.** STANDARDS **G3 item 7** (+ pointer in
