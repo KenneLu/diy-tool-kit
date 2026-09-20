@@ -138,7 +138,7 @@
 | 工具 | 目录 | 一句话用途 | 版本 | 生效配置 | 日志 |
 |---|---|---|---|---|---|
 | reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.6` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
-| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.1` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
+| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.2` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
 | dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.8.2` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\` |
 | opencodex-helper | `opencodex-helper` | 多目标 SSH 反向隧道 + opencodex 服务控制 | `1.2.2` | `%LOCALAPPDATA%\opencodex-helper\config.json` | `%LOCALAPPDATA%\opencodex-helper\log\` |
 
@@ -879,6 +879,16 @@ release\<工具名>-<版本>\
      `dsh-helper` 1.8.2、`opencodex-helper` 1.2.2、`reme-helper` 1.2.6、`local-speak2text` 1.4.1
      **均为"未发版却已升号"**，应回退到各自最后已发布版本（1.8.1 / 1.2.1 / 1.2.5 / 1.4.0），
      并把改动移回 `## Unreleased`。
+   - **盘点更新（2026-09-20）**：`dsh 1.8.2` / `ocx 1.2.2` / `reme 1.2.6` 三家**已真的发出去了**
+     （CI 自动生成的 Release 都在）⇒ 那三格消解。**`l-s2t 1.4.1` 是唯一还站着的一格，而且是最坏形态**：
+     tag 已推、**Release 从未生成**（CI 在 `GATE 2d` 上连红两轮，见 CONFORMANCE §4.1.62）
+     ⇒ 正是本条要防的"**对外宣称了一个不存在的版本**"。处置：以 `1.4.2` 重发，
+     **不移动已推送的 `v1.4.1` tag**（改已公开的 ref 比留一个坏 tag 更糟）。
+   - **教训（比盘点本身值钱）**：本条的口径是"**Release 是否真的存在**"，而**判据不能是 `git tag`**——
+     tag 只证明"**宣称过**"，`gh release list` / Release API 才证明"**发出去了**"。四家在盘点时
+     都有 tag、都没有 Release，两者的读数**差异为零**，所以当时只能按 tag 列名。
+     ⇒ 判"是否已发版"一律查 **Release**（与 §D8"锚必须是可核对的对象"同族：**tag 是自己人写的，
+     Release 是平台生成的**）。
 
 **双语 README 规范（对应基线 8，reme-helper 形态）**：
 
