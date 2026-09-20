@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.27
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.28
+# 1.9.28：**C-52 口径变更（用户 2026-09-20 裁定）**：*"默认所有工具都应该支持双语"* ——
+#   不再把"是否已开源"当开关。理由：四家全是公开仓库 ⇒ 开关恒开；而它作为开关的**副作用**
+#   是给判据留了一条**豁免分支**（C-20 遇"未启用"直接放行、没人核对前提）。
+#   ⇒ `i18n_gap` 删掉 `if not has_remote: return False`，只看"有没有 i18n"。
+#   自证腿加一格 **`pos_no_remote_still_gap`**（传 has_remote=False 也必须报）——
+#   这一格是"开关语义已移除"的守卫：哪天回退成 False，就说明有人把开关加回来了。
 # 1.9.27：**新增 C-52（FAIL）**= T1 触发（有远端仓库 = 已开源）的工具**必须启用 i18n**。
 #   补 **C-20 的豁免盲区**：C-20 遇到"未启用 i18n"直接 `return True, "T1 未触发或待办"`
 #   —— **放行**，而**没有任何判据核对那个理由是否成立**。于是"该启用却没启用"是一个
@@ -1314,47 +1320,48 @@ def _git_has_remote(path):
 
 
 def i18n_gap(has_remote, has_i18n_dir, has_pairs):
-    """**纯函数**（供判据与自证腿共用）：T1 已触发却没启用 i18n ⇒ True。
+    """**纯函数**（供判据与自证腿共用）：**本家族任何工具都不得缺 i18n** ⇒ True。
 
-    三档，别压成一档：
-      * 无远端        ⇒ **未触发** ⇒ 不是缺口（False）
-      * 有远端 + 已启用 ⇒ 正常（False）
-      * 有远端 + 未启用 ⇒ **缺口**（True）—— 这正是 C-20 放行掉的那一格
+    **2026-09-20 口径变更（用户裁定）**：*"**默认所有工具都应该支持双语**"* ——
+    不再把"是否已开源"当作开关。理由两条：
+      * 四家**全部**是公开仓库 ⇒ 该触发条件对**每一家**都成立，开关实际上**恒开**；
+      * 更糟的是它的**副作用**：作为开关，它给判据留了一条**豁免分支** —— C-20 遇到
+        "未启用"直接放行，**没人核对那个前提**，"该有却没有"于是不红不黄（§4.1.18 同族）。
+      * 本家族是**拷贝式模板**：新工具一定从模板拷出 ⇒ **默认就该带双语**，
+        "没有"才是需要解释的例外。
+    ⇒ 保留 `has_remote` 形参，只为让**自证腿能验证"开关语义已移除"**
+      （传 False 也必须报）——它**不再参与判定**。
     """
-    if not has_remote:
-        return False
     return not (has_i18n_dir or has_pairs)
 
 
-@check("C-52", "FAIL", "T1 触发（有远端仓库 = 已开源）的工具必须启用 i18n（A2 T1 / E4）")
+@check("C-52", "FAIL", "所有工具默认必须支持双语 i18n（用户 2026-09-20 裁定：默认，不设开关）")
 def c52(c: Ctx):
-    """**补 C-20 的豁免盲区**（用户 2026-09-20 报"dsh 没有中英"时暴露）。
+    """**默认要求**（用户裁定）：本家族每个工具都必须有 i18n —— 不依赖任何触发条件。
 
-    C-20 只检查"**已启用** i18n 的工具里有无词表外中文"；遇到"**未启用**"它直接
-    `return True, "未启用 i18n（T1 未触发**或待办**）"` —— **放行**。
-    问题在于：**没有任何判据核对那个理由是否成立**（这个工具是否真的还没开源？）。
-    于是"**该启用却没启用**"是一个**不红不黄、连跳过了什么都不打印**的状态。
-    （§4.1.18 同族：判据的**豁免分支**本身就是盲区。）
+    由来（两层，都要记住）：
+      1. **C-20 的豁免分支是盲区**：它遇到"未启用 i18n"直接
+         `return True, "未启用 i18n（T1 未触发**或待办**）"` ⇒ **放行**，
+         而**没有任何判据核对那个理由**（这个工具是否真没开源？）。
+      2. **用户 2026-09-20 的裁定**：*"默认所有工具都应该支持双语"* ——
+         四家全是公开仓库，"是否开源"这个开关**恒开**，留着它只会继续制造豁免角落。
 
-    本条把触发条件做成**可判**的：`git remote` 非空 = 已开源发布 ⇒ 必须有 i18n
-    （`src/modules/i18n/` 目录，或重形态 `pairs.json`，§E4 明示许可）。
-    **判不了**（非 git 仓库）按"未触发"放行，但**打印扫描面**（纪律 ⑥）。
+    合法形态两种（`§E4`）：① `src/modules/i18n/` 目录（轻量双表）；
+    ② `pairs.json`（重形态，中文即键 —— reme 走这条，**不算缺**）。
+    **扫描面照打**（纪律 ⑥）：没命中与没扫必须可区分。
     """
     src_i18n = c.src / "modules" / "i18n"
     has_dir = src_i18n.is_dir()
     has_pairs = (src_i18n / "pairs.json").exists()
-    remote = _git_has_remote(c.dir)
-    if remote is None:
-        return True, ("判不了是否已开源（读不到 git remote）⇒ 按未触发放行；"
-                      "扫描面：%s 存在=%s pairs=%s" % (src_i18n.as_posix(), has_dir, has_pairs))
+    remote = _git_has_remote(c.dir)      # 只为打印现场，**不参与判定**
     if i18n_gap(remote, has_dir, has_pairs):
-        return False, ("**已触发 T1（有远端仓库）却没启用 i18n** —— 这不是'待办'，是缺口："
-                       "A2 T1 的触发条件是'开源发布或交付他人'，已满足就必须有 "
-                       "`src/modules/i18n/`（或重形态 `pairs.json`）。"
-                       "扫描面：%s 存在=%s pairs=%s"
-                       % (src_i18n.as_posix(), has_dir, has_pairs))
-    return True, ("i18n 状态与 T1 触发一致（有远端=%s / i18n 目录=%s / pairs=%s）"
-                  % (remote, has_dir, has_pairs))
+        return False, ("**本家族默认要求双语，但本工具没有 i18n** —— "
+                       "合法形态两种：`src/modules/i18n/` 或重形态 `pairs.json`（§E4）。"
+                       "这不是'待办'：新工具从模板拷出即应自带。"
+                       "扫描面：%s 存在=%s pairs=%s（有远端=%s，仅作现场信息）"
+                       % (src_i18n.as_posix(), has_dir, has_pairs, remote))
+    return True, ("i18n 在位（目录=%s / pairs=%s）；扫描面：%s"
+                  % (has_dir, has_pairs, src_i18n.as_posix()))
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -5511,9 +5518,13 @@ def selftest() -> int:
         # 重形态（pairs.json）—— 后者是 §E4 明示许可的合法形态，不能误伤。
         c52_cases = (
             ("pos_remote_no_i18n_is_gap", (True, False, False), True),
-            ("neg_no_remote_not_triggered", (False, False, False), False),
+            # ⚠ **开关语义已移除的自证格**（2026-09-20 用户裁定"默认所有工具都支持双语"）：
+            # 传 has_remote=False 也**必须报** —— 它证明"是否开源"不再是豁免条件。
+            # 这一格若哪天回退成 False，说明有人把开关又加回来了。
+            ("pos_no_remote_still_gap", (False, False, False), True),
             ("neg_pairs_form_ok", (True, False, True), False),
             ("neg_has_dir_ok", (True, True, False), False),
+            ("neg_no_remote_with_dir_ok", (False, True, False), False),
         )
         for name, args, want in c52_cases:
             got = i18n_gap(*args)
