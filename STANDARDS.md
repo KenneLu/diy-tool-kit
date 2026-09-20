@@ -138,7 +138,7 @@
 | 工具 | 目录 | 一句话用途 | 版本 | 生效配置 | 日志 |
 |---|---|---|---|---|---|
 | reme-helper | `reme-helper` | 管理记忆服务的运行模式、启停、图形配置与隧道 | `1.2.6` | `%LOCALAPPDATA%\reme-helper\config.json` | `%LOCALAPPDATA%\reme-helper\log\` |
-| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.2` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
+| local-speak2text | `local-speak2text` | 本地离线语音转文字：按住热键说话出字，多 ASR 模型自动识别 | `1.4.5` | `%LOCALAPPDATA%\local-speak2text\config.json` | `%LOCALAPPDATA%\local-speak2text\log\` |
 | dsh-helper | `dsh-helper` | 管理 DeepSeek Harness `dsh web`：启停/面板/刷新，含在线更新 | `1.8.2` | `%LOCALAPPDATA%\dsh-helper\config.json` | `%LOCALAPPDATA%\dsh-helper\log\` |
 | opencodex-helper | `opencodex-helper` | 多目标 SSH 反向隧道 + opencodex 服务控制 | `1.2.2` | `%LOCALAPPDATA%\opencodex-helper\config.json` | `%LOCALAPPDATA%\opencodex-helper\log\` |
 
@@ -879,11 +879,19 @@ release\<工具名>-<版本>\
      `dsh-helper` 1.8.2、`opencodex-helper` 1.2.2、`reme-helper` 1.2.6、`local-speak2text` 1.4.1
      **均为"未发版却已升号"**，应回退到各自最后已发布版本（1.8.1 / 1.2.1 / 1.2.5 / 1.4.0），
      并把改动移回 `## Unreleased`。
-   - **盘点更新（2026-09-20）**：`dsh 1.8.2` / `ocx 1.2.2` / `reme 1.2.6` 三家**已真的发出去了**
-     （CI 自动生成的 Release 都在）⇒ 那三格消解。**`l-s2t 1.4.1` 是唯一还站着的一格，而且是最坏形态**：
-     tag 已推、**Release 从未生成**（CI 在 `GATE 2d` 上连红两轮，见 CONFORMANCE §4.1.62）
-     ⇒ 正是本条要防的"**对外宣称了一个不存在的版本**"。处置：以 `1.4.2` 重发，
-     **不移动已推送的 `v1.4.1` tag**（改已公开的 ref 比留一个坏 tag 更糟）。
+   - **盘点更新（2026-09-20 收口）**：`dsh 1.8.2` / `ocx 1.2.2` / `reme 1.2.6` 三家**已真的发出去了**
+     （CI 自动生成的 Release 都在）⇒ 那三格消解。
+     `l-s2t` 曾是最坏的一格：`v1.4.1`~`v1.4.4` **四个 tag 全推了、Release 一个都没生成**
+     （CI 连红四轮：前三轮卡在门禁 2d、第四轮卡在门禁 3；见 CONFORMANCE §4.1.62／§4.1.63）
+     ⇒ 正是本条要防的"**对外宣称了四个不存在的版本**"。**已收口：`v1.4.5` 发版成功**
+     （Release + zip + sha256 均由 CI 生成）。**处置口径：不移动已推送的 tag**——改已公开的 ref
+     比留一组坏 tag 更糟；坏 tag 留在历史里，靠本条与 CHANGELOG 说明白。
+   - **教训（追加，2026-09-20）**：**"连红多轮"本身就是一条信号，不该被当成"再试一次"**。
+     本轮前两轮把红归因成"环境扰动"，第三、四轮才拿到真因（两处都是**门禁自己**的缺陷：
+     §4.1.62 测试落盘行尾与产品不一致、§4.1.63 期望值取自没被钉住的输入）。
+     两次真因都**与产品代码无关**，却各花掉一到两个 tag。⇒ **门禁失败时，先问"这条判据的
+     输入与期望值分别从哪来"，再问"产品是不是坏了"**；并且**在第一轮就要把取证通道打开**
+     （本轮直到第三轮才让 CI 把失败尾部发成公开可读的注解，之后一轮就定位了）。
    - **教训（比盘点本身值钱）**：本条的口径是"**Release 是否真的存在**"，而**判据不能是 `git tag`**——
      tag 只证明"**宣称过**"，`gh release list` / Release API 才证明"**发出去了**"。四家在盘点时
      都有 tag、都没有 Release，两者的读数**差异为零**，所以当时只能按 tag 列名。
