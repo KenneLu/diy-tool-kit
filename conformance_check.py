@@ -1816,7 +1816,13 @@ _SELF_ID_ONESHOT = ("config seeded", "config migrated")
 # 锚 = **启动那一条日志**：`log(...)`/`print(...)` 的**第一个字符串实参以 `startup` 开头**
 # （家族现行写法 `log("startup %s v%s (pid %s)" % ...)`）。**不能**用"行里含 startup"——
 # 那样 `log("dsh process exited during startup: …")` 这种**错误提示**也会变成锚（实测踩到）。
-_SELF_ID_ANCHOR = re.compile(r"""(?i)(?:^|\W)(?:log|print)\s*\(\s*f?["']\s*startup\b""")
+# 2026-09-20 修盲区（§4.1.60）：锚原来只认 `log(` / `print(`，而 **ocx 的本地日志包装叫
+# `_log(`** ⇒ `_` 属 `\w`、前面的 `(?:^|\W)` 不成立 ⇒ **`_log` 永不命中**，ocx 恒报
+# 「锚 0 处」。R1 §3 T6 曾把这条归因成"ocx 措辞不对（用了 starting 不是 startup）"——
+# **归因错了一半**：措辞改了之后锚仍不命中，真因是**判据只认一种包装名**。
+# 修法：接受可选下划线前缀（本家族现役两种形态 `log` / `_log`）；
+# **不用 `\w*log`**——那会把 `catalog(` 也当成日志调用。
+_SELF_ID_ANCHOR = re.compile(r"""(?i)(?:^|\W)(?:_?log|print)\s*\(\s*f?["']\s*startup\b""")
 _SELF_ID_WINDOW = 20
 
 
