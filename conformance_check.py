@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.26
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.27
+# 1.9.27：**新增 C-52（FAIL）**= T1 触发（有远端仓库 = 已开源）的工具**必须启用 i18n**。
+#   补 **C-20 的豁免盲区**：C-20 遇到"未启用 i18n"直接 `return True, "T1 未触发或待办"`
+#   —— **放行**，而**没有任何判据核对那个理由是否成立**。于是"该启用却没启用"是一个
+#   不红不黄、连跳过了什么都不打印的状态（§4.1.18 同族：判据的**豁免分支**就是盲区）。
+#   触发做成可判：`git remote` 非空 ⇒ 必须有 `src/modules/i18n/` 或 `pairs.json`（§E4 许可）。
+#   判不了（非 git 仓库）按未触发放行，但**打印扫描面**（纪律 ⑥）。
+#   自证 4 腿：红格（有远端+无 i18n）/ 未触发（无远端）/ 重形态 pairs / 有目录。
 # 1.9.26：**新增 C-51（FAIL）**= 无 UI 的退出入口（`--quit`）不得沿用持久化清理勾选
 #   （§4.1.43 / C-41 同族）。C-41 只查**降级分支**（except / `if x is None:`），
 #   **不覆盖 `--quit` 这条无 UI 路径**（本判据补上）。
@@ -1290,6 +1297,64 @@ def c51(c: Ctx):
                         "stop_tunnels=False ⇒ 会沿用持久化勾选（无人确认却停服务）"
                         % (rel, call.lineno, fname))
     return (not problems), ("；".join(problems) if problems else "无 UI 退出入口未沿用持久化勾选")
+
+
+def _git_has_remote(path):
+    """工具是否**有远端仓库**（= A2 T1 的触发条件"已开源发布"的可判形态）。
+    返回 True / False / **None（判不了）**—— 三态，因为"非 git 仓库"不能当成"未触发"。"""
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", str(path), "remote"],
+                           capture_output=True, text=True, timeout=15)
+        if r.returncode != 0:
+            return None
+        return bool(r.stdout.strip())
+    except Exception:
+        return None
+
+
+def i18n_gap(has_remote, has_i18n_dir, has_pairs):
+    """**纯函数**（供判据与自证腿共用）：T1 已触发却没启用 i18n ⇒ True。
+
+    三档，别压成一档：
+      * 无远端        ⇒ **未触发** ⇒ 不是缺口（False）
+      * 有远端 + 已启用 ⇒ 正常（False）
+      * 有远端 + 未启用 ⇒ **缺口**（True）—— 这正是 C-20 放行掉的那一格
+    """
+    if not has_remote:
+        return False
+    return not (has_i18n_dir or has_pairs)
+
+
+@check("C-52", "FAIL", "T1 触发（有远端仓库 = 已开源）的工具必须启用 i18n（A2 T1 / E4）")
+def c52(c: Ctx):
+    """**补 C-20 的豁免盲区**（用户 2026-09-20 报"dsh 没有中英"时暴露）。
+
+    C-20 只检查"**已启用** i18n 的工具里有无词表外中文"；遇到"**未启用**"它直接
+    `return True, "未启用 i18n（T1 未触发**或待办**）"` —— **放行**。
+    问题在于：**没有任何判据核对那个理由是否成立**（这个工具是否真的还没开源？）。
+    于是"**该启用却没启用**"是一个**不红不黄、连跳过了什么都不打印**的状态。
+    （§4.1.18 同族：判据的**豁免分支**本身就是盲区。）
+
+    本条把触发条件做成**可判**的：`git remote` 非空 = 已开源发布 ⇒ 必须有 i18n
+    （`src/modules/i18n/` 目录，或重形态 `pairs.json`，§E4 明示许可）。
+    **判不了**（非 git 仓库）按"未触发"放行，但**打印扫描面**（纪律 ⑥）。
+    """
+    src_i18n = c.src / "modules" / "i18n"
+    has_dir = src_i18n.is_dir()
+    has_pairs = (src_i18n / "pairs.json").exists()
+    remote = _git_has_remote(c.dir)
+    if remote is None:
+        return True, ("判不了是否已开源（读不到 git remote）⇒ 按未触发放行；"
+                      "扫描面：%s 存在=%s pairs=%s" % (src_i18n.as_posix(), has_dir, has_pairs))
+    if i18n_gap(remote, has_dir, has_pairs):
+        return False, ("**已触发 T1（有远端仓库）却没启用 i18n** —— 这不是'待办'，是缺口："
+                       "A2 T1 的触发条件是'开源发布或交付他人'，已满足就必须有 "
+                       "`src/modules/i18n/`（或重形态 `pairs.json`）。"
+                       "扫描面：%s 存在=%s pairs=%s"
+                       % (src_i18n.as_posix(), has_dir, has_pairs))
+    return True, ("i18n 状态与 T1 触发一致（有远端=%s / i18n 目录=%s / pairs=%s）"
+                  % (remote, has_dir, has_pairs))
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -5440,6 +5505,22 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-51 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
+
+        # C-52（补 C-20 的豁免盲区）：T1 触发却没启用 i18n ⇒ 必须红。
+        # 红格 = 判别力自证（有远端 + 无 i18n）；两条反向格 = 未触发（无远端）/
+        # 重形态（pairs.json）—— 后者是 §E4 明示许可的合法形态，不能误伤。
+        c52_cases = (
+            ("pos_remote_no_i18n_is_gap", (True, False, False), True),
+            ("neg_no_remote_not_triggered", (False, False, False), False),
+            ("neg_pairs_form_ok", (True, False, True), False),
+            ("neg_has_dir_ok", (True, True, False), False),
+        )
+        for name, args, want in c52_cases:
+            got = i18n_gap(*args)
+            good = got == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-52 %s: got=%s want=%s | args=%s"
+                  % ("PASS" if good else "FAIL", name, got, want, args))
 
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
         # 两格：表格版本与文件头不符（红）/ 一致（绿）。
