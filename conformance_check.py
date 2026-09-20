@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.25
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.26
+# 1.9.26：**新增 C-51（FAIL）**= 无 UI 的退出入口（`--quit`）不得沿用持久化清理勾选
+#   （§4.1.43 / C-41 同族）。C-41 只查**降级分支**（except / `if x is None:`），
+#   **不覆盖 `--quit` 这条无 UI 路径**（本判据补上）。
+#   实测缺陷（2026-09-20 排查用户报告时发现）：reme `quit_watch_loop` 调
+#   `shutdown_tray(TRAY_ICON)` 不传 kwargs ⇒ stop_* 落 None ⇒ 回读 CFG[quit_stop_*]
+#   ⇒ **勾过一次"退出时停服务"的用户，会被一次外部 `--quit` 静默停掉服务**。
+#   自证 2 腿（红格 = reme 修前真身；反向格 = 显式 stop_*=False 必须放行）。
 # 1.9.25：**新增 C-50（FAIL）**= 退出路径的「未勾选」分支不得执行破坏性动作
 #   （G4.2 **条款 5** 明文："不勾 = 服务与隧道越过托盘生命周期继续运行"）。
 #   由来：**用户报告 2026-09-20** —— ocx 关闭后即使没勾选也把隧道关了。
@@ -1226,6 +1233,63 @@ def c50(c: Ctx):
                                 "%s:%d %s() 的 else 分支调用 %s() —— 未勾选时不得清理（G4.2-5）"
                                 % (rel, getattr(sub, "lineno", 0), node.name, name))
     return (not problems), ("；".join(problems) if problems else "退出路径的未勾选分支均无破坏性动作")
+
+
+@check("C-51", "FAIL", "无 UI 的退出入口（--quit）不得沿用持久化清理勾选（§4.1.43/C-41 同族）")
+def c51(c: Ctx):
+    """`--quit` 是**无 UI 的外部入口**（外部工具/脚本在用）：**没有任何人**被问过。
+
+    若它沿用 `CFG["quit_stop_*"]`（那是用户在**有确认框**的语境下保存的偏好），就变成
+    "**辅助机制在无人确认的情况下停掉用户正在用的服务**" —— `§4.1.43` / C-41 的母题。
+    C-41 只查**降级分支**（`except` / `if x is None:`），**不覆盖这条路径**（本判据补上）。
+
+    实测缺陷（2026-09-20 排查用户报告时发现）：reme `quit_watch_loop` 调
+    `shutdown_tray(TRAY_ICON)` **不传 kwargs** ⇒ `stop_reme/stop_tunnels` 落 `None`
+    ⇒ 函数内回读 `CFG["quit_stop_*"]` ⇒ **勾过一次"退出时停服务"的用户，会被一次
+    外部 `--quit` 静默停掉服务**。
+
+    形态：`quit_watch_loop` 内对 `shutdown_tray` / `on_quit` / `quit_app` 的调用，
+    必须**显式**传 `stop_reme=False` 与 `stop_tunnels=False`。
+    （托盘菜单那条路径不受影响：它走 `quit_app`，用户**确实被问到了**。）
+    """
+    problems = []
+    # ⚠ **只查工具侧**（排除 `src/modules/**`）：模板 `tray_kit.quit_watch_loop` 是
+    # **机制件** —— 它只 `on_quit()` 回调，**自己不读任何配置**；"要不要清"由**调用方
+    # 传进来的回调**决定。把它也算进来是**假红**（判据把"回调调用点"误当成"退出入口"）。
+    # 与 C-27 的 `code` 过滤同一条边界：**判据的适用范围必须自己先想清楚**（§4.1.18）。
+    code = [p for p in c.py_files()
+            if "modules" not in p.relative_to(c.src).parts[:1]]
+    for p in code:
+        src = c.read(p)
+        if "quit_watch_loop" not in src:
+            continue
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        rel = p.relative_to(c.dir).as_posix()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    or node.name != "quit_watch_loop":
+                continue
+            for call in (n for n in ast.walk(node) if isinstance(n, ast.Call)):
+                if isinstance(call.func, ast.Attribute):
+                    fname = call.func.attr
+                elif isinstance(call.func, ast.Name):
+                    fname = call.func.id
+                else:
+                    continue
+                if fname not in ("shutdown_tray", "on_quit", "quit_app"):
+                    continue
+                kw = {k.arg: k.value for k in call.keywords if k.arg}
+                ok = all(isinstance(kw.get(n), ast.Constant) and kw[n].value is False
+                         for n in ("stop_reme", "stop_tunnels"))
+                if not ok:
+                    problems.append(
+                        "%s:%d quit_watch_loop() 调 %s() 未显式传 stop_reme=False/"
+                        "stop_tunnels=False ⇒ 会沿用持久化勾选（无人确认却停服务）"
+                        % (rel, call.lineno, fname))
+    return (not problems), ("；".join(problems) if problems else "无 UI 退出入口未沿用持久化勾选")
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -5345,6 +5409,30 @@ def selftest() -> int:
             good = ok == want
             failed += 0 if good else 1
             print("[selftest] %s  C-50 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
+
+        # C-51（§4.1.43/C-41 同族）：无 UI 退出入口不得沿用持久化勾选。
+        # 红格 = 判别力自证（= reme 修前的真身：不传 kwargs）；反向格 = 显式全 False。
+        # 第 3 格是**豁免腿**（§4.1.37）：同一段"有罪代码"放进 `src/modules/**`
+        # （机制件路径）⇒ **必须不报**。模板 `tray_kit.quit_watch_loop` 只回调、
+        # 不读配置，不该被本判据管 —— 没有这一格，判据会把机制件报成假红（首跑就是这样）。
+        _c51_body = ("def quit_watch_loop():\n    if ICON is not None:\n"
+                     "        shutdown_tray(ICON)\n    return\n")
+        c51_cases = (
+            ("pos_no_kwargs_uses_cfg", "src", _c51_body, False),
+            ("neg_explicit_false_ok", "src",
+             "def quit_watch_loop():\n    if ICON is not None:\n"
+             "        shutdown_tray(ICON, stop_reme=False, stop_tunnels=False)\n", True),
+            ("neg_template_module_exempt", "src/modules/tray_kit", _c51_body, True),
+        )
+        for name, sub, body, want in c51_cases:
+            d = base / ("c51_" + name)
+            (d / sub).mkdir(parents=True, exist_ok=True)
+            (d / sub / "mod.py").write_text("ICON = None\n\n\n" + body, encoding="utf-8")
+            ok, detail = c51(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-51 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
