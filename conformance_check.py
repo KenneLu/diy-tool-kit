@@ -1,5 +1,19 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.22
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.24
+# 1.9.24：**R-10 加宽**（任务 A2 / §4.1.55）= ① **换 key：裸名 → 全路径**（`_leak_key`），
+#   覆盖 `names_a`/`names_b`/`TMP_DECLARED_PATHS` 三处——否则多根下同名目录会被集合并集
+#   去重吃掉、白名单也会暗吃掉别根的同名目录；② **扩根**：`%TEMP%` 之外纳入 l-s2t 仓内
+#   三处落点（`build/test-data`、`build/selftest-data`、`release/<ver>/smoke-data`，它们既不在
+#   `%TEMP%`、又被 `.gitignore` 的 `build/`+`release/` 遮住 ⇒ 无人兜底）；③ 每个根各自打印
+#   **扫描面（候选数）+ 双腿命中数**。自证增 1 格（同名两根不去重 + 全路径豁免反向格）。
+# 1.9.23：**补 C-44 段首盲区**（任务 A1 / §4.1.56）= `_bat_cmd_tokens` 在段首为 `if` 时
+#   按 cmd 条件语法（`[not] [/i] errorlevel|exist|defined|cmdextversion <arg>` / `str1==str2`）
+#   推进到**命令 token**，使 `if exist X findstr …` 这类裸名可判。
+#   **只对 `if` 段推进，不做全空白切分**——后经合成电池实测：全空白切分会把 `echo find`、
+#   `call :x find` 等 6/9 条合法行判红（§4.1.33）。
+#   **改前/改后对照（在本家族 6 个根的全部 11 个 .bat 上）**：新增命中 **0**、消失 **0**
+#   （即不误伤现有任何合法行）；潜伏形态由合成电池证明（5/5 正样本命中、9/9 合法负样本不命中）。
+#   自证增 2 格（判别力格 + 反向格），合计 7 格。
 # 1.9.22：**修 C-27 假红**（P5 批次暴露）：C-27 遍历 `src/modules/**` 时不认
 #   `NOT-WIRED.md`（sync_check 的"有意不接入"申报口，§4.1.48）⇒ 把**如实申报**的
 #   模块按"已采纳"查 MUST-WIRE，报成 FAIL（l-s2t/reme 的 `update_helper` 各一条）。
@@ -2343,8 +2357,20 @@ _SHAPE_RULE = ("**任意深度**存在名为 `log` 的**目录**（里面的 `*.
 # **一条过期条目会静默地关掉一处覆盖，而且关掉之后没有任何症状**
 # （与"0 命中"和"没扫"不可区分是同一个病）。所以每条都必须写出**它的失效条件**。
 # **缺任一栏 = 仪器自身的表坏了** ⇒ 按 `[BROKEN]` 语义报（见 `_declared_problems`）。
+def _leak_key(p) -> str:
+    """跨根唯一 key = **规范化绝对路径**（任务 #64 / §4.1.55：裸名 ⇒ 多根下同名目录
+    会被集合运算去重吃掉，还会让白名单"吃掉任何根下的同名目录"）。"""
+    return os.path.normcase(str(Path(p).resolve()))
+
+
+def _tmp_declared(name: str) -> str:
+    import tempfile
+    return _leak_key(Path(tempfile.gettempdir()) / name)
+
+
 TMP_DECLARED_PATHS = {
-    "reme-helper-builddata": {
+    # key 从裸名 `reme-helper-builddata` 换成**全路径**（§4.1.55 的换 key 三处之一）。
+    _tmp_declared("reme-helper-builddata"): {
         "why": "reme-helper/scripts/build.bat:22 "
                "`set \"REME_HELPER_DATA_DIR=%TEMP%\\reme-helper-builddata\"`"
                "（固定名、该 bat 全文无清理）⇒ 是**构建数据位**，不是残留",
@@ -2373,11 +2399,9 @@ def _declared_problems():
     return out
 
 
-def _shape_hits(T: Path):
-    """腿 B：按**结构签名**找残留（不看目录名，免疫命名猜测）。返回 `[(名字, 触发路径)]`。
-
-    签名 = "**隔离数据根**"的不变量 = **有一个 `log` 目录**（B3：日志一律落
-    `<数据根>/log/<工具名>.log`）。返回触发路径供人工判读——"命中了"与"命中了什么"必须同时可见。
+def _shape_rel(d: Path):
+    """腿 B 签名 = "**隔离数据根**"的不变量 = **有一个 `log` 目录**（B3：日志一律落
+    `<数据根>/log/<工具名>.log`）。返回触发路径（相对 `d`）或 `None`。
 
     2026-09-19 两次放宽，两次都是**先实测、再改签名**：
       ① 旧签名要求"**恰好一个子目录**"——那是标定样本的**偶然特征，不是不变量**。合成形状实测：
@@ -2389,23 +2413,112 @@ def _shape_hits(T: Path):
       V0 现行（config(≤1层) 且 存在 `*.log`）          7 命中
       V1 「存在 `*.log` 文件（任意深度，不要 config）」  13 命中 —— 多出的 6 个里 5 个是**他程序的日志**：
          `WinRAR.exe.WebView2/EBWebView/.../000003.log`、`vmware-Administrator`、`virtual_camera`、
-         `kzip_sogou`、`ai/rp/task_outputs/.../output.log` ⇒ **太宽，制造假红**，否掉
+         `kzip_sogou`、`ai/rp/task_outputs/.../output.log` ⇒ **太宽、制造假红**，否掉
       V2 「存在 `log` **目录**（任意深度）」              8 命中 —— 7 个是自家数据根 + 1 个外来程序（`kzip_sogou`）
      ⇒ 采用 V2。**残余假阳性风险在案**：外来程序自己的 `log/` 目录会被算作命中。
     """
+    try:
+        for root, dirs, _files in os.walk(d, onerror=lambda _e: None):
+            if "log" in dirs:
+                return Path(root, "log").relative_to(d).as_posix()
+    except OSError:
+        return None
+    return None
+
+
+def _shape_hits(T: Path):
+    """`T` 的**直接子目录**里命中腿 B 的，返回 `[(名字, 触发路径)]`（自检用包装）。"""
     hits = []
     for d in sorted(T.iterdir()):
-        if not d.is_dir() or d.name in TMP_DECLARED_PATHS:
+        if not d.is_dir() or _leak_key(d) in TMP_DECLARED_PATHS:
             continue
-        try:
-            for root, dirs, _files in os.walk(d, onerror=lambda _e: None):
-                if "log" in dirs:
-                    rel = Path(root, "log").relative_to(d).as_posix()
-                    hits.append((d.name, rel))
-                    break
-        except OSError:
-            continue
+        rel = _shape_rel(d)
+        if rel is not None:
+            hits.append((d.name, rel))
     return hits
+
+
+def _prefix_of(d: Path, prefixes):
+    """腿 A：返回第一个命中的前缀（无则 None）。"""
+    for pref in prefixes:
+        if pref and d.name.startswith(pref):
+            return pref
+    return None
+
+
+# ---------------------------------------------------------------- R-10 扫描根（§4.1.55 / 任务 #64）
+# 加宽的两步：① **换 key：裸名 → 全路径**（`_leak_key`）——否则多根下同名目录会被集合运算
+#   去重吃掉，白名单也会"吃掉任何根下的同名目录"；② **扩根**：除 `%TEMP%` 外，把 l-s2t
+#   仓内三处落点纳入（它们既不在 `%TEMP%`、也被 `.gitignore` 的 `build/`+`release/` 遮住 ⇒
+#   **无人兜底**）。落点自身就是候选（`mode="self"`），`%TEMP%` 枚举子项（`mode="children"`）。
+def _leak_root_specs():
+    """返回 `[(label, path, mode)]`；`mode ∈ {"children","self"}`。"""
+    import tempfile
+    specs = [("<TEMP>", Path(tempfile.gettempdir()), "children")]
+    ls = ROOT / "local-speak2text"
+    if ls.is_dir():
+        for rel in ("build/test-data", "build/selftest-data"):
+            specs.append(("<l-s2t>/" + rel, ls / rel, "self"))
+        rel_dir = ls / "release"
+        if rel_dir.is_dir():
+            try:
+                versions = sorted(p for p in rel_dir.iterdir() if p.is_dir())
+            except OSError:
+                versions = []
+            for vd in versions:
+                specs.append(("<l-s2t>/%s/smoke-data" % vd.name, vd / "smoke-data", "self"))
+    return specs
+
+
+def _iter_candidates(spec):
+    """按 `mode` 产出**候选残留目录**。只 listdir、不递归、绝不删。"""
+    _label, path, mode = spec
+    try:
+        if mode == "children":
+            if not path.is_dir():
+                return
+            for d in sorted(path.iterdir()):
+                if d.is_dir():
+                    yield d
+        else:
+            if path.is_dir():
+                yield path
+    except OSError:
+        return
+
+
+def _scan_leak_roots(specs, prefixes):
+    """扫描 `specs` 的候选集。
+
+    返回 `(hits_a, hits_b, stats)`：
+      `hits_a = [(key, label, path, pref, mtime, nfiles)]`
+      `hits_b = [(key, label, path, rel)]`
+      `stats  = [(label, path, mode, n_candidates, n_a, n_b)]`
+    `key` = `_leak_key(path)`（**全路径**，跨根唯一）。
+    """
+    import time
+    hits_a, hits_b, stats = [], [], []
+    for spec in specs:
+        label, path, mode = spec
+        cands = list(_iter_candidates(spec))
+        na = nb = 0
+        for d in cands:
+            key = _leak_key(d)
+            pref = _prefix_of(d, prefixes)
+            if pref is not None:
+                try:
+                    nfiles = len([f for f in d.rglob("*") if f.is_file()])
+                    mtime = time.strftime("%m-%d %H:%M", time.localtime(d.stat().st_mtime))
+                except OSError:
+                    nfiles, mtime = 0, "(不可读)"
+                hits_a.append((key, label, d, pref, mtime, nfiles))
+                na += 1
+            rel = _shape_rel(d)
+            if rel is not None:
+                hits_b.append((key, label, d, rel))
+                nb += 1
+        stats.append((label, path, mode, len(cands), na, nb))
+    return hits_a, hits_b, stats
 
 
 def _name_shape(name: str) -> str:
@@ -2432,39 +2545,21 @@ def _shape_histogram(names) -> str:
     return "，".join("%s %d" % (k, v) for k, v in sorted(c.items())) or "（空）"
 
 
-def _declared_present(T: Path):
-    """白名单里**确实存在于 %TEMP%** 的那些（只报出来，不计入并集/增量）。
+def _declared_present():
+    """白名单里**确实存在于盘上**的那些（只报出来，不计入并集/增量）。
 
-    返回 `[(名字, entry)]`；`entry` 是 `{why, reverify}` 两栏。**打印由调用方负责把两栏都说全**
-    （"为什么不算残留" + "什么时候重验"）——只打印名字等于把开关藏起来。
+    返回 `[(key, entry)]`；`key` 是**全路径**，`entry` 是 `{why, reverify}` 两栏。
+    **打印由调用方负责把两栏都说全**（"为什么不算残留" + "什么时候重验"）——只打印名字/路径
+    等于把开关藏起来。
     """
     out = []
-    for name, entry in sorted(TMP_DECLARED_PATHS.items()):
+    for key, entry in sorted(TMP_DECLARED_PATHS.items()):
         try:
-            if (T / name).is_dir():
-                out.append((name, entry))
+            if Path(key).is_dir():
+                out.append((key, entry))
         except OSError:
             pass
     return out
-
-
-def _temp_hits(prefixes, T):
-    """腿 A：按**从源码枚举/登记**的前缀找残留。返回 [(前缀, 目录名, mtime, 文件数)]。"""
-    import time
-    hits = []
-    for d in sorted(T.iterdir()):
-        if not d.is_dir():
-            continue
-        for pref in prefixes:
-            if pref and d.name.startswith(pref):
-                try:
-                    nfiles = len([f for f in d.rglob("*") if f.is_file()])
-                    mtime = time.strftime("%m-%d %H:%M", time.localtime(d.stat().st_mtime))
-                except OSError:
-                    nfiles, mtime = 0, "(不可读)"
-                hits.append((pref, d.name, mtime, nfiles))
-                break
-    return hits
 
 
 def temp_leak_main(names, save=None, baseline=None) -> int:
@@ -2500,12 +2595,19 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
         all_weak += weak
     all_prefs = sorted(set(all_prefs))
     T = Path(tempfile.gettempdir())
+    specs = _leak_root_specs()
 
     print(identity_line())   # 取证输出也要自证身份
     print("== 扫描面 ==")
     # 扫描面必须**可比对**：`%TEMP%` 经环境变量常是 8.3 短名（`ADMINI~1`），
     # 两个人各贴一份输出会对不上"是不是同一个根"。故同时打印解析后的规范长路径。
-    print("  目录: %s   （解析后: %s）" % (T, Path(T).resolve()))
+    print("  %%TEMP%%: %s   （解析后: %s）" % (T, Path(T).resolve()))
+    print("  根 %d 个（%d 个枚举子项 + %d 个落点自身）——§4.1.55 加宽后："
+          % (len(specs), sum(1 for _l, _p, m in specs if m == "children"),
+             sum(1 for _l, _p, m in specs if m == "self")))
+    for label, path, mode in specs:
+        print("    %-38s %-52s [%s]" % (label, path,
+              "枚举子项" if mode == "children" else "落点自身"))
     print("  腿 A 前缀 %d 个（从源码枚举 + 登记表；其中弱前缀 %d 处来自裸 mkdtemp）"
           % (len(all_prefs), len(all_weak)))
     print("  腿 B 规则: %s" % _SHAPE_RULE)
@@ -2518,59 +2620,71 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
         for rel in uncovered:
             print("        [不可枚举且未登记] %s" % rel)
 
-    hits_a = _temp_hits(all_prefs, T)
-    names_a = sorted({d for _, d, _, _ in hits_a})
-    hits_b = _shape_hits(T)
-    why_b = dict(hits_b)
-    names_b = sorted(why_b)
-    union = sorted((set(names_a) | set(names_b)) - set(TMP_DECLARED_PATHS))
+    hits_a, hits_b, stats = _scan_leak_roots(specs, all_prefs)
+    declared_set = set(TMP_DECLARED_PATHS)
+    names_a = sorted({k for k, *_ in hits_a} - declared_set)
+    names_b = sorted({k for k, *_ in hits_b} - declared_set)
+    union = sorted(set(names_a) | set(names_b))
+    print("== 每个根的扫描面 + 命中数（§4.1.55 验收：每个根各自打印）==")
+    for label, path, mode, nc, na, nb in stats:
+        print("  %-38s 候选 %3d  腿A %3d  腿B %3d  [%s]"
+              % (label, nc, na, nb, "枚举子项" if mode == "children" else "落点自身"))
     print("== 腿 A：生成器派生（前缀）命中 %d ==" % len(names_a))
     by_pref = {}
-    for pref, dname, ts, nfiles in hits_a:
-        by_pref.setdefault(pref, []).append((dname, ts, nfiles))
+    for key, label, d, pref, ts, nfiles in hits_a:
+        if key in declared_set:
+            continue
+        by_pref.setdefault(pref, []).append((d.name, label, ts, nfiles))
     for pref, items in sorted(by_pref.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         print("  %-26s %2d 个" % (pref, len(items)))
-        for dname, ts, nfiles in items[:3]:
-            print("        %-30s %s 文件%2d%s" % (dname, ts, nfiles, "" if nfiles else " (空目录)"))
+        for dname, label, ts, nfiles in items[:3]:
+            print("        %-30s %-18s %s 文件%2d%s"
+                  % (dname, label, ts, nfiles, "" if nfiles else " (空目录)"))
         if len(items) > 3:
             print("        ... 还有 %d 个" % (len(items) - 3))
+    key2b = {k: (d, label, rel) for k, label, d, rel in hits_b}
+    set_a = set(names_a)
+    only_b = [k for k in names_b if k not in set_a]
     print("== 腿 B：形态派生（不看名字）命中 %d ==" % len(names_b))
-    only_b = [d for d in names_b if d not in names_a]
-    for d in names_b[:12]:
-        print("        %-30s %-26s%s" % (d, why_b[d], "" if d in names_a else "  <- 腿 A 的盲区"))
+    for k in names_b[:12]:
+        d, label, rel = key2b[k]
+        print("        %-30s %-18s %-24s%s"
+              % (d.name, label, rel, "" if k in set_a else "  <- 腿 A 的盲区"))
     if len(names_b) > 12:
         print("        ... 还有 %d 个" % (len(names_b) - 12))
     # 名字形态直方图：**把"有残留"变成"该去改谁"**——带点 ⇒ shell `mktemp -d`
     # （进程规则/外部 CLI 造的，源码里没有可枚举的调用点）；无点 ⇒ Python `mkdtemp()`。
-    print("  名字形态直方图：%s" % _shape_histogram(names_b))
+    print("  名字形态直方图：%s" % _shape_histogram([Path(k).name for k in names_b]))
     print("     ↑ 带点（`tmp.<10>`）= GNU `mktemp -d`（shell/外部 CLI）；无点（`tmp<8>`）= Python `mkdtemp()`。"
           "前者**源码里没有调用点**，只能靠形态腿，且要改的是**进程规则**而不是代码")
-    declared = _declared_present(T)
+    declared = _declared_present()
     if TMP_DECLARED_PATHS:
         print("== 已声明位置白名单：**生效 %d 条**（全部参与过滤）/ 其中现场命中 %d 条 =="
               % (len(TMP_DECLARED_PATHS), len(declared)))
         # **全部条目都打印，不只打印"现场命中"的那些**（lead 2026-09-19）：白名单是
         # **关掉覆盖**的开关——开关藏起来，就没人能发现它过期了；而且**不在盘上时它照样生效**
-        # （过滤发生在判定阶段，与当前有没有残留无关）。
-        present = {n for n, _ in declared}
-        for n, entry in sorted(TMP_DECLARED_PATHS.items()):
-            print("        %-30s %s" % (n, "现场命中" if n in present else "（当前不在盘上，条目仍生效）"))
+        # （过滤发生在判定阶段，与当前有没有残留无关）。key 已换成**全路径** ⇒ 同名目录在
+        # 其它根下不会被这条暗吃掉（§4.1.55）。
+        present = {k for k, _ in declared}
+        for k, entry in sorted(TMP_DECLARED_PATHS.items()):
+            print("        %s  %s" % (k, "现场命中" if k in present else "（当前不在盘上，条目仍生效）"))
             print("        %-30s [为什么不算残留] %s" % ("", entry.get("why", "?")))
             print("        %-30s [重验触发条件]   %s" % ("", entry.get("reverify", "?")))
         for name, why in _declared_problems():
             print("        [BROKEN] 白名单条目本身不合规：%s —— %s" % (name, why))
     reg = {n for v in _TEMP_REGRESSION_20260919.values() for n in v}
+    hit_basenames = {Path(k).name for k in union}
     print("== 并集 %d 个；其中 %d 个在腿 A 命中之外（腿 B 独有）；"
-          "命中已登记回归集 %d/%d =="
-          % (len(union), len(only_b), len(set(union) & reg), len(reg)))
+          "命中已登记回归集 %d/%d（按**目录名**比对）=="
+          % (len(union), len(only_b), len(hit_basenames & reg), len(reg)))
     # 扫描面报**目录数**：lead 那次把"条目数"（目录+文件）当成了目录数（634 vs 101），
     # 于是两个人贴出来的扫描面根本不可比。两个数**显式带标签**一起报。
     n_dirs = len([d for d in T.iterdir() if d.is_dir()])
     n_entries = len(list(T.iterdir()))
-    print("RESULT: 扫描顶层**目录** %d 个（顶层条目 %d = 目录+文件）"
+    print("RESULT: 扫描**根** %d 个（%%TEMP%% 顶层目录 %d 个 / 顶层条目 %d = 目录+文件）"
           " / 腿 A 前缀 %d 个 / 命中 A=%d B=%d 并集=%d / 已声明 %d"
-          % (n_dirs, n_entries, len(all_prefs), len(names_a), len(names_b), len(union),
-             len(TMP_DECLARED_PATHS)))
+          % (len(specs), n_dirs, n_entries, len(all_prefs), len(names_a), len(names_b),
+             len(union), len(TMP_DECLARED_PATHS)))
     if save:
         Path(save).write_text("\n".join(union) + "\n", encoding="utf-8")
         print("已写基线: %s（%d 条，并集）" % (save, len(union)))
@@ -3528,6 +3642,42 @@ _BARE_NAME_CLOSED_SET = ("find", "findstr", "ping", "tasklist", "robocopy", "whe
                          "timeout")
 _BAT_CMD_SPLIT = re.compile(r"[|&(^]")
 _BAT_TOKEN = re.compile(r"\s*([^\s]+)")
+# §4.1.56 段首盲区：`if exist X findstr …` 的段首是 `if`，命令 token 在其后。
+_IF_COND_KW = ("errorlevel", "exist", "defined", "cmdextversion")
+
+
+def _bat_cmd_tokens(seg):
+    """段内**命令位置**的候选 token。
+
+    基础形态 = 段首 token（行首 / `|`/`&`/`(`/`^` 之后）——C-44 1.9.10 的原有语义。
+    补腿（§4.1.56）：段首是 `if` 时，`if [not] [/i] <条件> <命令>` 的命令 token 也是命令位置。
+    **只对 `if` 段做条件推进，不做全空白切分** —— 后者会把 `echo find`、`call :x find`
+    这类合法行判红（合成电池实测 6/9 误伤），违反 §4.1.33。
+    """
+    toks = seg.split()
+    if not toks:
+        return
+    yield toks[0]
+    if toks[0].lower() != "if":
+        return
+    i = 1
+    while i < len(toks) and toks[i].lower() == "not":
+        i += 1
+    if i < len(toks) and toks[i].lower() == "/i":
+        i += 1
+        while i < len(toks) and toks[i].lower() == "not":
+            i += 1
+    if i >= len(toks):
+        return
+    kw = toks[i].lower()
+    if kw in _IF_COND_KW:
+        i += 2                      # 关键字 + 1 个实参（errorlevel N / exist F / defined V）
+    elif "==" in toks[i]:
+        i += 1                      # if [not] str1==str2
+    else:
+        return                      # 未知条件形态 ⇒ 保守不动，宁漏不误
+    if i < len(toks):
+        yield toks[i]
 
 
 def check_bat_absolute_cmds(root: Path):
@@ -3548,14 +3698,12 @@ def check_bat_absolute_cmds(root: Path):
             if not s or s.lower().startswith("rem ") or s.lower() == "rem" or s.startswith("::"):
                 continue
             for seg in _BAT_CMD_SPLIT.split(s):
-                m = _BAT_TOKEN.match(seg)
-                if not m:
-                    continue
-                tok = m.group(1).strip('"').strip().lstrip("'").rstrip("'")
-                base = tok.split("\\")[-1].split("/")[-1].lower()
-                base = base[:-4] if base.endswith(".exe") else base
-                if base in _BARE_NAME_CLOSED_SET and "\\" not in tok and "/" not in tok:
-                    hits.append("%s:%d `%s`" % (rel, n, tok.split()[0][:40]))
+                for raw in _bat_cmd_tokens(seg):
+                    tok = raw.strip('"').strip().lstrip("'").rstrip("'")
+                    base = tok.split("\\")[-1].split("/")[-1].lower()
+                    base = base[:-4] if base.endswith(".exe") else base
+                    if base in _BARE_NAME_CLOSED_SET and "\\" not in tok and "/" not in tok:
+                        hits.append("%s:%d `%s`" % (rel, n, tok[:40]))
     if hits:
         return False, ("%d 处以**裸名**调用闭集命令：%s。【为什么是硬违规】PATH 的顺序不是我们"
                        "能假设的（实测 `where find` -> `H:\\Tools\\Git\\usr\\bin\\find.exe`，"
@@ -4528,10 +4676,17 @@ def selftest() -> int:
         _mk_shape("nested-no-config", ["dsh-helper/log/dsh-helper.log"])
         # 反向样本：有 config.json 但**没有 log 目录** → 不是数据根，必须不命中。
         _mk_shape("no-log-dir", ["config.json", "x.txt"])
-        # 白名单判别样本：名字与内容都命中形态，但**已声明** ⇒ 不得进命中集。
-        _mk_shape("reme-helper-builddata", ["log/x.log"])
+        # 白名单判别样本：名字与内容都命中形态，但**已声明（按全路径）** ⇒ 不得进命中集。
+        _decl_dir = _mk_shape("reme-helper-builddata", ["log/x.log"])
         (fake_tmp / "just-a-file.txt").write_bytes(b"x")   # 顶层文件不是目录 → 不命中
-        got_shape = {n for n, _why in _shape_hits(fake_tmp)}
+        # key 已换全路径（§4.1.55）⇒ 自检必须声明**这个合成路径**，而不是靠裸名。
+        _saved_decl = dict(TMP_DECLARED_PATHS)
+        try:
+            TMP_DECLARED_PATHS[_leak_key(_decl_dir)] = {"why": "自检样本", "reverify": "自检样本"}
+            got_shape = {n for n, _why in _shape_hits(fake_tmp)}
+        finally:
+            TMP_DECLARED_PATHS.clear()
+            TMP_DECLARED_PATHS.update(_saved_decl)
         want_shape = {"icon-probe-077hxtaw", "smoke-proof-nl6gj9kf",
                       "two-subs", "config-at-top", "nested-no-config"}
         good = got_shape == want_shape
@@ -4539,6 +4694,32 @@ def selftest() -> int:
         print("[selftest] %s  C-30/shape %s: got=%s want=%s"
               % ("PASS" if good else "FAIL", "name_agnostic_shape", sorted(got_shape),
                  sorted(want_shape)))
+
+        # R-10 加宽自证（§4.1.55 / 任务 #64）：**两处同名目录不得被去重吃掉**。
+        # 判别力格 = 两个根各含同名 `dup` ⇒ 并集必须 2 条（裸名 key 会并成 1 条）；
+        # 反向格   = 白名单**按全路径**只豁免其中一条 ⇒ 另一条仍在命中集。
+        _dedup_base = base / "r10_dedup"
+        _r1, _r2 = _dedup_base / "r1", _dedup_base / "r2"
+        for _r, _f in ((_r1, "a.log"), (_r2, "b.log")):
+            (_r / "dup" / "log").mkdir(parents=True)
+            (_r / "dup" / "log" / _f).write_bytes(b"")
+        _specs = [("r1", _r1, "children"), ("r2", _r2, "children")]
+        _ha, _hb, _st = _scan_leak_roots(_specs, [])
+        _keys = sorted({k for k, *_ in _hb})
+        _dedup_good = (len(_keys) == 2 and {Path(k).name for k in _keys} == {"dup"})
+        _saved2 = dict(TMP_DECLARED_PATHS)
+        try:
+            TMP_DECLARED_PATHS[_leak_key(_r1 / "dup")] = {"why": "自检", "reverify": "自检"}
+            _k2 = sorted({k for k, *_ in _hb} - set(TMP_DECLARED_PATHS))
+        finally:
+            TMP_DECLARED_PATHS.clear()
+            TMP_DECLARED_PATHS.update(_saved2)
+        _decl_good = (len(_k2) == 1 and _k2[0] == _leak_key(_r2 / "dup"))
+        good = _dedup_good and _decl_good
+        failed += 0 if good else 1
+        print("[selftest] %s  R-10/dedup %s: 并集=%d（裸名会=1） 全路径豁免后=%d want=1 | keys=%s"
+              % ("PASS" if good else "FAIL", "same_name_two_roots_not_deduped",
+                 len(_keys), len(_k2), [Path(k).name for k in _keys]))
 
         # C-32：读证据 → 删证据 → 报告。样本必须用**真实现场的形状**——首版就是被
         # `marker.read_text(...).strip()` 的链式包装 + `except: return` 挡住而**零命中**，
@@ -4898,8 +5079,11 @@ def selftest() -> int:
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-44（2026-09-19，lead 定）：**bat 里闭集命令必须绝对路径**。
-        # 五格：裸名（红）/ 绝对路径（绿）/ rem 里提到（绿）/ for /f ('cmd') 形态（红）
+        # 原五格：裸名（红）/ 绝对路径（绿）/ rem 里提到（绿）/ for /f ('cmd') 形态（红）
         # / 非闭集命令（绿）。
+        # 1.9.23 增两格（§4.1.56 段首盲区）：
+        #   判别力格 = `if exist X findstr …` 必须红（旧实现漏）；
+        #   反向格   = `if exist X echo find` 必须绿（证明红来自"命令位置"而非"行里出现 find"）。
         c44_cases = (
             ("bare_name_flagged",
              {"build.bat": "@echo off\r\nfindstr /b /c:\"VERSION = \" src\\main.py\r\n"}, False),
@@ -4913,6 +5097,10 @@ def selftest() -> int:
              False),
             ("non_closed_set_ok",
              {"build.bat": "@echo off\r\npython -c \"print(1)\"\r\n"}, True),
+            ("if_exist_bare_cmd_flagged",
+             {"build.bat": "@echo off\r\nif exist \"%EXE%\" findstr /i \"x\" y\r\n"}, False),
+            ("if_exist_echo_find_ok",
+             {"build.bat": "@echo off\r\nif exist foo echo find\r\n"}, True),
         )
         for name, files, want in c44_cases:
             d = base / ("c44_" + name)

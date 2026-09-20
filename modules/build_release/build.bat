@@ -57,13 +57,14 @@ set FROZEN_EXE=%RELEASE_DIR%\%APPNAME%.exe
 echo [VERSION] %VERSION%  release: %RELEASE_DIR%
 
 rem ---------------------------------------------------------------------------
-rem 0.2 target dir must be free (one version, one dir - reproducible)
+rem 0.2 target dir (G1 RELAXED 2026-09-19, C2): existence is INFO, not a refusal.
+rem One-version-one-dir is kept by *rebuilding from scratch*, not by refusing.
+rem The refusal condition is 0.3 (live instance running FROM the target dir); the
+rem kernel side is C2 - the instance holds its own exe without FILE_SHARE_DELETE,
+rem so deleting it fails loudly (winerror 32) instead of hollowing it silently.
+rem CLEANLINESS IS NOT RELAXED: the old dir is removed in 0.3b, after the guard.
 rem ---------------------------------------------------------------------------
-if exist "%RELEASE_DIR%" (
-  echo [ERROR] %RELEASE_DIR% already exists. Delete it or bump VERSION.
-  if not defined NOPAUSE pause
-  exit /b 1
-)
+if exist "%RELEASE_DIR%" echo [INFO] %RELEASE_DIR% exists - will be removed and rebuilt from scratch.
 
 rem ---------------------------------------------------------------------------
 rem 0.3 running-instance guard (D1-02 refined 2026-09-19)
@@ -78,6 +79,21 @@ call :guard_target_not_running
 if errorlevel 1 (
   echo [ERROR] A %APPNAME% instance is running FROM %RELEASE_DIR%.
   echo [ERROR] Exit it from the tray before touching this directory.
+  if not defined NOPAUSE pause
+  exit /b 1
+)
+
+rem ---------------------------------------------------------------------------
+rem 0.3b cleanliness (G1 relaxed): remove the existing same-version dir NOW, so the
+rem build always assembles from scratch and never reuses a stale file. A live
+rem instance would have been refused in 0.3; any other lock fails loudly here.
+rem ---------------------------------------------------------------------------
+if exist "%RELEASE_DIR%" (
+  echo [INFO] removing %RELEASE_DIR% - rebuild from scratch ...
+  rmdir /s /q "%RELEASE_DIR%"
+)
+if exist "%RELEASE_DIR%" (
+  echo [ERROR] could not remove %RELEASE_DIR% - it is locked, possibly by a live instance.
   if not defined NOPAUSE pause
   exit /b 1
 )
