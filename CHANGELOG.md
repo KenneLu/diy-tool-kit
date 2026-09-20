@@ -10,7 +10,8 @@ are affected, and one of them was affected *in a way that is invisible unless de
 
 - **Desensitizing batch (`dacfd71`, `a87e6c0`)** — every absolute path, machine name, internal IP
   and username in the repo's documents was replaced with a placeholding form
-  (`<scratch>/`, `<runner>`, `<user>`, `192.168.x.x`, `D:\Example\...`); the residual scan is **0**.
+  (`<scratch>/`, `<runner>`, `<user>`, `192.168.x.x`, `D:\Example\...`).
+  ⚠ **Correction (same day): the first residual scan read **0**, and that reading was worthless** — the replacement table's patterns were written as raw strings with **doubled** backslashes, so the whole `H:\Tools\` / `C:\Users\` family was **never touched**, and the self-check **reused the same broken pattern** ⇒ it measured *what I had written*, not *what was still in the files* (the `§L L3⑤` shape: read-back equivalent to not reading — and this time with **no impossible-value alarm**). **A second, independent scan found 47 real occurrences** across 8 files; all are fixed, and the self-check is now a runnable criterion rather than a prose requirement.
   `CONFORMANCE §9` also **stopped depending on the process drafts** that are about to be deleted
   (`P` numbers are now declared valid *only inside that table*; the anchors are labelled *historical
   provenance*), and a runnable de-sensitization self-check was added next to the existing one.
