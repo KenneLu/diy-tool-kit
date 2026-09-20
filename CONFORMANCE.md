@@ -946,5 +946,78 @@ T7 guide；E2-06 `--quit`；其余 5 个测试套件入门禁（现只接了 2 �
 
 ---
 
+## 9. 通用经验的内化来源（2026-09-20）
+
+> **用途**：让"删除四个工具的开发文档"成为**有据可查**的动作 —— 每条通用经验在此指得出**落点**与**四家源锚点**。
+> **判据**：任何一条源信息，要么有落点、要么有丢弃理由；**两者皆无 = 删了就真丢了**（自检见 §9.5）。
+> 过程稿与逐条细节留 `_verify-scratch/internalize/retire-list.md`（临时取证区，会被清理）；**本表是正本**。
+> 归属口径（lead 立）：**锚点必须属于被引的那一方**，引用方自查不算确认；"X 报告里已提过 Y"必须 grep 到锚点才可写。
+
+### 9.1 提案 → 落点 + 四家源锚点（T5 `proposals.md`；裁决见 `adjudication.md`）
+
+| 提案 | 决定 | 落点 | 四家源锚点 |
+|---|---|---|---|
+| P1 状态经访问器 / 禁 `import *` | 已存在 | STANDARDS §D6 | dsh `CHANGELOG.md:237-246`；ocx `CHANGELOG §1.2.2`／`update_helper/README.md:33-42`；reme `UCR §8.1`；l-s2t `CHANGELOG §1.4.1` |
+| P2 清理不许假成功（删后回读） | 已存在 | §D3 + §J | dsh `CHANGELOG.md:105-114`；ocx `CHANGELOG §1.2.2`(R2)／`tests/README.md:44-47`；reme `CHANGELOG §1.2.6`「C-30」；l-s2t `CHANGELOG §1.4.1` |
+| P3 无 console 下 `start` 缺失目标弹模态框 | 已存在 | §J + §5.3.1 | dsh `CHANGELOG.md:102-120`；ocx `CHANGELOG §1.2.2`(R1+R4)；reme `CHANGELOG §1.2.6`「自更新链加固」；l-s2t `CHANGELOG §1.4.1` |
+| P4 退出降级链三态 | **合并** | **STANDARDS §K1**（收编条：G4.2 条款 5 + §4.1.58/59 + C-41/C-49~51） | dsh `CHANGELOG.md:41-53`；ocx `CHANGELOG §1.2.2`；reme `CHANGELOG §1.2.6`／`tests/test_quit_failopen.py` |
+| P5 探测失败不得触发破坏性动作 | 已存在 | §G4.2 条款 4–5 + C-49/C-51 + §4.1.58 | ocx `CHANGELOG §1.2.2`(probe_target)；reme `CHANGELOG §1.2.6`首条(C-51)；l-s2t `CHANGELOG §1.4.1`「#45 同族审计」 |
+| P6 守则运行时 fail-open + 构建期 fail-closed | 已存在 | §D3.2 | dsh `tray_kit/README.md:18-19`；ocx `CHANGELOG §1.2.2`(D3.1/C-10)；reme `CHANGELOG §1.2.6`「tray_kit 追平 2.2.0」 |
+| P7 实例隔离早于首次 import | 已存在 | §D3 + F11/D12 | dsh `tests/README.md:38-41`；ocx `tests/README.md:39-42`；l-s2t `CHANGELOG §1.4.1` |
+| P8 无 console 管道阻塞 / `ping` 非时钟 | 已存在 | §J + C-33 | dsh `update_helper/README.md:52-54`、`:57-62`；reme `CHANGELOG §v1.0.9`/`§1.2.6`；l-s2t `CHANGELOG §1.4.1` |
+| P9 robocopy 空源落在"成功"码区间 | 已存在 | §4.1.5x + §J | dsh `update_helper/README.md:70-77`；reme `CHANGELOG §1.2.6`；l-s2t `CHANGELOG §1.4.1` |
+| P10 robocopy 只比 size+mtime | 已存在 | §4.1.62 | reme `CHANGELOG §1.2.6`（三对照表）；l-s2t `CHANGELOG §1.4.2` |
+| P11 断言须带对照/负控 | **判据在条文缺** | **STANDARDS §K2** | dsh `tests/README.md:25-28`、`:31-36`；ocx `tests/README.md:24-28`、`:31-36` |
+| P12 i18n 缺键返回键名 + 默认文案泄漏 | 已存在 | §E4 + C-20/C-52 | dsh `CHANGELOG.md:14-28`、`:29-33`；ocx `CHANGELOG §1.2.2`(E4-02) |
+| P13 桩须照抄生产签名 | **合并** | **§K2**（并入 P11） | dsh `CHANGELOG.md:132-138`；ocx `tests/README.md:14-22` |
+| P14 菜单签名须对照 `build_menu()` | 已存在 | §E2 第二条（"状态签名比较"） | dsh `CHANGELOG.md:69-80`；ocx `CHANGELOG §1.2.2`(E2-09) |
+| P15 绝对路径 / bat CRLF / 门禁可达 | 已存在 | C-22/C-44 + §4.1.62/63 | reme `CHANGELOG §1.2.6`(PATH)；l-s2t `CHANGELOG §1.4.1`、`§1.4.3` |
+| P16 判据扫描面须声明并论证 | 已存在 | §D8 + §4.1.55 | l-s2t `CHANGELOG §1.4.1`「扫描面…」；ocx 判据自检（扫描面非空） |
+| P17 仪器先自证 / 锚取 commit·blob | 已存在 | §D7 + §D8 | l-s2t `CHANGELOG §1.4.1`「首次运行纪律」「锚点教训」「哈希必须带配方」；HANDOFF R1 §4.5/§6 |
+| P18 改名保留 / 自愈须"当前性" | 已存在 | D11 + §4.1.51 | dsh、ocx `autostart/README.md:18`；l-s2t `CHANGELOG §1.4.1`「重建纪律」 |
+| P19 拷贝到位 ≠ 接线（MUST-WIRE） | **判据在条文缺** | **STANDARDS §K3** | dsh、ocx `update_helper/README.md:88-93`；l-s2t `CHANGELOG §1.4.1`「重拷验收口径升级」 |
+| P20 改模板优先 / 吸收义务 | **判据在条文缺** | **STANDARDS §K4** | dsh `CHANGELOG.md:51-68`；HANDOFF TL 三/D3/D13 |
+| P21 打包断言"冒烟看不见的东西" | **合并** | **§K2**（并入 P11）；3 家（dsh `build.bat:276-288`／ocx `build.bat:275-287`／reme `scripts/build.bat:437-444`） | reme `CHANGELOG §1.2.6` B 项 |
+
+> **计数（按逐条，非消息口径）**：已存在 **15**（P1/2/3/5/6/7/8/9/10/12/14/15/16/17/18）、合并 **3**（P4/P13/P21）、判据在条文缺 **3**（P11/P19/P20）⇒ **真正新写条文 = §K 的 K1–K4**。
+> 补录（T5 后按 lead 指示）：**P22**→§4.1.62、**P23**→§4.1.63、**P24**→§4.1.64（均 ≥2 家）。
+
+### 9.2 每份源文档 → 内化 / 丢弃
+
+| 处置 | 内容 | 理由 |
+|---|---|---|
+| **内化** | 四份报告 §1 通用候选（经 P1–P24 合并） | 已在 §9.1 指得出落点 |
+| **丢弃·本工具特有** | dsh 10 / ocx 8 / reme 9 / l-s2t 9 条（报告 §2） | 绑定各工具业务（dsh web／opencodex 隧道／ReMe 上游／ASR 识别），第五个工具无对应物 ⇒ **随文档消失可接受** |
+| **丢弃·冗余** | 四份 §3 共 40 段 | 同一事实已有更规范的正本（模板 README/CHANGELOG 或本表），删除不丢信息 |
+| **丢弃·因 ≤25 上限被裁** | 36 条（报告 §4）；T12 扫描结论：收 **2 条 Δ**（吸收 3 源条目）、**33 条逐条给理由**（27 条"模板已有"／5 条"已被 P1/P2/P3/P7/P12 覆盖"／1 条"单家且原文自判为可用性改进"） | 见 `delta-proposals.md §2`，无一条以"未收"结案 |
+| **不采信** | 下层自曝"仅来自工作记忆、不可验证"的自述 | 按 `[待核实]`／A4/D5 处理，不作落点依据 |
+
+### 9.3 反查：模板新增/改动 → 来源锚点（防"凭空出现的规范"）
+
+| 模板位置 | 源锚点 |
+|---|---|
+| STANDARDS **§K1** | P4 四家锚点（§9.1）+ G4.2 条款 5 + §4.1.58/59 + C-41/C-49~51 |
+| STANDARDS **§K2** | P11/P13/P21（dsh/ocx `tests/README.md`；reme `CHANGELOG §1.2.6`；dsh/ocx/reme `build.bat`） |
+| STANDARDS **§K3** | P19（dsh/ocx `update_helper/README.md:88-93`；l-s2t `CHANGELOG §1.4.1`） |
+| STANDARDS **§K4** | P20（dsh `CHANGELOG.md:51-68`；HANDOFF TL 三/D3/D13） |
+| STANDARDS **§A2 T1**（口径变更） | 用户 2026-09-20 裁定"双语是默认要求"；C-52 |
+| CONFORMANCE **§4.1.58–64** | 用户报告 + lead 四仓实测（**§4.1.64 的锚点 = lead 差集实测，非 l-s2t 报告**） |
+| CONFORMANCE **§9**（本节） | T5 `proposals.md` + T6 `adjudication.md` |
+
+> **A1 实例（lead 自更正）**：lead 裁决时曾把 P6/P14 判"条文缺"，核对后发现 §D3.2／§E2 已有 —— 原因是**关键词只试了一种说法**。⇒ 判"已存在/新增"必须至少换两种说法检索（单关键词 0 命中不构成"不存在"的证据）。
+
+### 9.4 残留风险（未满足判据处）
+
+- **⚠ 2 条既无落点也无理由**：reme `os._exit` 不刷缓冲/locale 编码、l-s2t 编码边界两侧（疑同一未登记族"跨编码/stdio 边界"）⇒ **这两条源段落现在不可删**，须裁定"补条文/判据"或"给丢弃理由"。
+- **5 条落点精度待确认**：dsh 跑真实执行 / reme 备份回滚源 / reme 校验缺失=失败 / reme 无头孪生 / l-s2t 派生量两段合取。
+- **Δ1/Δ2 与 STANDARDS §L 待落**（T6b 在途）⇒ 落定前相关源文档段落不可删。
+
+### 9.5 判据自检
+
+源条目 **69**（§9.1 各提案 + 各报告 §2/§3/§4 处置）；**已定位落点 64 + 待精度确认 5 + ⚠无落点 2**；丢弃项全部有理由。
+⇒ 除 §9.4 的 2 条（+5 条待确认）外，**留空 = 0**。
+
+---
+
 *本文件与 `STANDARDS.md` 冲突时以 STANDARDS 为准；本文件的状态列随每次审计更新，
 更新即记入 `REVIEW.md` 的记录表。*

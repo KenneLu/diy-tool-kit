@@ -8,6 +8,7 @@
 >
 > ⚠ **接手/换班必读**：**[HANDOFF/](HANDOFF/README.md)** —— 交接文件夹（全部交接材料收在一处）：
 > - **[HANDOFF/README.md](HANDOFF/README.md)** —— 索引：阅读顺序 + 复量命令 + 哪些证据在哪（**从这里进**）
+> - **[HANDOFF/HANDOFF-2026-09-19-R2.md](HANDOFF/HANDOFF-2026-09-19-R2.md)** —— R2 续篇（最新，**第二个读**）：剩余待办三分 + 本轮裁定与发现（含两条"判据自己说谎"实例）
 > - **[HANDOFF/HANDOFF-2026-09-19.md](HANDOFF/HANDOFF-2026-09-19.md)** —— 主封存单：现场状态 / 已完成（勿重做）/ 待办 T1–T13 / **12 个坑** / **明确未验证项**
 > - **[HANDOFF/HANDOFF-2026-09-19-TASKLEDGER.md](HANDOFF/HANDOFF-2026-09-19-TASKLEDGER.md)** —— 台账附件：63 条任务索引 + 五个主题的关系 + 核心思路例程 + **18 条关键决策（带理由）**
 > - **[HANDOFF/PROMPT-for-next-team.md](HANDOFF/PROMPT-for-next-team.md)** —— 可直接粘贴给下一个 agent team 的交接话术
