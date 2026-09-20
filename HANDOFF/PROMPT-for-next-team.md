@@ -41,7 +41,7 @@
 ```
 
 附属：`CONFORMANCE.md`（缺陷登记，权威）/ `ALIGNMENT.md`（家族对齐表）
-任务台账实体：`C:\Users\Administrator\.claude\tasks\family-alignment\*.json`
+任务台账实体：`C:\Users\<user>\.claude\tasks\family-alignment\*.json`
 
 ## 红线（违反即事故）
 

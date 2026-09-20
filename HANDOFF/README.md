@@ -49,13 +49,13 @@ R2 是**增量**（它更新 R1 的待办状态），所以先读 R2 能避免�
 date +%Y-%m-%d_%H:%M:%S
 for r in dsh-helper opencodex-helper local-speak2text reme-helper; do
   printf '%-20s HEAD=%-9s dirty=[%s]  MODULE=%s\n' "$r" \
-    "$(git -C H:/Tools/my_diy_tools/$r rev-parse --short HEAD)" \
-    "$(git -C H:/Tools/my_diy_tools/$r status --porcelain | tr '\n' ';')" \
-    "$(grep -rl '^# TEMPLATE-MODULE' H:/Tools/my_diy_tools/$r/src 2>/dev/null | wc -l)"
+    "$(git -C <Tools>/my_diy_tools/$r rev-parse --short HEAD)" \
+    "$(git -C <Tools>/my_diy_tools/$r status --porcelain | tr '\n' ';')" \
+    "$(grep -rl '^# TEMPLATE-MODULE' <Tools>/my_diy_tools/$r/src 2>/dev/null | wc -l)"
 done
 printf '%-20s HEAD=%-9s dirty=[%s]\n' template \
-  "$(git -C H:/Tools/my_diy_tools/my-diy-tool-template rev-parse --short HEAD)" \
-  "$(git -C H:/Tools/my_diy_tools/my-diy-tool-template status --porcelain | tr '\n' ';')"
+  "$(git -C <Tools>/my_diy_tools/my-diy-tool-template rev-parse --short HEAD)" \
+  "$(git -C <Tools>/my_diy_tools/my-diy-tool-template status --porcelain | tr '\n' ';')"
 ```
 > ⚠ `MODULE=` 列**必须限定 `src/`** —— 模板自己的 18 个正本文件本来就带 `TEMPLATE-MODULE` 头，
 > 跑错范围会得到一整片假红。
@@ -80,11 +80,11 @@ template           HEAD=7a732e8   dirty=[]   （本文件夹建立于其后）
 | 家族对齐表 | `H:\Tools\my_diy_tools\my-diy-tool-template\ALIGNMENT.md` | 同上 |
 | 三轮复审机制 | `H:\Tools\my_diy_tools\my-diy-tool-template\REVIEW.md` | 同上 |
 | 模板索引入口 | `H:\Tools\my_diy_tools\my-diy-tool-template\README.md` | 顶部有指向本文件夹的指针 |
-| **任务台账实体（63 条，描述最详细）** | `C:\Users\Administrator\.claude\tasks\family-alignment\*.json` | **运行期产物**，会被 harness 继续改写；复制会立刻产生分歧 |
-| **T4 的只读施工单** | `H:\Tools\_verify-scratch\UPDATER-SWAP-ls2t.md` | 被任务 `#32` 的 `description` 按路径引用；移动会断引用 |
-| 构建全量输出（各闸行） | `H:\Tools\_verify-scratch\dsh-build-full.log`<br>`H:\Tools\_verify-scratch\ocx-build-full.log` | 体量大；且是"一次性动作"的原始证据，宜留在原地 |
-| Run 键改指脚本（纯 ASCII，可复用） | `H:\Tools\_verify-scratch\repoint_dsh_run.ps1` | 可执行件，属工具不属文档 |
-| 当晚各类判据/字节证据 | `H:\Tools\_verify-scratch\GATE-*.txt` / `BAT-KEYPOINT-*.txt`<br>`LF-RESIDUE-baseline.txt` / `DISPATCH-BYTES-*.txt` / `EOL-criterion-evidence.txt` / `PENDING-REVERIFY.md` | 同上 |
+| **任务台账实体（63 条，描述最详细）** | `C:\Users\<user>\.claude\tasks\family-alignment\*.json` | **运行期产物**，会被 harness 继续改写；复制会立刻产生分歧 |
+| **T4 的只读施工单** | `H:\Tools\<scratch>\UPDATER-SWAP-ls2t.md` | 被任务 `#32` 的 `description` 按路径引用；移动会断引用 |
+| 构建全量输出（各闸行） | `H:\Tools\<scratch>\dsh-build-full.log`<br>`H:\Tools\<scratch>\ocx-build-full.log` | 体量大；且是"一次性动作"的原始证据，宜留在原地 |
+| Run 键改指脚本（纯 ASCII，可复用） | `H:\Tools\<scratch>\repoint_dsh_run.ps1` | 可执行件，属工具不属文档 |
+| 当晚各类判据/字节证据 | `H:\Tools\<scratch>\GATE-*.txt` / `BAT-KEYPOINT-*.txt`<br>`LF-RESIDUE-baseline.txt` / `DISPATCH-BYTES-*.txt` / `EOL-criterion-evidence.txt` / `PENDING-REVERIFY.md` | 同上 |
 
 > **读它们的理由**：主封存单 §7「证据文件索引」已按用途分类列出。
 > **读台账的命令**：见 `HANDOFF-2026-09-19-TASKLEDGER.md` §一。

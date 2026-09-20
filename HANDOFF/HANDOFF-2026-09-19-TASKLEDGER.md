@@ -4,7 +4,7 @@
 > 外加**任务之间的关系**、**本项目的核心思路例程**、**当晚的关键决策及其理由**。
 >
 > **它不是台账的替代品。** 台账实体在
-> `C:\Users\Administrator\.claude\tasks\family-alignment\*.json`
+> `C:\Users\<user>\.claude\tasks\family-alignment\*.json`
 > （每条含 `subject` / `description` / `status` / `owner`，描述比本表详细得多）。
 > **本表的作用是"索引 + 关系 + 决策"** —— 让你知道**先看哪条、哪几条是一伙的、为什么当初这么定**。
 >
@@ -18,7 +18,7 @@
 ```bash
 PYTHONIOENCODING=utf-8 python -c "
 import json,glob,os
-d=r'C:\Users\Administrator\.claude\tasks\family-alignment'
+d=r'C:\Users\<user>\.claude\tasks\family-alignment'
 rows=[]
 for f in glob.glob(os.path.join(d,'*.json')):
     n=int(os.path.basename(f)[:-5]); t=json.load(open(f,encoding='utf-8'))

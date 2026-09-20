@@ -162,7 +162,7 @@ Template library own versioning (TEMPLATE-VER), independent of any tool.
 - **C-42 (FAIL, tool + template channel), narrowed on the lead's instruction.** In `.py`/`.bat`/`.cmd`
   the **redirect position must not contain `dev/null`** — matched as `>` (including `2>`, `>>`) plus
   optional whitespace plus `dev/null`. **Not** written as "`dev/` must not appear anywhere": that
-  would false-positive on comments holding paths (`H:/Tools/dev/...`) and on URLs. Narrowed to the
+  would false-positive on comments holding paths (`<repo>/...`) and on URLs. Narrowed to the
   redirect position it has **zero false positives** — there is no legal reason for it there on
   Windows, where `> /dev/null` makes the command **not run at all** (`rc=0` in 0.03s, stderr says the
   path was not found; correct form: 0.68s, empty stderr).
@@ -183,7 +183,7 @@ Template library own versioning (TEMPLATE-VER), independent of any tool.
   own fixtures necessarily contain the banned shape** ⇒ the scan surface now **excludes the
   instrument by absolute path and prints the exclusion** ("stale exclusion" and "never scanned" must
   not look alike).
-- **Five self-test legs**: the three the lead named (redirect hit -> red; `H:/Tools/dev/x` in a
+- **Five self-test legs**: the three the lead named (redirect hit -> red; `<repo>/x` in a
   comment -> green; `>nul` inside a template string -> green), a `.bat` shape -> red, and the reverse
   cell `devnull_like_name_ok` (`> dev/nullish` -> green, proving the narrowing reaches the whole
   word). **Measured: all four tools and the template are `[ok]`** (24/44/25/33 + 22 files).
@@ -565,7 +565,7 @@ against me**.
   `tmp.6FcrxXYxmM\d\local-speak2text` (depth 3, **only `log/`**, no `config.json`) defeats both.
   The new rule was chosen **by measurement, not by argument**, on one scan (95 top dirs /
   647 entries): V0 old = **7** hits; V1 "`*.log` file at any depth" = **13** — and the 6 extra are
-  **other programs' logs** (WebView cache `EBWebView/…/000003.log`, `vmware-Administrator`,
+  **other programs' logs** (WebView cache `EBWebView/…/000003.log`, `vmware-<user>`,
   `virtual_camera`, `kzip_sogou`, `ai/rp/task_outputs/…/output.log`) ⇒ **too wide, manufactures
   false reds**, rejected; V2 "a directory named `log` at any depth" = **8** ⇒ **adopted**
   (B3 says logs live in `<data root>/log/`, so "has a `log` dir" is the invariant). Residual FP =
@@ -775,7 +775,7 @@ edit has to be re-issued naming what changed).
   command meant a pointless registry write on every start. The judgement is now "does every
   path in the command line exist" (`_cmd_targets` / `_cmd_alive`), and after rewriting we
   **re-read** the new target: if that is missing too, we say so instead of claiming
-  `migrated`. Evidence: `H:\Tools\_verify-scratch\autostart_migrate_test.py` (fake `winreg`,
+  `migrated`. Evidence: `H:\Tools\<scratch>\autostart_migrate_test.py` (fake `winreg`,
   the real registry is never touched) — **14/14 on 1.1.2**, and the same harness pointed at the
   pre-fix revision (`git show 33e99ff:…`) fails the silent / spurious-write cases. That
   difference is what makes this a measurement rather than a claim.
