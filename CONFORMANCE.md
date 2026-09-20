@@ -949,7 +949,7 @@ T7 guide；E2-06 `--quit`；其余 5 个测试套件入门禁（现只接了 2 �
 
 ## 9. 通用经验的内化来源（2026-09-20）
 
-> **✅ 定稿（2026-09-20）**：基线 `HEAD` = 本行所在提交（`git rev-parse HEAD`；`git status --porcelain` 为空）；所依据 `STANDARDS.md` blob = **`eacc26a47e1f…`**（= `11523e3`，mtime **20:01:11**）；`CONFORMANCE.md` blob 见 `git rev-parse HEAD:CONFORMANCE.md`（**自指哈希无法内嵌**，故给指针）。**不写"冻结态"**：T10 重跑会再改工作树。19:56 之后 STANDARDS 的两处增量（`§D8 附则 附 1 ④`、`§L L5②`）**已并入 §9.3 反查表**。
+> **✅ 定稿（2026-09-20）**：基线 `HEAD` = 本行所在提交（`git rev-parse HEAD`；`git status --porcelain` 为空）；所依据 `STANDARDS.md` blob = **`eacc26a47e1f…`**（= `11523e3`，mtime **20:01:11**）；`CONFORMANCE.md` blob 见 `git rev-parse HEAD:CONFORMANCE.md`（**自指哈希无法内嵌**，故给指针）。（按"**pin 用 blob、不用时效词**"的口径书写。）19:56 之后 STANDARDS 的两处增量（`§D8 附则 附 1 ④`、`§L L5②`）**已并入 §9.3 反查表**。
 > 本轮并入：**Δ1** → `STANDARDS §D3.5`（3 家）、**§1.6 的 2 条** → `STANDARDS §D9`（2 家）、**Δ2** → `CONFORMANCE §4.1.65`（[单家强证据]，只登记）、**§L（L1–L8）** → `STANDARDS §L`。
 > **自扫词表**（逐句对当前事实，非仅统计）：`尚未|未改|未提交|未建|待落`（**本行只是词表列示，非状态断言**）⇒ **排除本行**后逐句核：本表与过程稿均 **0 处**（命令与输出见 §9.5）。
 
@@ -1020,7 +1020,7 @@ T7 guide；E2-06 `--quit`；其余 5 个测试套件入门禁（现只接了 2 �
 | STANDARDS **§D3.5**（Δ1：等待/轮询） | dsh `CHANGELOG.md:86-101`；ocx `CHANGELOG §1.2.2`／`tests/README.md:55-57`／`tests/test_ui_marshal.py`；reme `CHANGELOG §1.2.6` |
 | STANDARDS **§D9**（跨编码/stdio 边界） | l-s2t `CHANGELOG.md:43`、`:1478-1482`；reme `CHANGELOG.md:593`、`:603`、`:611` |
 | CONFORMANCE **§4.1.65**（时新性的参照系） | l-s2t `CHANGELOG §1.4.1`「不能用 HEAD 的时钟」「必须排除 `__pycache__`」 |
-| `STANDARDS §D8 附则 附 1 ④`（行尾口径：**同文件内不得混用**；跨文件允许不同） | 本轮裁定 15a（口径：单文件内不得混用行尾；**不得要求整仓统一**） |
+| `STANDARDS §D8 附则 附 1 ④`（行尾口径：**同文件内不得混用**；跨文件允许不同） | 本轮裁定 15a（口径：单文件内不得混用行尾；**不得扩大到全仓级统一**） |
 | `STANDARDS §L L5②`（**计数必须由脚本产生，不得手数**） | 本轮裁定 15b；与 `§9.5` 的「计数由脚本算并回读」**同一口径，不另立条** |
 
 > **裁决自更正实例（对应 §L L5）**：裁决时曾把 P6/P14 判"条文缺"，核对后发现 §D3.2／§E2 已有 —— 原因是**关键词只试了一种说法**。⇒ 判"已存在/新增"必须至少换两种说法检索（单关键词 0 命中不构成"不存在"的证据）。
