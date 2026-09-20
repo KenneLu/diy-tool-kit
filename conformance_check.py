@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.24
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.25
+# 1.9.25：**新增 C-50（FAIL）**= 退出路径的「未勾选」分支不得执行破坏性动作
+#   （G4.2 **条款 5** 明文："不勾 = 服务与隧道越过托盘生命周期继续运行"）。
+#   由来：**用户报告 2026-09-20** —— ocx 关闭后即使没勾选也把隧道关了。
+#   实测根因：`on_quit` 把清理拆成 `if stop_tunnels: kill…` / **`else: terminate 所有
+#   OWNED 句柄`** ⇒ 没勾选也清。**把条款 3 的「作用域规则」当成了「触发条件」**：
+#   条款 5 管**要不要清**、条款 3 管**清理谁**，分工不可互推。
+#   dsh/reme 无此病（两者压在同一条 `if <勾选>:` 里，`else` 只记日志）。
+#   自证 3 腿（红格 = ocx 修前真身；反向格 = 勾选分支里 kill 合法 / else 只记日志放行）。
 # 1.9.24：**R-10 加宽**（任务 A2 / §4.1.55）= ① **换 key：裸名 → 全路径**（`_leak_key`），
 #   覆盖 `names_a`/`names_b`/`TMP_DECLARED_PATHS` 三处——否则多根下同名目录会被集合并集
 #   去重吃掉、白名单也会暗吃掉别根的同名目录；② **扩根**：`%TEMP%` 之外纳入 l-s2t 仓内
@@ -1161,6 +1169,63 @@ def c49(c: Ctx):
                 problems.append("%s:%d %s() 被用作破坏性动作的守卫，但探测自身失败被折叠成 False"
                                 % (rel, node.lineno, node.name))
     return (not problems), ("；".join(problems) if problems else "破坏性守卫的探测失败方向均为放行")
+
+
+_QUIT_FUNC_NAMES = ("on_quit", "quit_app", "_decide_quit")
+_DESTRUCTIVE_CALLS = ("terminate", "kill", "stop_service", "stop_process_group",
+                      "force_terminate_process_tree", "terminate_process_tree",
+                      "rmtree", "unlink", "remove")
+
+
+@check("C-50", "FAIL", "退出路径的「未勾选」分支不得执行破坏性动作（G4.2 条款 5）")
+def c50(c: Ctx):
+    """G4.2 **条款 5 明文**：*退出确认弹窗提供"顺便关闭服务/隧道"勾选项，默认不勾；
+    **不勾 = 服务与隧道越过托盘生命周期继续运行***。
+
+    实测缺陷（用户报告 2026-09-20）：ocx 1.2.1 的 `on_quit` 把清理拆成
+    `if stop_tunnels: kill…` **`else: 无差别 terminate 所有 OWNED 句柄`** ⇒
+    **没勾选也把（自己起的）隧道关了**。
+    **根因**：把条款 3 的「**作用域规则**（清理谁：只清接入实例、禁全量签名击杀）」
+    当成了「**触发条件**（要不要清）」——条款 5 管要不要、条款 3 管清理谁，**分工不可互推**。
+    dsh/reme 无此病：它们把两者压在同一条 `if <勾选>:` 里，`else` 只记日志。
+
+    形态：`on_quit` / `quit_app` / `_decide_quit` 内，任一 `if` 的 **`else` 分支**
+    出现破坏性调用 ⇒ 报。**判别样本**见自证腿：`else: log(...)` 放行、
+    `else: proc.terminate()` 报红、`if <勾选>: kill` 本身**不报**（那是条款 5 允许的路径）。
+    """
+    problems = []
+    for p in c.py_files():
+        src = c.read(p)
+        if "quit_stop" not in src:
+            continue
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        rel = p.relative_to(c.dir).as_posix()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name not in _QUIT_FUNC_NAMES:
+                continue
+            for sub in ast.walk(node):
+                if not isinstance(sub, ast.If):
+                    continue
+                for blk, tag in ((sub.body, "body"), (sub.orelse, "else")):
+                    if tag != "else":
+                        continue
+                    for call in (n for stmt in blk for n in ast.walk(stmt)
+                                 if isinstance(n, ast.Call)):
+                        name = ""
+                        if isinstance(call.func, ast.Attribute):
+                            name = call.func.attr
+                        elif isinstance(call.func, ast.Name):
+                            name = call.func.id
+                        if name in _DESTRUCTIVE_CALLS:
+                            problems.append(
+                                "%s:%d %s() 的 else 分支调用 %s() —— 未勾选时不得清理（G4.2-5）"
+                                % (rel, getattr(sub, "lineno", 0), node.name, name))
+    return (not problems), ("；".join(problems) if problems else "退出路径的未勾选分支均无破坏性动作")
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -5256,6 +5321,31 @@ def selftest() -> int:
             failed += 0 if good else 1
             print("[selftest] %s  C-27 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
+
+        # C-50（G4.2 条款 5）：退出路径的「未勾选」分支不得清理。
+        # 红格 = 判别力自证（= ocx 1.2.1 修前的真身）；两条反向格：
+        # 「勾选分支里 kill」是**合法**的（条款 5 允许）、「else 只记日志」必须放行。
+        c50_cases = (
+            ("pos_else_terminates",
+             "def on_quit(icon, item):\n    if CFG.get('quit_stop_tunnels'):\n"
+             "        kill_tunnels()\n    else:\n        proc.terminate()\n", False),
+            ("neg_checked_branch_kills_ok",
+             "def on_quit(icon, item):\n    if CFG.get('quit_stop_tunnels'):\n"
+             "        proc.terminate()\n    else:\n        log('keep running')\n", True),
+            ("neg_else_logs_only",
+             "def quit_app(icon, item):\n    stop = CFG.get('quit_stop_reme')\n"
+             "    if stop:\n        stop_service()\n    else:\n        notify('stays up')\n", True),
+        )
+        for name, body, want in c50_cases:
+            d = base / ("c50_" + name)
+            (d / "src").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "main.py").write_text(
+                "CFG = {}\n\n\n" + body, encoding="utf-8")
+            ok, detail = c50(Ctx(name, d))
+            good = ok == want
+            failed += 0 if good else 1
+            print("[selftest] %s  C-50 %s: ok=%s want=%s | %s"
+                  % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
         # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
         # 两格：表格版本与文件头不符（红）/ 一致（绿）。
