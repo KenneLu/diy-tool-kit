@@ -3838,7 +3838,7 @@ def c43_template(c: Ctx):
 
 # ---------------------------------------------------------------- C-44
 # **bat 里的外部命令必须用绝对路径**（lead 2026-09-19 定；事故由 reme-dev 撞到）。
-# **机制**：`where find` -> **`H:\Tools\Git\usr\bin\find.exe`**（排在 System32 前面）。
+# **机制**：`where find` -> **`<third-party>\Git\usr\bin\find.exe`**（排在 System32 前面）。
 #   等待循环用 `find /i "{exe}" 文件` 判"旧进程还在不在"，而 **GNU `find` 把 `smss.exe`
 #   当文件名 ⇒ 恒返回 1** ⇒ 循环每次判"旧进程已退出" ⇒ 直接去覆盖**仍在运行的 exe**
 #   （文件被锁 ⇒ robocopy 默认百万次重试）。`ping` 同理（GNU 的 `-n` 是 numeric，不是次数）。
@@ -3920,7 +3920,7 @@ def check_bat_absolute_cmds(root: Path):
                         hits.append("%s:%d `%s`" % (rel, n, tok[:40]))
     if hits:
         return False, ("%d 处以**裸名**调用闭集命令：%s。【为什么是硬违规】PATH 的顺序不是我们"
-                       "能假设的（实测 `where find` -> `H:\\Tools\\Git\\usr\\bin\\find.exe`，"
+                       "能假设的（实测 `where find` -> `<third-party>\\Git\\usr\\bin\\find.exe`，"
                        "排在 System32 之前）：GNU `find` 语义不同、**恒返回非零**，于是"
                        "\u201c旧进程还在不在\u201d这条判断**静默走错分支**，代码去覆盖仍在运行的 exe。"
                        "**同一个母题**：环境提供同名异物 ⇒ 走进错分支且不报错。"
@@ -5092,12 +5092,12 @@ def selftest() -> int:
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
         # C-40（2026-09-19，ls2t-dev 提议 + lead 两处修正）：**纯函数**判"版本目录 ↔ 自启目标"。
-        # 六格 = 1 个**真实反例原样搬入**（dsh 当前的真实状态）+ 5 格对照。
+        # 六格 = 1 个**真实反例**（dsh 当时的状态）+ 5 格对照；**机器前缀已换成占位**（`H:\x\`，与同组其它样本一致），**判别结构逐字保留**。
         # 用纯函数是为了**能拿确定输入自证**：注册表与磁盘是活状态，不能当固定样本。
         _la = r"C:\Users\x\AppData\Local"
-        _dsh = r'"H:\Tools\my_diy_tools\dsh-helper\release\dsh-helper-1.8.2\dsh-helper.exe"'
+        _dsh = r'"H:\x\dsh-helper\release\dsh-helper-1.8.2\dsh-helper.exe"'
         c40_cases = (
-            # 真实反例：**自启目标 1.8.2 ≠ VERSION 1.8.1**（本机实测状态，逐字搬入）
+            # 真实反例：**自启目标 1.8.2 ≠ VERSION 1.8.1**（当时实测状态；**仅替换机器前缀**）
             ("live_dsh_case_flagged",
              ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.2"], _dsh, {}, _la),
              False, "FAIL"),
