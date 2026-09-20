@@ -2,6 +2,53 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-20 (the template repo's own cleanliness: desensitize, style-match, and a defect class no byte scan could see)
+
+Three batches landed on the template repo itself (none of them touch `modules/**`, so no tool-side
+re-copy is implied). This entry is the **delta declaration** for them — several earlier conclusions
+are affected, and one of them was affected *in a way that is invisible unless declared*.
+
+- **Desensitizing batch (`dacfd71`, `a87e6c0`)** — every absolute path, machine name, internal IP
+  and username in the repo's documents was replaced with a placeholding form
+  (`<scratch>/`, `<runner>`, `<user>`, `192.168.x.x`, `D:\Example\...`); the residual scan is **0**.
+  `CONFORMANCE §9` also **stopped depending on the process drafts** that are about to be deleted
+  (`P` numbers are now declared valid *only inside that table*; the anchors are labelled *historical
+  provenance*), and a runnable de-sensitization self-check was added next to the existing one.
+  ⚠ **One change in this batch is not cosmetic**: the literal count `76 条` was replaced by `逐条`
+  (2 places). That is a **factual rewrite — the number was REMOVED, not corrected.** Anyone who
+  later asks "was 76 right, or is it 90?" must know that the question was **abandoned**, not answered.
+- **Style batch (`b27b16a`)** — a one-line overview table was added to `§K` and to `§L`, and 17
+  decorative end-of-sentence arrows were removed.
+  ⚠ **Scope disclosure**: the removal regex was global, so **9 of the 17 removals landed in
+  pre-existing `§A`–`§J` prose** (lines 283/285/360/728/748/820/826/830/967). Per *"作废 ≠ 有错"*,
+  the T10/T11 conclusions are **not damaged** — but they were rendered **no longer applicable to
+  the current `HEAD`**. That is the delta this paragraph exists to declare.
+- **Defect batch (`5ce6188`)** — a defect class that **all three byte dimensions
+  (`CRLF` / bare `LF` / in-line bare `CR`) report as clean**, because the injected byte is a
+  *legitimate-looking line ending*: an inline code span **split by a real CR/LF**. Symptoms and fixes:
+  - `STANDARDS §L3`: an intended *literal escape* `\r\n` had landed as a real CRLF.
+  - `CONFORMANCE §4.1.58`: one surplus backtick shifted every following pairing, **swallowing the
+    table prose of `§4.1.59`–`§4.1.65` into a code span**. Machine criterion: document-wide
+    cross-line spans **31 → 10**.
+  - `CONFORMANCE C-45`: the escapes in `数 \r 与 \n` had landed as real bytes ⇒ **the row was cut
+    into three fragments** and rows `C-34` / `C-35` had been inserted *into the middle of it*,
+    rendering **two junk rows**. Rejoined (line count 1068 → 1066).
+  - `CONFORMANCE §9`: three dangling self-references left by an earlier rewrite of mine.
+  - **Not repaired, on purpose**: the remaining 10 cross-line spans cascade from `CONFORMANCE C-44`,
+    whose backtick count is odd at `d712d09` **and at every earlier revision** — a **pre-existing**
+    defect, not one of this round's, and reconstructing the author's intent would be guessing.
+    `CHANGELOG` L1004/L1035 are worse: the span content is *only a line break*, i.e. the demonstration
+    was itself eaten — **irrecoverable**, so nothing was invented to fill it.
+- **Method note (two criteria were both satisfied by degenerate solutions).** I first read
+  `§4.1.58` as *"a backtick is missing"* and **inserted** one — which merely built a length-2
+  backtick run; the cross-line count did not move. The correct repair was to **delete**, not insert.
+  The replacement criterion (`cross == 0` **and** minimum total length of the row's span contents)
+  then produced **23 tied candidates at `cross == 0`**, and its "winner" was ` ``|` ` — a solution that
+  reaches total length 0 **by destroying the structure entirely**.
+  ⇒ **A criterion needs a lower bound (the number of spans must not decrease), or the cheapest
+  solution is always "form no span at all".** Corollary to the *"反例声明"* rule: **a counter-example
+  must be able to falsify the criterion, not merely the conclusion.**
+
 ## 2026-09-19 (sync_check 1.9.0: three silent exits become three different observables)
 
 - **`scan_tool` used to have three bare `continue`s, all meaning "treat this file as having no
