@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.28
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.29
+# 1.9.29：**C-40 孤儿口径修正（2026-09-20 发版暴露）**：`release/` 下必然有三类目录 ——
+#   ① 当前版本（跳过）/ ② **上一版**（历次构建的自然产物，§4.1.42 原话，**不登记**）/
+#   ③ **改名保留镜像** `_stale_*` / `*.pre-rebuild-*`（**有意动作，必须登记**）。
+#   旧实现把 ② 也算"待登记孤儿" ⇒ 登记量随发版次数**线性增长**、漏登是必然的
+#   （本次发版一次就新增 4 条）。ORPHAN_VERSIONS 同步重写为只收 ③（4 条，措辞按新 Run 键更新）。
 # 1.9.28：**C-52 口径变更（用户 2026-09-20 裁定）**：*"默认所有工具都应该支持双语"* ——
 #   不再把"是否已开源"当开关。理由：四家全是公开仓库 ⇒ 开关恒开；而它作为开关的**副作用**
 #   是给判据留了一条**豁免分支**（C-20 遇"未启用"直接放行、没人核对前提）。
@@ -3309,53 +3314,44 @@ def c39_template(c: Ctx):
 _STABLE_INSTALL_SUBDIR = "app"          # %LOCALAPPDATA%\<APP_ID>\app
 ORPHAN_VERSIONS = {
     # 目录名 -> {why: 为什么可留 / 被谁引用 / 如何收敛, reverify: 什么情况下必须重验}
-    # 真实形态示例（dsh 那条，见 §4.1.34/MEMO#6）：
-    # "dsh-helper-1.8.2": {
-    #     "why": "Run 键正指着它（**被引用的孤儿**）⇒ 必须处理：扶正为当前 VERSION 重建，"
-    #            "或改引用并删目录。当前态：存在且被引用；曾出现过（临时升号构建）；未收敛",
-    #     "reverify": "dsh 的 Run 键或 release/ 目录集合变化时",
-    # },
-    # reme-helper 旧构建镜像（rename-preserve）：当前态=存在且**未被引用**；曾出现过=是；
-    # 如何收敛=未收敛（本轮红线禁删 release/）；是否仍被引用=否（Run 键指向当前 VERSION 目录）。
-    "_stale_reme-helper-1.2.5_20260919-204442": {
-        "why": "未被引用的孤儿版本目录（rename-preserve 保留的旧构建镜像）。当前态：存在，含旧 exe"
-               "（4192589 B / mtime 2026-09-19 18:51:06）+ _internal/。是否仍被引用：**否**——"
-               "Run[reme-helper] 指向 release/reme-helper-1.2.5/reme-helper.exe（当前 VERSION 1.2.5 的重建件），"
-               "且无进程从本目录启动。曾出现过：是（同日 20:44:42 的一次改名保留）。"
-               "如何收敛：**未收敛**——未被引用的孤儿可清理，但本轮红线禁止删除 release/ 目录，"
-               "留待 #24 GUI 验证出结论后由属主定夺。",
-        "reverify": "reme 的 release/ 目录集合变化、Run[reme-helper] 改指、或本目录被删/被引用时",
+    #
+    # ⚠ **只登记"改名保留的镜像"**（`_stale_*` / `*.pre-rebuild-*`）—— 那是有意动作，必须留痕。
+    # **普通 `<tool>-<semver>` 目录（含"上一版"）不登记**：它们是历次构建的自然产物
+    # （§4.1.42 原话），逐条登记会随发版次数线性增长、必然漏登（2026-09-20 发版暴露）。
+    # 条目按**纪律 ⑩ 两栏必填**（`why` + `reverify`）——它是**关掉覆盖**的开关。
+    "_stale_dsh-helper-1.8.2_20260920-120657": {
+        "why": "未被引用的**改名保留镜像**（2026-09-20 发版前归档）。它曾是 dsh 的临时升号产物、"
+               "后被 Run 键引用（部署版本 != 源码 VERSION 的那个状态）；2026-09-19 21:16 Run 键先改指 1.8.1，"
+               "2026-09-20 发版升到 **1.8.2** 时把该目录归档为本名（D11 rename-preserve，不删）。"
+               "当前态：存在、**未被引用**——Run[dsh-helper] 实测指向 "
+               "`release\dsh-helper-1.8.2\dsh-helper.exe`（== 当前源码 VERSION）。"
+               "曾出现过：是。如何收敛：**未收敛**——它现在只是回滚路径；删除未获授权。",
+        "reverify": "dsh 的 Run 键值或 `release/` 目录集合变化时；或用户授权清理该镜像时。",
     },
-    # 下方 Run 键值于 2026-09-19 22:17 用 `reg query HKCU\...\Run /v <APP_ID>` **实测**，
-    # 非照抄文档（HANDOFF §1.5 的改指已完成，但登记必须核实现值）。
-    "dsh-helper-1.8.2": {
-        "why": "当前态：目录存在、**未被引用**——Run[dsh-helper] 实测指向 "
-               "`release\\dsh-helper-1.8.1\\dsh-helper.exe`，与源码 VERSION=1.8.1 一致。"
-               "曾出现：1.8.2 是一次临时升号构建的产物；本波 21:16 已把 Run 键由 1.8.2 改指 1.8.1"
-               "（HANDOFF §1.5），此后该目录成为未被引用的孤儿。未收敛：按用户裁定「先保留，"
-               "验证通过后再定」（HANDOFF §1.6），暂不清理，删除未获授权。",
-        "reverify": "dsh 的 Run 键值或 release/ 目录集合变化时；或用户授权清理 1.8.2 时。",
+    "_stale_local-speak2text-1.4.0-20260919-204004": {
+        "why": "未被引用的**改名保留镜像**（2026-09-19 20:40:04 一次重建时保留）。"
+               "当前态：存在、**未被引用**——Run[LocalSpeak2Text] 实测指向 "
+               "`release\local-speak2text-1.4.1\local-speak2text.exe`（== 当前源码 VERSION 1.4.1）。"
+               "内含旧 exe（6296010 B / mtime 2026-09-19 17:25）+ `_internal/` + README* + config.json"
+               "（smoke.log 是 22:15 取证时新写的，非原目录内容）。曾出现过：是。"
+               "如何收敛：**未收敛**——未被引用，但按红线不得删 `release/`，它是回滚路径之一。",
+        "reverify": "l-s2t 的 Run 键值或 `release/` 目录集合变化时；或用户授权清理该镜像时。",
     },
     "opencodex-helper-1.2.1.pre-rebuild-20260919-203905": {
-        "why": "当前态：目录存在、**未被引用**——Run[opencodex-helper] 实测指向 "
-               "`release\\opencodex-helper-1.2.1\\opencodex-helper.exe`，与源码 VERSION=1.2.1 一致。"
-               "曾出现：本波 ocx 重建走「改名保留（rename-preserve）」时留下的旧目录"
-               "（避免 robocopy /E 残留陈旧 _internal）。未收敛：未被引用但删除未获授权，暂留。",
-        "reverify": "ocx 的 Run 键值或 release/ 目录集合变化时；或用户授权清理该 pre-rebuild 目录时。",
+        "why": "未被引用的**改名保留镜像**（2026-09-19 20:39:05 ocx 重建时保留——为避免 "
+               "`robocopy /E` 在目标目录留下陈旧 `_internal`）。当前态：存在、**未被引用**——"
+               "Run[opencodex-helper] 实测指向 "
+               "`release\opencodex-helper-1.2.2\opencodex-helper.exe`（== 当前源码 VERSION 1.2.2）。"
+               "曾出现过：是。如何收敛：**未收敛**——未被引用，删除未获授权。",
+        "reverify": "ocx 的 Run 键值或 `release/` 目录集合变化时；或用户授权清理该镜像时。",
     },
-    # l-s2t 旧构建镜像（rename-preserve）：当前态=存在且**未被引用**；曾出现过=是；
-    # 如何收敛=未收敛；是否仍被引用=否。Run 键值于 2026-09-19 22:2x 用
-    # `reg query HKCU\...\Run /v LocalSpeak2Text` **实测**（值名是 APP_NAME，不是 APP_ID）。
-    "_stale_local-speak2text-1.4.0-20260919-204004": {
-        "why": "当前态：目录存在、**未被引用**——Run[LocalSpeak2Text] 实测指向 "
-               "`release\\local-speak2text-1.4.0\\local-speak2text.exe`，其目录 == "
-               "release/<源码 VERSION=1.4.0>，故强断言通过。目录内含旧 exe 6296010 B "
-               "（mtime 2026-09-19 17:25）+ _internal/ + README* + config.json"
-               "（smoke.log 是 22:15 取证时新写的，非原目录内容）。"
-               "曾出现：2026-09-19 20:40:04 一次重建的「改名保留」——避免 robocopy /E "
-               "在目标目录留下陈旧 _internal。未收敛：未被引用，但按红线不得删 release/，"
-               "且它是当前唯一的回滚路径（HANDOFF §1.6 精神），留待 GUI 验证出结论后由属主定夺。（**键名口径**：该 Run 键是 **`APP_NAME=LocalSpeak2Text`**，**不是** `APP_ID=local-speak2text`——用 APP_ID 去 grep 会误判成「无 Run 项」，这正是 §4.1.53 修的坑；值 = 2026-09-19 22:34 判据同源枚举实测，见 §4.1.53。）",
-        "reverify": "l-s2t 的 Run 键值或 release/ 目录集合变化时；或用户授权清理该 stale 目录时。",
+    "_stale_reme-helper-1.2.5_20260919-204442": {
+        "why": "未被引用的**改名保留镜像**（2026-09-19 20:44:42 一次重建时保留）。"
+               "当前态：存在、**未被引用**——Run[reme-helper] 实测指向 "
+               "`release\reme-helper-1.2.6\reme-helper.exe`（== 当前源码 VERSION 1.2.6）。"
+               "含旧 exe（4192589 B / mtime 2026-09-19 18:51:06）+ `_internal/`。曾出现过：是。"
+               "如何收敛：**未收敛**——未被引用，删除未获授权。",
+        "reverify": "reme 的 Run 键值或 `release/` 目录集合变化时；或用户授权清理该镜像时。",
     },
 }
 _REQUIRED_ORPHAN_FIELDS = ("why", "reverify")
@@ -3521,9 +3517,20 @@ def judge_version_targets(version, app_id, release_names, run_target, declared,
     for name in sorted(release_names):
         if want_dir and name.lower() == want_dir.lower():
             continue
+        # **只要求登记"改名保留的镜像"**（2026-09-20 发版暴露的口径修正）。
+        # `release/` 下必然出现三类目录，别压成一类：
+        #   ① 当前版本 `<tool>-<VERSION>`       —— 跳过；
+        #   ② **上一版** `<tool>-<某 semver>`   —— **历次构建的自然产物**，
+        #      §4.1.42 原话就是"正常的历次构建产物" ⇒ **不要求逐条登记**。
+        #      把它算作"待登记孤儿"，登记量会**随发版次数线性增长**、漏登是必然的
+        #      （本次发版一次就新增 4 条，正是这个缺口暴露）；
+        #   ③ **改名保留的镜像** `_stale_*` / `*.pre-rebuild-*` —— **有意的动作**
+        #      （rename-preserve，D11），必须留痕 ⇒ **要求登记**。
+        if not (name.startswith("_stale_") or ".pre-rebuild-" in name):
+            continue
         entry = declared.get(name)
         if not isinstance(entry, dict) or not str(entry.get("why", "")).strip():
-            warns.append("孤儿版本目录 `%s` **未登记**（须在 ORPHAN_VERSIONS 写明："
+            warns.append("孤儿镜像目录 `%s` **未登记**（须在 ORPHAN_VERSIONS 写明："
                          "当前态 / 是否曾出现 / 如何收敛 / 是否仍被引用）" % name)
     if fails:
         return False, ("；".join(fails) + "。【为什么是硬违规】自启键存的是**全路径**，"
@@ -5107,18 +5114,30 @@ def selftest() -> int:
             ("missing_target_flagged",
              ("1.2.1", "opencodex-helper", [], r'"H:\nope\nope-1.2.1\nope.exe"', {}, _la),
              False, "FAIL"),
-            # 反例④：孤儿目录**未登记** ⇒ WARN（不是 FAIL：孤儿本身不是缺陷）
+            # 反例④：**改名保留镜像**未登记 ⇒ WARN（不是 FAIL：镜像本身不是缺陷）
+            # 1.9.29 改：样本从普通版本目录名换成 `_stale_*` 形态 —— 新口径只对
+            # **改名保留的镜像**要求登记（普通 `<tool>-<semver>` 是历次构建的自然产物）。
             ("undeclared_orphan_warn",
-             ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.2"],
+             ("1.8.1", "dsh-helper",
+              ["dsh-helper-1.8.1", "_stale_dsh-helper-1.8.0_20260101-000000"],
               r'"H:\x\dsh-helper\release\dsh-helper-1.8.1\dsh-helper.exe"', {}, _la),
              False, "WARN"),
-            # 反向格③：同一孤儿**已登记**（两栏齐全）⇒ 绿
+            # 反向格③：同一镜像**已登记**（两栏齐全）⇒ 绿
             ("declared_orphan_ok",
-             ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.2"],
+             ("1.8.1", "dsh-helper",
+              ["dsh-helper-1.8.1", "_stale_dsh-helper-1.8.0_20260101-000000"],
               r'"H:\x\dsh-helper\release\dsh-helper-1.8.1\dsh-helper.exe"',
-              {"dsh-helper-1.8.2": {"why": "曾被 Run 引用；已改为指向 1.8.1；当前态：存在但未被引用",
-                                    "reverify": "Run 键再次指向它，或 release/ 集合变化时"}},
+              {"_stale_dsh-helper-1.8.0_20260101-000000":
+                   {"why": "改名保留镜像；当前态：存在但未被引用",
+                    "reverify": "Run 键再次指向它，或 release/ 集合变化时"}},
               _la), True, None),
+            # **新口径的守卫格**（1.9.29）：**上一版目录**（普通 `<tool>-<semver>`，未登记）
+            # ⇒ 必须**放行**。这一格是"只收改名保留镜像"这条边界的探针 ——
+            # 哪天它回退成 WARN，就说明"上一版"又被当成待登记孤儿了（登记量会随发版线性膨胀）。
+            ("prev_version_dir_not_an_orphan",
+             ("1.8.1", "dsh-helper", ["dsh-helper-1.8.1", "dsh-helper-1.8.0"],
+              r'"H:\x\dsh-helper\release\dsh-helper-1.8.1\dsh-helper.exe"', {}, _la),
+             True, None),
         )
         for name, args, want, want_sev in c40_cases:
             # 目标存在性用替身：只按"路径里是否含 nope"决定 False——**唯一变量**。
