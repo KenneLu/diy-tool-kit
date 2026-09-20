@@ -822,7 +822,7 @@ edit has to be re-issued naming what changed).
   command meant a pointless registry write on every start. The judgement is now "does every
   path in the command line exist" (`_cmd_targets` / `_cmd_alive`), and after rewriting we
   **re-read** the new target: if that is missing too, we say so instead of claiming
-  `migrated`. Evidence: `H:\Tools\<scratch>\autostart_migrate_test.py` (fake `winreg`,
+  `migrated`. Evidence: `<scratch>\autostart_migrate_test.py` (fake `winreg`,
   the real registry is never touched) — **14/14 on 1.1.2**, and the same harness pointed at the
   pre-fix revision (`git show 33e99ff:…`) fails the silent / spurious-write cases. That
   difference is what makes this a measurement rather than a claim.

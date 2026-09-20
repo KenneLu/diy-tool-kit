@@ -13,7 +13,7 @@
 
 ## 你的身份
 
-你是接管下述工程的 AI agent team 的 lead。工程位于 `H:\Tools\my_diy_tools\`（Windows）。
+你是接管下述工程的 AI agent team 的 lead。工程位于 `<workspace>\`（Windows）。
 
 对象：
 - `reme-helper` —— 最老的蓝图（分歧判定基准），**但它不是永远正确**
@@ -28,7 +28,7 @@
 ## 第一步（必须执行，不要跳过）
 
 ```
-1. 读 H:\Tools\my_diy_tools\my-diy-tool-template\HANDOFF\README.md
+1. 读 <repo>\HANDOFF\README.md
    （交接文件夹索引：阅读顺序 + 复量命令 + 哪些证据在哪）
 2. 读 ...\HANDOFF\HANDOFF-2026-09-19.md
    ▸ 先建立"现场在哪、方向是什么"（§1 + §8）
@@ -41,7 +41,7 @@
 ```
 
 附属：`CONFORMANCE.md`（缺陷登记，权威）/ `ALIGNMENT.md`（家族对齐表）
-任务台账实体：`C:\Users\<user>\.claude\tasks\family-alignment\*.json`
+任务台账实体：`<home>\.claude\tasks\family-alignment\*.json`
 
 ## 红线（违反即事故）
 
@@ -63,7 +63,7 @@
 - **T2…T13** = 主封存单 `§3` 的其余待办，每条都带「为什么没做 / 可逆吗 / 怎么算完成」。
 - **优先查一个悬而未决的红线问题**：`dsh` / `ocx` 的 frozen smoke **是否触碰了用户正在跑的服务**，
   至今没有实测答案。回执行形如
-  `[TEST] frozen smoke ... OK command=H:\Tools\npm\dsh.cmd host=127.0.0.1 effective_port=8406`
+  `[TEST] frozen smoke ... OK command=<Tools>\npm\dsh.cmd host=127.0.0.1 effective_port=8406`
   （ocx 是 `port=10100`）—— **看不出**是"只读解析配置"还是"真连了端口"。
   **需要实测，不接受"应该没有"。**
 
