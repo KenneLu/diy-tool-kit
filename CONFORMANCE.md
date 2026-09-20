@@ -950,7 +950,7 @@ T7 guide；E2-06 `--quit`；其余 5 个测试套件入门禁（现只接了 2 �
 ## 9. 通用经验的内化来源（2026-09-20）
 
 > **✅ 定稿（2026-09-20）**：基线 `HEAD` = 本行所在提交（`git rev-parse HEAD`；`git status --porcelain` 为空）；所依据 `STANDARDS.md` blob = **`eacc26a47e1f…`**（= `11523e3`，mtime **20:01:11**）；`CONFORMANCE.md` blob 见 `git rev-parse HEAD:CONFORMANCE.md`（**自指哈希无法内嵌**，故给指针）。（按"**pin 用 blob、不用时效词**"的口径书写。）19:56 之后 STANDARDS 的两处增量（`§D8 附则 附 1 ④`、`§L L5②`）**已并入 §9.3 反查表**。
-> 本轮并入：**Δ1** → `STANDARDS §D3.5`（3 家）、**§1.6 的 2 条** → `STANDARDS §D9`（2 家）、**Δ2** → `CONFORMANCE §4.1.65`（[单家强证据]，只登记）、**§L（L1–L8）** → `STANDARDS §L`。
+> 本轮并入：**Δ1** → `STANDARDS §D3.5`（3 家）、**过程稿 §1.6 的 2 条** → `STANDARDS §D9`（2 家）、**Δ2** → `CONFORMANCE §4.1.65`（[单家强证据]，只登记）、**§L（L1–L8）** → `STANDARDS §L`。
 > **自扫词表**（逐句对当前事实，非仅统计）：`尚未|未改|未提交|未建|待落`（**本行只是词表列示，非状态断言**）⇒ **排除本行**后逐句核：本表与过程稿均 **0 处**（命令与输出见 §9.5）。
 
 > **用途**：让"删除四个工具的开发文档"成为**有据可查**的动作 —— 每条通用经验在此指得出**落点**与**四家源锚点**。
@@ -970,7 +970,7 @@ T7 guide；E2-06 `--quit`；其余 5 个测试套件入门禁（现只接了 2 �
 | P6 守则运行时 fail-open + 构建期 fail-closed | 已存在 | §D3.2 | dsh `tray_kit/README.md:18-19`；ocx `CHANGELOG §1.2.2`(D3.1/C-10)；reme `CHANGELOG §1.2.6`「tray_kit 追平 2.2.0」 |
 | P7 实例隔离早于首次 import | 已存在 | §D3 + F11/D12 | dsh `tests/README.md:38-41`；ocx `tests/README.md:39-42`；l-s2t `CHANGELOG §1.4.1` |
 | P8 无 console 管道阻塞 / `ping` 非时钟 | 已存在 | §J + C-33 | dsh `update_helper/README.md:52-54`、`:57-62`；reme `CHANGELOG §v1.0.9`/`§1.2.6`；l-s2t `CHANGELOG §1.4.1` |
-| P9 robocopy 空源落在"成功"码区间 | 已存在 | §4.1.5x + §J | dsh `update_helper/README.md:70-77`；reme `CHANGELOG §1.2.6`；l-s2t `CHANGELOG §1.4.1` |
+| P9 robocopy 空源落在"成功"码区间 | 已存在 | **§5.1 GATE-02** + §J | dsh `update_helper/README.md:70-77`；reme `CHANGELOG §1.2.6`；l-s2t `CHANGELOG §1.4.1` |
 | P10 robocopy 只比 size+mtime | 已存在 | §4.1.62 | reme `CHANGELOG §1.2.6`（三对照表）；l-s2t `CHANGELOG §1.4.2` |
 | P11 断言须带对照/负控 | **判据在条文缺** | **STANDARDS §K2** | dsh `tests/README.md:25-28`、`:31-36`；ocx `tests/README.md:24-28`、`:31-36` |
 | P12 i18n 缺键返回键名 + 默认文案泄漏 | 已存在 | §E4 + C-20/C-52 | dsh `CHANGELOG.md:14-28`、`:29-33`；ocx `CHANGELOG §1.2.2`(E4-02) |
@@ -1014,7 +1014,7 @@ T7 guide；E2-06 `--quit`；其余 5 个测试套件入门禁（现只接了 2 �
 | STANDARDS **§K3** | P19（dsh/ocx `update_helper/README.md:88-93`；l-s2t `CHANGELOG §1.4.1`） |
 | STANDARDS **§K4** | P20（dsh `CHANGELOG.md:51-68`；HANDOFF TL 三/D3/D13）（**单家强证据，不计入门槛**） |
 | STANDARDS **§A2 T1**（口径变更） | 用户 2026-09-20 裁定"双语是默认要求"；C-52 |
-| CONFORMANCE **§4.1.58–64** | 用户报告 + **裁决时的四仓差集实测**（**§4.1.64 的锚点 = 四仓差集实测，非 l-s2t 报告**） |
+| CONFORMANCE **§4.1.58 ~ §4.1.64** | 用户报告 + **裁决时的四仓差集实测**（**§4.1.64 的锚点 = 四仓差集实测，非 l-s2t 报告**） |
 | CONFORMANCE **§9**（本节） | 提案稿 + 裁决记录（均为过程稿） |
 | STANDARDS **§L**（L1–L8） | **第三个团队的协作过程本身**（这一轮内化作业），**非**四工具的开发经验 ⇒ 锚点是**事件性锚点**（事件 + 时刻 + 当事人），**不指向过程文件**（见 §L 抬头） |
 | STANDARDS **§D3.5**（Δ1：等待/轮询） | dsh `CHANGELOG.md:86-101`；ocx `CHANGELOG §1.2.2`／`tests/README.md:55-57`／`tests/test_ui_marshal.py`；reme `CHANGELOG §1.2.6` |
