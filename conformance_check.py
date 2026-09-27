@@ -525,7 +525,7 @@ class Ctx:
     def guard_file(self):
         """单实例守卫的实现文件：先看模板件副本，再看内联定义。"""
         if "guard" not in self._cache:
-            guess = self._find("src/modules/tray_kit/tray_kit.py")
+            guess = self._find("src/template/tray_kit/tray_kit.py")
             if guess is None:
                 for p in self.py_files():
                     if re.search(r"^\s*def\s+acquire_single_instance\b",
@@ -536,7 +536,7 @@ class Ctx:
         return self._cache["guard"]
 
     def has_i18n(self) -> bool:
-        return bool(self._find("src/modules/i18n/i18n.py", "src/i18n.py")
+        return bool(self._find("src/template/i18n/i18n.py", "src/i18n.py")
                     or self._find("locales", "src/locales"))
 
     def git_files(self, *patterns):
@@ -942,7 +942,7 @@ def c13(c: Ctx):
 
 @check("C-14", "FAIL", "日志轮转 1MB x 3（D4-02）")
 def c14(c: Ctx):
-    lk = c._find("src/modules/log_kit/log_kit.py", "src/log_kit.py", "log_kit.py")
+    lk = c._find("src/template/log_kit/log_kit.py", "src/log_kit.py", "log_kit.py")
     if lk is None:
         return False, "未找到 log_kit"
     text = c.read(lk)
@@ -4428,7 +4428,7 @@ def selftest() -> int:
             ("pos", "from .demo import *  # noqa: F401,F403\n", False),   # 复制 → 应报
             ("neg", "from .demo import set_state\n", True),               # 显式导入 → 放行
         ):
-            d = base / name / "src" / "modules" / "demo"
+            d = base / name / "src" / "template" / "demo"
             d.mkdir(parents=True)
             (d / "demo.py").write_text(
                 "STATE = None\n\n\ndef set_state():\n    global STATE\n    STATE = 1\n",
@@ -4450,7 +4450,7 @@ def selftest() -> int:
             ("neg_inplace", "STATE = {}\n\n\ndef f():\n    STATE[\"a\"] = 1\n", True),
         )
         for name, body, want in c23_cases:
-            d = base / ("c23_" + name) / "src" / "modules" / "demo"
+            d = base / ("c23_" + name) / "src" / "template" / "demo"
             d.mkdir(parents=True)
             (d / "demo.py").write_text(body, encoding="utf-8")
             (d / "__init__.py").write_text("from .demo import f\n", encoding="utf-8")
@@ -4585,7 +4585,7 @@ def selftest() -> int:
         # C-27：README 的 MUST-WIRE 符号在工具代码里查引用
         for name, main_src, want in (("pos_unwired", "x = 1\n", False),
                                      ("neg_wired", "def f():\n    sweep_stale()\n", True)):
-            d = base / ("c27_" + name) / "src" / "modules" / "demo"
+            d = base / ("c27_" + name) / "src" / "template" / "demo"
             d.mkdir(parents=True)
             (d / "README.md").write_text("<!-- MUST-WIRE: sweep_stale -->\n", encoding="utf-8")
             (base / ("c27_" + name) / "src" / "main.py").write_text(main_src, encoding="utf-8")
@@ -5353,8 +5353,8 @@ def selftest() -> int:
         # C-45（2026-09-19，lead 升为本波必办）：**工具侧副本的行尾**。
         # 三格：LF 副本（红）/ CRLF 副本（绿）/ 无 modules 目录（不适用=绿）。
         c45_cases = (
-            ("lf_copy_flagged", "modules/mod1/a.py", b"x = 1\ny = 2\n", False),
-            ("crlf_copy_ok", "modules/mod1/a.py", b"x = 1\r\ny = 2\r\n", True),
+            ("lf_copy_flagged", "template/mod1/a.py", b"x = 1\ny = 2\n", False),
+            ("crlf_copy_ok", "template/mod1/a.py", b"x = 1\r\ny = 2\r\n", True),
             ("no_modules_dir_ok", None, None, True),
         )
         for name, rel, blob, want in c45_cases:
@@ -5381,8 +5381,8 @@ def selftest() -> int:
         )
         for name, marker, want in c47_cases:
             d = base / ("c47_" + name)
-            (d / "src" / "modules" / "m").mkdir(parents=True, exist_ok=True)
-            (d / "src" / "modules" / "m" / "m.py").write_text(
+            (d / "src" / "template" / "m").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "template" / "m" / "m.py").write_text(
                 "# %s: x\nX = 1\n" % marker, encoding="utf-8")
             ok, detail = c47(Ctx(name, d))
             good = ok == want
@@ -5480,12 +5480,12 @@ def selftest() -> int:
         for name, not_wired, want in (("pos_declared_but_not_wired", False, False),
                                       ("neg_not_wired_exempts", True, True)):
             d = base / ("c27_" + name)
-            (d / "src" / "modules" / "m").mkdir(parents=True, exist_ok=True)
+            (d / "src" / "template" / "m").mkdir(parents=True, exist_ok=True)
             (d / "src" / "main.py").write_text("x = 1\n", encoding="utf-8")
-            (d / "src" / "modules" / "m" / "README.md").write_text(
+            (d / "src" / "template" / "m" / "README.md").write_text(
                 "<!-- MUST-WIRE: some_symbol_xyz -->\n", encoding="utf-8")
             if not_wired:
-                (d / "src" / "modules" / "m" / "NOT-WIRED.md").write_text(
+                (d / "src" / "template" / "m" / "NOT-WIRED.md").write_text(
                     "有意不接入\n", encoding="utf-8")
             ok, detail = c27(Ctx(name, d))
             good = ok == want
@@ -5530,7 +5530,7 @@ def selftest() -> int:
             ("neg_explicit_false_ok", "src",
              "def quit_watch_loop():\n    if ICON is not None:\n"
              "        shutdown_tray(ICON, stop_reme=False, stop_tunnels=False)\n", True),
-            ("neg_template_module_exempt", "src/modules/tray_kit", _c51_body, True),
+            ("neg_template_module_exempt", "src/template/tray_kit", _c51_body, True),
         )
         for name, sub, body, want in c51_cases:
             d = base / ("c51_" + name)
@@ -5570,13 +5570,13 @@ def selftest() -> int:
         )
         for name, table_v, want in c34_cases:
             d = base / ("c34_" + name)
-            (d / "modules" / "m").mkdir(parents=True)
-            (d / "modules" / "m" / "m.py").write_text(
+            (d / "template" / "m").mkdir(parents=True)
+            (d / "template" / "m" / "m.py").write_text(
                 "# TEMPLATE-VER: 9.9.9\nX = 1\n", encoding="utf-8")
             (d / "CONFORMANCE.md").write_text(
                 "| \u6a21\u5757 | \u63cf\u8ff0 | \u63a5\u53e3 | \u7248\u672c |\n"
                 "|---|---|---|---|\n"
-                "| `modules/m/m.py` | x | y | %s |\n" % table_v, encoding="utf-8")
+                "| `template/m/m.py` | x | y | %s |\n" % table_v, encoding="utf-8")
             ok, detail = check_registry_versions(d)
             good = ok == want
             failed += 0 if good else 1
@@ -5635,14 +5635,14 @@ def selftest() -> int:
         # 模板专属目录（build_release/）里的 LF 不算，防止判据扩成"模板全仓"后误伤。
         c31_cases = (
             ("crlf_dispatched_ok",
-             {"modules/demo/a.py": b"x = 1\r\ny = 2\r\n",
-              "modules/demo/README.md": b"# demo\r\n"}, True),
+             {"template/demo/a.py": b"x = 1\r\ny = 2\r\n",
+              "template/demo/README.md": b"# demo\r\n"}, True),
             ("lf_only_dispatched_flagged",
-             {"modules/demo/a.py": b"x = 1\ny = 2\n"}, False),
+             {"template/demo/a.py": b"x = 1\ny = 2\n"}, False),
             ("mixed_eol_flagged",
-             {"modules/demo/a.py": b"x = 1\r\ny = 2\n"}, False),
+             {"template/demo/a.py": b"x = 1\r\ny = 2\n"}, False),
             ("template_only_dir_ignored",
-             {"modules/build_release/tool.py": b"x = 1\n"}, True),
+             {"template/build_release/tool.py": b"x = 1\n"}, True),
         )
         for name, files, want in c31_cases:
             d = base / ("c31_" + name)
@@ -5704,13 +5704,13 @@ def selftest() -> int:
         # 但同目录的 `*.py` **必须仍计入**（反向格 —— 证明豁免只针对文档，
         # 不是把 `src/modules/` 整目录跳过）。
         _c46d = base / "c46_doc_exempt"
-        (_c46d / "src" / "modules" / "m").mkdir(parents=True, exist_ok=True)
+        (_c46d / "src" / "template" / "m").mkdir(parents=True, exist_ok=True)
         (_c46d / "src" / "main.py").write_text("x = 1\n", encoding="utf-8")
-        (_c46d / "src" / "modules" / "m" / "m.py").write_text("y = 1\n", encoding="utf-8")
-        (_c46d / "src" / "modules" / "m" / "README.md").write_text("# doc\n", encoding="utf-8")
+        (_c46d / "src" / "template" / "m" / "m.py").write_text("y = 1\n", encoding="utf-8")
+        (_c46d / "src" / "template" / "m" / "README.md").write_text("# doc\n", encoding="utf-8")
         _c46_names = {n for n, _ in _freshness_inputs(_c46d, "demo")[0]}
-        good = ("src/modules/m/README.md" not in _c46_names
-                and "src/modules/m/m.py" in _c46_names
+        good = ("src/template/m/README.md" not in _c46_names
+                and "src/template/m/m.py" in _c46_names
                 and "src/main.py" in _c46_names)
         failed += 0 if good else 1
         print("[selftest] %s  C-46 module_doc_exempt_but_code_included: names=%s"
@@ -5780,7 +5780,7 @@ def _freshness_inputs(root: Path, app_id):
             # **不是构建输入** —— PyInstaller 只收 `--add-data` 显式列出的东西。旧口径全收
             # `src/**` ⇒ **只改 README 也会报"产物过期"**（噪音，且会诱导人去重建）。
             # （verifier 2026-09-19 复核提出；本轮两处 WARN 都有真代码支撑，故当时结论未受影响。）
-            if p.suffix.lower() == ".md" and "modules" in p.parts:
+            if p.suffix.lower() == ".md" and "template" in p.parts:
                 continue
             add_file(p)
     for rel in ("build.bat", "scripts/build.bat"):
