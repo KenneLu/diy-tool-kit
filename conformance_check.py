@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.1
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.2
+# 2.0.2（W3 后段收尾）：**C-52 收窄**——pairs.json 重形态 grandfather 终结（reme 已迁
+#   轻形态 locales/*.json，执行文档 W3 后段）。合法 i18n 形态只剩 src/template/i18n/
+#   目录一种：i18n_gap 删 has_pairs 形参；C-20 删重形态跳过腿（词表外中文检查全家族生效）；
+#   自测腿 neg_pairs_form_ok → pos_pairs_no_dir_is_gap 守卫格（豁免若回潮当场红）。
+#   C-52 扫描面文案残留的 src/modules/ 同步改 src/template/。
 # 2.0.1（W1 收尾步）：四仓已全部迁到 src/template/——**拆除 2.0.0 的全部过渡垫片**
 #   （_find 双前缀展开、mod_root 回落、排除过滤器双名、C-34 双前缀与归一、
 #   appconfig 双路径、C-35 加 modules、C-45 base 回落），一律只认 template/。
@@ -1333,7 +1338,7 @@ def _git_has_remote(path):
         return None
 
 
-def i18n_gap(has_remote, has_i18n_dir, has_pairs):
+def i18n_gap(has_remote, has_i18n_dir):
     """**纯函数**（供判据与自证腿共用）：**本家族任何工具都不得缺 i18n** ⇒ True。
 
     **2026-09-20 口径变更（用户裁定）**：*"**默认所有工具都应该支持双语**"* ——
@@ -1345,8 +1350,12 @@ def i18n_gap(has_remote, has_i18n_dir, has_pairs):
         "没有"才是需要解释的例外。
     ⇒ 保留 `has_remote` 形参，只为让**自证腿能验证"开关语义已移除"**
       （传 False 也必须报）——它**不再参与判定**。
+
+    **2026-09-27 W3 后段收窄**：pairs.json 重形态 grandfather 终结（reme 已迁
+    轻形态 locales）⇒ 合法形态只剩 `src/template/i18n/` 目录一种。
+    `has_pairs` 形参删除——它曾是"收窄前合法"的守卫，收窄后保留只会再开豁免口。
     """
-    return not (has_i18n_dir or has_pairs)
+    return not has_i18n_dir
 
 
 @check("C-52", "FAIL", "所有工具默认必须支持双语 i18n（用户 2026-09-20 裁定：默认，不设开关）")
@@ -1360,22 +1369,21 @@ def c52(c: Ctx):
       2. **用户 2026-09-20 的裁定**：*"默认所有工具都应该支持双语"* ——
          四家全是公开仓库，"是否开源"这个开关**恒开**，留着它只会继续制造豁免角落。
 
-    合法形态两种（`§E4`）：① `src/modules/i18n/` 目录（轻量双表）；
-    ② `pairs.json`（重形态，中文即键 —— reme 走这条，**不算缺**）。
+    合法形态**一种**（W3 后段收窄，2026-09-27）：`src/template/i18n/` 目录（轻形态，
+    词表 locales/*.json）。pairs.json 重形态 grandfather 已终结（reme 迁轻形态完成）。
     **扫描面照打**（纪律 ⑥）：没命中与没扫必须可区分。
     """
     src_i18n = c.mod_root / "i18n"
     has_dir = src_i18n.is_dir()
-    has_pairs = (src_i18n / "pairs.json").exists()
     remote = _git_has_remote(c.dir)      # 只为打印现场，**不参与判定**
-    if i18n_gap(remote, has_dir, has_pairs):
+    if i18n_gap(remote, has_dir):
         return False, ("**本家族默认要求双语，但本工具没有 i18n** —— "
-                       "合法形态两种：`src/modules/i18n/` 或重形态 `pairs.json`（§E4）。"
+                       "合法形态：`src/template/i18n/` 目录（轻形态，词表 locales/*.json）。"
                        "这不是'待办'：新工具从模板拷出即应自带。"
-                       "扫描面：%s 存在=%s pairs=%s（有远端=%s，仅作现场信息）"
-                       % (src_i18n.as_posix(), has_dir, has_pairs, remote))
-    return True, ("i18n 在位（目录=%s / pairs=%s）；扫描面：%s"
-                  % (has_dir, has_pairs, src_i18n.as_posix()))
+                       "扫描面：%s 存在=%s（有远端=%s，仅作现场信息）"
+                       % (src_i18n.as_posix(), has_dir, remote))
+    return True, ("i18n 在位（目录=%s）；扫描面：%s"
+                  % (has_dir, src_i18n.as_posix()))
 
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -1392,9 +1400,14 @@ def _call_name(node) -> str:
 
 @check("C-20", "WARN", "启用 i18n 的工具无词表外中文（A1-10/E4-02）")
 def c20(c: Ctx):
-    mods = c.mod_root / "i18n"
-    if (mods / "pairs.json").exists():
-        return True, "重形态（pairs.json 中文即键，STANDARDS §E4 明示许可），跳过"
+    """**2026-09-27 W3 后段口径升级**：词表 = `locales/*.json` 的 zh 值集 + t() 调用。
+
+    旧口径"t() 调用点外不得有中文"对**数据驱动文案**（词表值存进数据表、显示时
+    `t(item[...])` 统一翻译——reme 模式）全部误报：中文在数据源而非调用点。
+    重形态跳过腿删除后这一口径缺陷立即显形（reme 763 处误报）。⇒ 判据精神不变
+    （中文必须**可翻**），口径改为：t() 调用内的中文豁免；其余中文字面量必须
+    出现在 locales zh 值集（静态可判，与运行时反查同一张表）。
+    """
     if not c.has_i18n():
         return True, "未启用 i18n（T1 未触发或待办）"
     if c.entry is None:
@@ -1403,6 +1416,15 @@ def c20(c: Ctx):
         tree = ast.parse(c.read(c.entry))
     except SyntaxError as exc:
         return False, "入口文件语法错误: %s" % exc
+    zh_values = set()
+    for loc in (c.dir / "locales", c.mod_root / "i18n" / "locales"):
+        zh = loc / "zh.json"
+        if zh.exists():
+            try:
+                import json as _json
+                zh_values.update(str(v) for v in _json.loads(zh.read_text(encoding="utf-8")).values())
+            except Exception:
+                pass
     bad = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -1414,11 +1436,13 @@ def c20(c: Ctx):
             # 递归展开 BinOp("..." % x) / IfExp / f-string，否则拼出来的文案会被漏掉
             for sub in ast.walk(a):
                 if isinstance(sub, ast.Constant) and isinstance(sub.value, str) \
-                        and CJK.search(sub.value):
+                        and CJK.search(sub.value) and sub.value not in zh_values:
                     bad.append("%s:%d %s" % (c.entry.relative_to(c.dir).as_posix(),
                                              sub.lineno, sub.value[:60]))
-    return (not bad), ("词表外中文 %d 处: %s" % (len(bad), " | ".join(bad[:4]))
-                       if bad else "未发现词表外中文（AST 级）")
+    return (not bad), ("词表外中文 %d 处（词表=t() 调用 + locales zh 值集 %d 条）: %s"
+                       % (len(bad), len(zh_values), " | ".join(bad[:4]))
+                       if bad else "未发现词表外中文（词表=t() 调用 + locales zh 值集 %d 条）"
+                       % len(zh_values))
 
 
 # ---------------------------------------------------------------- C-21
@@ -5543,17 +5567,23 @@ def selftest() -> int:
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
         # C-52（补 C-20 的豁免盲区）：T1 触发却没启用 i18n ⇒ 必须红。
-        # 红格 = 判别力自证（有远端 + 无 i18n）；两条反向格 = 未触发（无远端）/
-        # 重形态（pairs.json）—— 后者是 §E4 明示许可的合法形态，不能误伤。
+        # 红格 = 判别力自证（有远端 + 无 i18n）；未触发（无远端）也必须报
+        # （开关语义已移除的自证格）。
+        # **W3 后段收窄（2026-09-27）**：pairs.json 重形态 grandfather 终结 ⇒
+        # 原 neg_pairs_form_ok 反向格删除，换 pos_pairs_no_dir_is_gap 守卫格——
+        # 只有目录（没有 pairs.json 也算合法）的时代结束了；这一格若哪天回退，
+        # 说明有人把重形态豁免又加回来了。
         c52_cases = (
-            ("pos_remote_no_i18n_is_gap", (True, False, False), True),
+            ("pos_remote_no_i18n_is_gap", (True, False), True),
             # ⚠ **开关语义已移除的自证格**（2026-09-20 用户裁定"默认所有工具都支持双语"）：
             # 传 has_remote=False 也**必须报** —— 它证明"是否开源"不再是豁免条件。
             # 这一格若哪天回退成 False，说明有人把开关又加回来了。
-            ("pos_no_remote_still_gap", (False, False, False), True),
-            ("neg_pairs_form_ok", (True, False, True), False),
-            ("neg_has_dir_ok", (True, True, False), False),
-            ("neg_no_remote_with_dir_ok", (False, True, False), False),
+            ("pos_no_remote_still_gap", (False, False), True),
+            # ⚠ **重形态豁免已移除的守卫格**（W3 后段收窄）：pairs.json 不再是合法形态，
+            # 无目录必须报（reme 已迁轻形态 locales）。
+            ("pos_pairs_no_dir_is_gap", (True, False), True),
+            ("neg_has_dir_ok", (True, True), False),
+            ("neg_no_remote_with_dir_ok", (False, True), False),
         )
         for name, args, want in c52_cases:
             got = i18n_gap(*args)
