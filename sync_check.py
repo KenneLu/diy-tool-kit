@@ -1476,7 +1476,7 @@ def main() -> int:
               f"lag={len(lags)}, doc-md-diff={len(diffs)}, nohdr={len(nohdr)}, "
               f"missing-module={len(miss_mod)}, missing-file={len(miss_file)}, "
               f"no-header-in-modules={len(nohdr_ns)}"
-              f" —— 见 my-diy-tool-template/ALIGNMENT.md 对应格子")
+              f" —— 见 my-diy-tool-template/对齐台账.md 对应格子")
     print(f"summary: {len(drift)} undeclared drift, {len(lags)} blueprint lag(s), "
           f"{len(declared)} declared override(s), {len(params)} param file(s), "
           f"{len(diffs)} doc byte-diff(s), {len(nohdr)} no-header mismatch(es), "

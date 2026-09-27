@@ -117,8 +117,8 @@
 #   ③ **顺手补两条已漏登记的索引行**：C-36 自 1.9.1 起实现，却一直没进 CONFORMANCE §5.1 表
 #   （"索引里缺条目本身就是盲区"——这次是**我自己**犯的）。
 #   ④ **另修两处转义损坏**（本轮实测发现，都是"描述这个坑的文本自己踩坑"）：
-#      `STANDARDS.md:492` 的 `System32<0x0c>ind.exe`（应为 `System32\find.exe`）、
-#      `CONFORMANCE.md` 的 `%TEMP%<0x0d>eme-helper-builddata`（应为 `%TEMP%\reme-helper-builddata`）。
+#      `家族规范.md:492` 的 `System32<0x0c>ind.exe`（应为 `System32\find.exe`）、
+#      `合规对照表.md` 的 `%TEMP%<0x0d>eme-helper-builddata`（应为 `%TEMP%\reme-helper-builddata`）。
 #      **第 ④ 条还暴露了我的字节检查不完整**：只数了 `CRLF` 与"孤立 LF"，**从没数过孤立 CR**
 #      ——"混合行尾"可以整整齐齐地藏在那个盲区里（本轮就是这么藏的）。
 # 1.9.2：**腿 B 按复核员的实测再放宽一次 + 扫描面口径修正**（lead 转达复核员取证后裁定）：
@@ -599,9 +599,9 @@ def c03(c: Ctx):
 
 @check("C-04", "WARN", "登记表版本 == 磁盘版本（B2-01）")
 def c04(c: Ctx):
-    std = TEMPLATE_DIR / "STANDARDS.md"
+    std = TEMPLATE_DIR / "家族规范.md"
     if not std.exists():
-        return True, "无 STANDARDS.md"
+        return True, "无 家族规范.md"
     text = std.read_text(encoding="utf-8", errors="replace")
     m = re.search(r"\|\s*%s\s*\|[^|]*\|[^|]*\|\s*`([\d.]+)`" % re.escape(c.name), text)
     if not m:
@@ -4236,9 +4236,9 @@ _C34_VER = re.compile(r"\|\s*([\d]+\.[\d.]+)\s*\|\s*$")
 
 def check_registry_versions(root: Path):
     """§1 登记表的版本列 vs 文件头 `TEMPLATE-VER`。返回 `(ok, detail)`。"""
-    doc = root / "CONFORMANCE.md"
+    doc = root / "合规对照表.md"
     if not doc.exists():
-        return True, "扫描面：无 CONFORMANCE.md（判据不适用）"
+        return True, "扫描面：无 合规对照表.md（判据不适用）"
     bad, checked = [], 0
     for n, line in enumerate(doc.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
         m = _C34_ROW.match(line)
@@ -4257,7 +4257,7 @@ def check_registry_versions(root: Path):
             continue
         checked += 1
         if hm.group(1) != v.group(1):
-            bad.append("CONFORMANCE.md:%d `%s` 表内=%s 文件头=%s"
+            bad.append("合规对照表.md:%d `%s` 表内=%s 文件头=%s"
                        % (n, rel, v.group(1), hm.group(1)))
     if bad:
         return False, ("%d/%d 行登记表版本与文件头不一致：%s。【为什么值得单列】§1 的列头是"
@@ -5573,7 +5573,7 @@ def selftest() -> int:
             (d / "template" / "m").mkdir(parents=True)
             (d / "template" / "m" / "m.py").write_text(
                 "# TEMPLATE-VER: 9.9.9\nX = 1\n", encoding="utf-8")
-            (d / "CONFORMANCE.md").write_text(
+            (d / "合规对照表.md").write_text(
                 "| \u6a21\u5757 | \u63cf\u8ff0 | \u63a5\u53e3 | \u7248\u672c |\n"
                 "|---|---|---|---|\n"
                 "| `template/m/m.py` | x | y | %s |\n" % table_v, encoding="utf-8")
@@ -5744,7 +5744,7 @@ def selftest() -> int:
 
 # ---------------------------------------------------------------- C-46
 # **重建新鲜度：分母必须是"构建输入集"，不能只有 `src/**`**（任务 #62，2026-09-19）。
-# 口径（HANDOFF §1.4）：`exe mtime > max(构建输入 mtime)`，排除 `__pycache__/` 与 `*.pyc`。
+# 口径（交接 §1.4）：`exe mtime > max(构建输入 mtime)`，排除 `__pycache__/` 与 `*.pyc`。
 # **分母 = `src/**` ∪ `--add-data "SRC;DEST"` 的 SRC 清单**（= PyInstaller datas 的并集）。
 # 为什么不能只有 src：四家都有 out-of-src 打包输入（`*.ico` / `resources/` / `locales/` /
 #   `bin\plink.exe` / `doc/`）——只扫 src 时，"只有 datas 变了"的重建会被判成**新鲜**，
@@ -5829,7 +5829,7 @@ def c46(c: Ctx):
 
     **本条不覆盖**（§4.1.33：判据必须自报边界）：`_internal/` 内容是否正确、生成物
     （`*.ico` / config 由脚本生成）的生成顺序、构建是否完整——那些由 build 门禁输出行回答
-    （HANDOFF §1.4：「FRESH 只证 exe 比源新，不证构建完整」）。
+    （交接 §1.4：「FRESH 只证 exe 比源新，不证构建完整」）。
     """
     import time
     root = c.dir
@@ -5974,7 +5974,7 @@ def main() -> int:
               "它不计入 FAIL、也不被 WARN 咽掉，独立进退出码。")
         return 1
     if fails:
-        print("fix: 逐条见 my-diy-tool-template/CONFORMANCE.md 对应 ID。")
+        print("fix: 逐条见 my-diy-tool-template/合规对照表.md 对应 ID。")
         return 1
     if warns and args.strict:
         return 1

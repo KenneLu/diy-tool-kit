@@ -17,7 +17,7 @@ Template library own versioning (TEMPLATE-VER), independent of any tool.
   filters drop both `modules` and `template`; C-34 row regex accepts both prefixes and
   resolves `modules/` rows against `template/`; C-35 import regex adds `template`; template
   paths.py import name updated; S-02/autostart key reads are dual-path.
-- **CONFORMANCE.md §1 registry**: 12 rows re-pointed `modules/…` → `template/…`
+- **合规对照表.md §1 registry**: 12 rows re-pointed `modules/…` → `template/…`
   (same commit as the C-34 regex change — fail-open criteria must never desync).
 - Tool repos keep `src/modules/` + old headers for now — transition compat keeps all gates
   green; each tool repo migrates to `src/template/` + new headers in its own W1 commit.
@@ -383,7 +383,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
     this repo has converged**", not "it never happened". ⇒ criteria and registries must distinguish
     **"never happened" (unverifiable)** from **"happened and converged" (verifiable, and more
     honest)**: entries are written as **current state + did it ever occur + how it converged**.
-- **Three escape corruptions found in `CONFORMANCE.md` while adding the above, repaired byte-wise.**
+- **Three escape corruptions found in `合规对照表.md` while adding the above, repaired byte-wise.**
   `\b`/`\a` inside text collapsed into control bytes (`0x08`, `0x07`) in the middle of paths:
   `reme\scripts\build.bat:22` had become `reme\scripts<0x08>uild.bat` and
   `%LOCALAPPDATA%\<APP_ID>\app` had become `<APP_ID><0x07>pp` — in **two** places. Repairing the
@@ -626,9 +626,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   with a share mode that **permits** deletion **must be caught** — a wrong share mode is invisible in the
   source, and only a real `unlink` can tell.
 - **Two escape corruptions found in the docs, and my own byte check is why they hid.**
-  `STANDARDS.md:492` held `System32<0x0c>ind.exe` (should be `System32\find.exe` — the row that
+  `家族规范.md:492` held `System32<0x0c>ind.exe` (should be `System32\find.exe` — the row that
   documents the GNU-`find`-shadows-PATH pitfall, rewritten by the very pit it documents), and
-  `CONFORMANCE.md` held `%TEMP%<0x0d>eme-helper-builddata` (should be `%TEMP%\reme-helper-builddata`).
+  `合规对照表.md` held `%TEMP%<0x0d>eme-helper-builddata` (should be `%TEMP%\reme-helper-builddata`).
   Both repaired **byte-wise**. The second exposed a gap in the check I had just written: it counted
   `CRLF` and lone `LF` and **never counted a lone CR** — so "mixed line endings" could hide in plain
   sight while the numbers said clean. §D7-10's EOL rule now demands all three counts.
@@ -698,7 +698,7 @@ The lead's proposal, implemented as a check: **a property assertion is the mecha
   conscientious verifier compute a **false red** (`49b778fc7b26`, `e636cb41bf50`) while the
   copies were in fact correct. Prose and code are **two descriptions** of one rule, and the prose
   drifts first (the twin of discipline ⑦). Registered as **CONFORMANCE §4.1.24**; the first
-  defence is `ALIGNMENT.md §0` now pointing at the single implementation.
+  defence is `对齐台账.md §0` now pointing at the single implementation.
 - **Also in this batch: C-30's leg B was widened** after the lead reported fixed-name scratch
   dirs being missed. The old signature demanded "**exactly one** subdirectory", which is a
   *coincidental feature of the calibration sample*, not the invariant: synthetic shapes proved
@@ -733,7 +733,7 @@ prompted by the lead after a reader **took a generic phrase personally**:
   compatibility layer satisfies **both** 1.0.2 (single-arg closure) and 1.0.3 (print form)
   **without breaking anything to satisfy a check** — when the contract itself is evolving, the
   right move is **the union of the widths, not either one of them**.
-- Byte evidence: `STANDARDS.md` CRLF=876 / LF-only=0 / TAB=0 / `sha256 83871832dd09313b`; C-28 `[ok]`.
+- Byte evidence: `家族规范.md` CRLF=876 / LF-only=0 / TAB=0 / `sha256 83871832dd09313b`; C-28 `[ok]`.
 
 ## 2026-09-19 (design discipline ⑦: one rule, one implementation)
 
@@ -755,7 +755,7 @@ building all night:
   in the voice of a second check.
 - Landing rule: before adding anything, first ask **"does this already have an implementation or a
   draft?"** — if yes, extend that one (or wait for it); never run two side by side.
-- Both copies updated: `CONFORMANCE.md` §5 (disciplines ①–⑦ in order, with the expansion) and this
+- Both copies updated: `合规对照表.md` §5 (disciplines ①–⑦ in order, with the expansion) and this
   checker's docstring list, whose own first line says the index and the body must agree.
 
 ## 2026-09-19 (anchors: content hash *or* commit; §J gains the injection-lock row)
@@ -798,7 +798,7 @@ Three doc-level refinements, all from the lead, plus one row I earned the hard w
   (read normalises, write does not restore). Both were caught by reading the bytes back, which is
   the only thing that does catch them — and the same session had already written "the only defence
   is mechanical read-back" into that very row. Five instances of this pit in one day now.
-- Byte evidence: `STANDARDS.md` CRLF=867 / LF-only=0 / TAB=0 / `sha256 1954399b66638586`; template
+- Byte evidence: `家族规范.md` CRLF=867 / LF-only=0 / TAB=0 / `sha256 1954399b66638586`; template
   channel re-run: C-28 `[ok]` (`0 FAIL, 0 WARN`).
 
 ## 2026-09-19 (design discipline ⑥: "0 hits" and "nothing to hit" must look different)
@@ -822,7 +822,7 @@ face of a family this file already carries:
   per-leg hit count / union); ② **samples must assert that number**, otherwise "scanned 0 files"
   disguises itself as green; ③ **a first run reporting "not applicable / 0 hits" is a suspicious
   signal, not a green light.**
-- Both copies updated in the same edit — `CONFORMANCE.md` §5 (disciplines ①–⑥ in order, with the
+- Both copies updated in the same edit — `合规对照表.md` §5 (disciplines ①–⑥ in order, with the
   expansion) and this checker's module docstring list (the index there says of itself: "索引缺条目
   本身就是文档说谎", so leaving it at ①–⑤ would have been the very defect it describes).
 
@@ -1406,7 +1406,7 @@ corrections to conclusions people (including me) were carrying around.
   cover "no `global` rebinding", "the two names are not module globals", "an in-place write
   is visible immediately", "`import *` does not carry the derived names", and the two bat
   guards.
-- **Three carried-over conclusions corrected** (recorded in `ALIGNMENT.md` §7.2):
+- **Three carried-over conclusions corrected** (recorded in `对齐台账.md` §7.2):
   1. "the template copied reme's sha256-skip" — no: 1.2.0 did, **1.3.0 is fail-closed**, and
      reme fixed its side the same day. The difference no longer exists.
   2. "the template has persistent throttling, reme doesn't" — **half true**: the throttle
@@ -1495,7 +1495,7 @@ not whichever version has more adopters, because everyone can be wrong together.
   (`%WORK%`, `%FAILED%`), not the Python-expanded paths; and the comments deliberately
   contain the literal `"tasklist | find"` as the counter-example, so a whole-file grep
   would mistake the explanation for a real pipe.
-- **`ALIGNMENT.md` gained §7 (provenance inventory vs reme, per module)** — including the
+- **`对齐台账.md` gained §7 (provenance inventory vs reme, per module)** — including the
   finding that `MISSING-MODULE` does **not** mean reme never did it: `autostart` /
   `update_helper` / `icons` are **inlined** in reme's `main.py` (declared as such at
   `main.py:61-63`). Verdicts recorded there: `autostart` keeps the template's stable-install
@@ -1622,7 +1622,7 @@ code**, but only the `.py` half had a gate — module docs could drift forever.
   generated dirs) are skipped so `.pyc` files don't flood the report.
   This touches only `sync_check.py` — it is not consumed by the tools, so there is
   **no cascade**.
-- **ALIGNMENT.md** — documents the fourth blind spot, fixes the formal definition of
+- **对齐台账.md** — documents the fourth blind spot, fixes the formal definition of
   "adopt the whole folder" (README + `__init__.py` + code, all byte-normalised), and
   records the measured four-way snapshot: l-s2t 0 DIFF (17 SAME), dsh/ocx 1 DIFF each
   (appconfig README), reme 7 DIFF (5 READMEs + i18n ×2).
@@ -1696,7 +1696,7 @@ freezes the template so the four tools can re-copy in a controlled wave.
 - **`modules/paths/paths.py` 1.1.2 → 1.1.3** — `CONFIG_PATH` can be pinned via
   `<APP_ID-derived>_CONFIG`, delivering what the module README had promised all along
   (CONFORMANCE §4.1.5: the template had regressed against its own blueprint).
-- **NEW `ALIGNMENT.md`** — the "one-of-five" convergence table: template-file × four-tool
+- **NEW `对齐台账.md`** — the "one-of-five" convergence table: template-file × four-tool
   matrix, target state / exact location / change list / risk per non-SAME cell, the
   do-not-align list with OVERRIDE wording, and an execution order.
 - Module READMEs (`appconfig`, `paths`, `tray_kit`) updated to match the code.
@@ -1711,7 +1711,7 @@ mutex name made the single-instance guard report "already running" on every laun
 Three layers of protection (smoke / gates / review) stayed green because
 **nothing said what to check**. This round turns the prose spec into checkable rows.
 
-- **NEW `CONFORMANCE.md`** — 76 numbered atomic clauses × 4 tools status matrix,
+- **NEW `合规对照表.md`** — 76 numbered atomic clauses × 4 tools status matrix,
   reproducible check command per row, five deep-dive tables (exit / single-instance /
   service hosting / naming / docs), a registry of spec-vs-disk contradictions (§4),
   and a "can be scripted today" checklist (§5.1, C-01..C-20).
