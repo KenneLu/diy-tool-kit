@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.0
-# 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡——
-#   模板侧判据一律读 template/；工具侧 _find/mod_root 对 src/template/ 优先、src/modules/
-#   兜底；排除过滤器同时排除 modules/template 两个名字；C-34 正则双前缀并把表内
-#   modules/ 归一到 template/ 解析；C-35 import 正则加 template；模板 paths 导入名同步。
-#   四仓全部迁到 src/template/ 后，过渡兜底一并删除（W1 收尾步）。
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.1
+# 2.0.1（W1 收尾步）：四仓已全部迁到 src/template/——**拆除 2.0.0 的全部过渡垫片**
+#   （_find 双前缀展开、mod_root 回落、排除过滤器双名、C-34 双前缀与归一、
+#   appconfig 双路径、C-35 加 modules、C-45 base 回落），一律只认 template/。
+# 2.0.0（W1 改名，D8）：模板仓 modules/ → template/ 双布局过渡（垫片已在 2.0.1 拆除）。
 # 1.9.29：**C-40 孤儿口径修正（2026-09-20 发版暴露）**：`release/` 下必然有三类目录 ——
 #   ① 当前版本（跳过）/ ② **上一版**（历次构建的自然产物，§4.1.42 原话，**不登记**）/
 #   ③ **改名保留镜像** `_stale_*` / `*.pre-rebuild-*`（**有意动作，必须登记**）。
@@ -438,13 +437,7 @@ class Ctx:
         self._cache = {}
 
     def _find(self, *cands):
-        # 2.0.0（W1 改名过渡）：src/modules/... 候选自动加试 src/template/...（优先）
-        expanded = []
         for c in cands:
-            if c.startswith("src/modules/"):
-                expanded.append("src/template/" + c[len("src/modules/"):])
-            expanded.append(c)
-        for c in expanded:
             p = self.dir / c
             if p.exists():
                 return p
@@ -456,9 +449,8 @@ class Ctx:
 
     @property
     def mod_root(self) -> Path:
-        """工具侧模块目录根：src/template（W1 改名后）优先，过渡期回落 src/modules。"""
-        new = self.src / "template"
-        return new if new.is_dir() else self.src / "modules"
+        """工具侧模块目录根（W1 改名后为 src/template）。"""
+        return self.src / "template"
 
     @property
     def entry(self):
@@ -1293,7 +1285,7 @@ def c51(c: Ctx):
     # 传进来的回调**决定。把它也算进来是**假红**（判据把"回调调用点"误当成"退出入口"）。
     # 与 C-27 的 `code` 过滤同一条边界：**判据的适用范围必须自己先想清楚**（§4.1.18）。
     code = [p for p in c.py_files()
-            if not {"modules", "template"} & set(p.relative_to(c.src).parts[:1])]
+            if "template" not in p.relative_to(c.src).parts[:1]]
     for p in code:
         src = c.read(p)
         if "quit_watch_loop" not in src:
@@ -1845,7 +1837,7 @@ def c27(c: Ctx):
     if not mods.is_dir():
         return True, "无 src/modules/"
     code = [p for p in c.py_files()
-            if not {"modules", "template"} & set(p.relative_to(c.src).parts[:1])
+            if "template" not in p.relative_to(c.src).parts[:1]
             and p.name != "__init__.py"]
     bad, declared = [], 0
     for d in sorted(x for x in mods.iterdir() if x.is_dir()):
@@ -2086,7 +2078,7 @@ def c29(c: Ctx):
     不是日志函数；拿它开火就是一句与事实相反的诊断（本文件的设计纪律 ④）。
     """
     code = [p for p in c.py_files()
-            if not {"modules", "template"} & set(p.relative_to(c.src).parts[:1]) and p.name != "__init__.py"]
+            if "template" not in p.relative_to(c.src).parts[:1] and p.name != "__init__.py"]
     if not code:
         return True, "无工具代码"
     wired = {}
@@ -3392,8 +3384,7 @@ def tool_version(root: Path):
     """源码 VERSION（单一事实源）：`src/main.py` 优先，其次 appconfig 的两个落点。"""
     import ast as _ast
     for rel in ("src/main.py", "src/appconfig.py",
-                "src/template/appconfig/appconfig.py",
-                "src/modules/appconfig/appconfig.py"):
+                "src/template/appconfig/appconfig.py"):
         f = root / rel
         if not f.exists():
             continue
@@ -3501,8 +3492,6 @@ def select_run_entry(run_values, root=None, app_id=None, app_name=None, local_ap
 def _read_app_name(root):
     """从 `src/modules/appconfig/appconfig.py` 读 **`APP_NAME`**（模板 autostart 契约的键名）。"""
     ap = root / "src" / "template" / "appconfig" / "appconfig.py"
-    if not ap.is_file():
-        ap = root / "src" / "modules" / "appconfig" / "appconfig.py"   # 过渡期旧布局
     if not ap.exists():
         return None
     m = re.search(r'APP_NAME\s*=\s*["\']([^"\']+)',
@@ -3576,8 +3565,6 @@ def c40(c: Ctx):
     rels = [p.name for p in sorted(rel_dir.iterdir()) if p.is_dir()] if rel_dir.is_dir() else []
     app_id = None
     ap = root / "src" / "template" / "appconfig" / "appconfig.py"
-    if not ap.is_file():
-        ap = root / "src" / "modules" / "appconfig" / "appconfig.py"   # 过渡期旧布局
     if ap.exists():
         m = re.search(r'APP_ID\s*=\s*["\']([^"\']+)',
                       _masked_code_text(ap.read_text(encoding="utf-8", errors="replace")))
@@ -4202,8 +4189,6 @@ def check_tool_copy_eol(root: Path, sub: str = "src"):
     """工具侧副本（`<sub>/modules/**` 的 `.py`/`.md`）必须全程 CRLF。"""
     base = root / sub / "template"
     if not base.is_dir():
-        base = root / sub / "modules"   # 过渡期旧布局（W1 收尾步删）
-    if not base.is_dir():
         return True, "扫描面：无 %s/modules/（该工具不消费模板模块，判据不适用）" % sub
     files = [p for p in sorted(base.rglob("*"))
              if p.is_file() and p.suffix.lower() in _DISPATCH_EXTS
@@ -4245,7 +4230,7 @@ def c45(c: Ctx):
 #   ——**文件已自带的事实，不要再手抄一份**。本判据的方向是「**让判据去读产物**」。
 # **形态（最简，按 lead 的许可）**：逐行 regex 取 §1 行里的模块路径与"版本列"，
 #   与**文件头**的 `TEMPLATE-VER` 比；不符 ⇒ WARN。**表格解析脆就退化**——不追求覆盖别的表。
-_C34_ROW = re.compile(r"^\| `((?:modules|template)/[^`]+)` \|")
+_C34_ROW = re.compile(r"^\| `(template/[^`]+)` \|")
 _C34_VER = re.compile(r"\|\s*([\d]+\.[\d.]+)\s*\|\s*$")
 
 
@@ -4263,9 +4248,6 @@ def check_registry_versions(root: Path):
         v = _C34_VER.search(line.rstrip())
         if not v:
             continue
-        # 2.0.0 过渡：表内 modules/ 前缀归一到实际目录 template/（改名后正本在 template/）
-        if rel.startswith("modules/"):
-            rel = "template/" + rel[len("modules/"):]
         f = root / rel
         if not f.exists():
             continue
@@ -4306,7 +4288,7 @@ def c34(c: Ctx):
 #   dsh/ocx 已路由** ⇒ 三家落地后 leg_b 覆盖**从 1 家变 4 家**。
 # **它同时把一条口径钉成断言**：ls2t-dev 的补丁"今天是 no-op"**不该是一句会过期的陈述**——
 #   **两条腿同时在场**，才使 "no-op" 成为**可机械验证的性质**（同族：把靠陈述的换成靠性质的）。
-_C35_IMPORT = re.compile(r"^\s*(?:import|from)\s+(main|modules|template|pipeline)\b")
+_C35_IMPORT = re.compile(r"^\s*(?:import|from)\s+(main|template|pipeline)\b")
 _C35_PIN = re.compile(r"""(os\.environ\[|scratch_dir\s*\(|setdefault\s*\()""")
 _C35_PIN_KEY = re.compile(r"DATA_DIR|_CONFIG")
 _C35_BAT_PIN = re.compile(r"""(?i)^\s*set\s+"?[A-Z0-9_]*DATA_DIR=""")

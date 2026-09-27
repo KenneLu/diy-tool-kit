@@ -22,6 +22,22 @@ Template library own versioning (TEMPLATE-VER), independent of any tool.
 - Tool repos keep `src/modules/` + old headers for now — transition compat keeps all gates
   green; each tool repo migrates to `src/template/` + new headers in its own W1 commit.
 
+### W1 closing step (same day, after all four tool repos migrated)
+
+- **Transition shims removed** (all repos now on `src/template/` + new-style headers):
+  sync_check 2.0.0 → **2.0.1** (drop `_norm_rel`, `src/modules` layout fallback, legacy
+  `modules/` header-prefix tolerance; LEGACY_ALIAS values re-pointed to `template/`;
+  selftest synthetic samples moved to the new layout) and conformance_check 2.0.0 →
+  **2.0.1** (drop `_find` expansion, `mod_root` fallback, dual-name exclusion filters,
+  C-34 dual prefix/normalization, appconfig dual paths, C-45 base fallback; C-35 regex
+  back to `main|template|pipeline`).
+- **Module cross-imports single-formed** (`from template.X import ...`) in update_helper
+  1.4.6 / autostart 1.1.4 / paths 1.1.5 / log_kit 1.0.4 / icons 2.0.1 — the dual-form
+  (`try modules.X / except template.X`) existed only intra-wave and was never released,
+  so versions stay at their W1 values; tool repos re-copied these files (one commit each).
+- Gates: sync_check --selftest ALL PASS; family-wide 0 undeclared drift / 0 blueprint lag;
+  conformance 0 FAIL × 4 tools.
+
 ## 2026-09-20 (the template repo's own cleanliness: desensitize, style-match, and a defect class no byte scan could see)
 
 Three batches landed on the template repo itself (none of them touch `modules/**`, so no tool-side

@@ -1,8 +1,7 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 2.0.0
-# 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡——
-#   模板侧一律读 template/，工具侧 src/template/ 优先、src/modules/ 兜底；旧头
-#   "my-diy-tool-template/modules/..." 经 _norm_rel 归一到 template/ 再比对。
-#   四仓全部迁到 src/template/ 后，_norm_rel 与 src/modules 兜底一并删除（W1 收尾步）。
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 2.0.1
+# 2.0.1（W1 收尾步）：四仓已全部迁到 src/template/ 并换新头——**拆除 2.0.0 的全部过渡垫片**
+#   （_norm_rel 归一、src/modules 布局兜底、头部 modules/ 前缀容忍），布局与头部只认 template/。
+# 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡（垫片已在 2.0.1 拆除）。
 # 1.9.0（#57，与 ls2t-dev 往复产出）：**三处静默出口分成三档可观测量** + NOT-WIRED 升格为申报口。
 #   原先 `scan_tool` 有三处 `continue` 都表示"当作这个文件没有出处"，而"没有出处"正是
 #   **工具自有文件**的正确观测量 ⇒ "头被覆盖/模块名写错/目标不存在"这类**缺陷输入**与
@@ -126,27 +125,20 @@ MODULE_RE = re.compile(r"^#\s*TEMPLATE-MODULE:\s*([\w-]+)\s*(?:\||$)", re.M)
 VER_RE = re.compile(r"TEMPLATE-VER:\s*([\d.]+)")
 OVERRIDE_RE = re.compile(r"^#\s*TEMPLATE-LOCAL-OVERRIDE:", re.M)
 META_LINE = re.compile(r"^\s*#\s*TEMPLATE-")
-# 旧头部路径 → 新 modules 布局的别名（副本未跟上布局时兜底）
+# 旧头部路径 → 新布局的别名（副本未跟上布局时兜底）
 LEGACY_ALIAS = {
-    "update_helper.py": "modules/update_helper/update_helper.py",
-    "appconfig.py": "modules/appconfig/appconfig.py",
-    "paths.py": "modules/paths/paths.py",
-    "autostart.py": "modules/autostart/autostart.py",
-    "i18n.py": "modules/i18n/i18n.py",
-    "icons.py": "modules/icons/icons.py",
-    "tray_kit.py": "modules/tray_kit/tray_kit.py",
-    "log_kit.py": "modules/log_kit/log_kit.py",
+    "update_helper.py": "template/update_helper/update_helper.py",
+    "appconfig.py": "template/appconfig/appconfig.py",
+    "paths.py": "template/paths/paths.py",
+    "autostart.py": "template/autostart/autostart.py",
+    "i18n.py": "template/i18n/i18n.py",
+    "icons.py": "template/icons/icons.py",
+    "tray_kit.py": "template/tray_kit/tray_kit.py",
+    "log_kit.py": "template/log_kit/log_kit.py",
 }
 
-# 2.0.0：模板仓目录已改名 template/；旧头/旧别名里的 modules/ 前缀归一到 template/（过渡期）
+# 模板仓目录名（W1 改名后为 template/）
 TPL_DIR_NAME = "template"
-
-
-def _norm_rel(rel: str) -> str:
-    """旧头部路径归一：modules/ 前缀 → template/（模板仓改名后的过渡兼容）。"""
-    if rel.startswith("modules/"):
-        return TPL_DIR_NAME + "/" + rel[len("modules/"):]
-    return rel
 
 
 def repo_identity(path) -> str:
@@ -400,7 +392,7 @@ def no_header_legs(tool_dir: Path):
         if FROM_RE.search(head) or MODULE_RE.search(head) or OVERRIDE_RE.search(head):
             continue
         rel_to_tool = py.relative_to(tool_dir).as_posix()
-        if rel_to_tool.startswith(("src/modules/", "src/template/")):
+        if rel_to_tool.startswith("src/template/"):
             ns_files.append(py)
         hit = idx.get(sha256_text(read_text(py)))
         if hit:
@@ -1128,14 +1120,14 @@ def _header_silence_cases(base: Path):
     stripped = "\n".join(l for l in tpl_text.splitlines() if not META_LINE.match(l))
 
     # 腿① 命中：无头 + 内容等于模板件
-    d1 = base / "leg1copy" / "src" / "modules" / "paths"
+    d1 = base / "leg1copy" / "src" / "template" / "paths"
     d1.mkdir(parents=True)
     (d1 / "paths.py").write_text(stripped, encoding="utf-8")
     copies, ns = no_header_legs(base / "leg1copy")
     cases.append(("腿① 无头拷贝 ⇒ 命中 NO-HDR-COPY", len(copies) == 1,
                   f"copies={len(copies)} ns={len(ns)}"))
     # 腿① 控制：**只加回出处行**（最小变量），其余一字节不动 ⇒ 不再命中
-    d2 = base / "leg1ctl" / "src" / "modules" / "paths"
+    d2 = base / "leg1ctl" / "src" / "template" / "paths"
     d2.mkdir(parents=True)
     (d2 / "paths.py").write_text(
         "# TEMPLATE-MODULE: paths | TEMPLATE-VER: 1.1.4\n" + stripped, encoding="utf-8")
@@ -1144,7 +1136,7 @@ def _header_silence_cases(base: Path):
                   f"copies={len(copies2)}"))
 
     # 腿② 命中：src/modules/ 下无头、内容与模板无一相同（既不是拷贝也必须看得见）
-    d3 = base / "leg2ns" / "src" / "modules" / "zzz"
+    d3 = base / "leg2ns" / "src" / "template" / "zzz"
     d3.mkdir(parents=True)
     (d3 / "zzz.py").write_text("MARKER = 'tool-owned'\n", encoding="utf-8")
     copies3, ns3 = no_header_legs(base / "leg2ns")
@@ -1163,7 +1155,7 @@ def _header_silence_cases(base: Path):
     d5 = base / "leg3bad" / "src"
     d5.mkdir(parents=True)
     (d5 / "a.py").write_text("# TEMPLATE-MODULE: nosuchmod\nX = 1\n", encoding="utf-8")
-    (d5 / "b.py").write_text("# TEMPLATE-FROM: my-diy-tool-template/modules/nope.py\nX = 1\n",
+    (d5 / "b.py").write_text("# TEMPLATE-FROM: my-diy-tool-template/template/nope.py\nX = 1\n",
                              encoding="utf-8")
     found5, anom5 = scan_tool(base / "leg3bad")
     # 该目录里还有 b.py（FROM 指向不存在的模板件）：它**应当**进 found 并走原有 [MISS] 出口。
@@ -1175,7 +1167,7 @@ def _header_silence_cases(base: Path):
     # 腿③ 控制：合法头 ⇒ 无 anomaly、进 found；FROM 指向不存在的模板件走 [MISS]（原有出口）
     d6 = base / "leg3ok" / "src"
     d6.mkdir(parents=True)
-    (d6 / "c.py").write_text("# TEMPLATE-FROM: my-diy-tool-template/modules/paths/paths.py\n"
+    (d6 / "c.py").write_text("# TEMPLATE-FROM: my-diy-tool-template/template/paths/paths.py\n"
                              "X = 1\n", encoding="utf-8")
     found6, anom6 = scan_tool(base / "leg3ok")
     cases.append(("腿③ 控制：合法出处头 ⇒ 无 anomaly 且进 found",
@@ -1183,7 +1175,7 @@ def _header_silence_cases(base: Path):
                   f"anom={len(anom6)} found={len(found6)}"))
 
     # 腿④ 申报口：NOT-WIRED.md 存在 ⇒ 认；不存在 ⇒ 不认（最小变量：一个文件）
-    d7 = base / "leg4" / "src" / "modules" / "service_link"
+    d7 = base / "leg4" / "src" / "template" / "service_link"
     d7.mkdir(parents=True)
     before = declared_not_wired(d7)
     (d7 / "NOT-WIRED.md").write_text("有意未接入（selftest 样本）\n", encoding="utf-8")
@@ -1217,22 +1209,22 @@ def selftest() -> int:
     base = Path(tempfile.mkdtemp(prefix="sync_check_selftest_"))
     try:
         cases = []
-        a = base / "a" / "src" / "modules" / "paths"
+        a = base / "a" / "src" / "template" / "paths"
         a.mkdir(parents=True)
         (a / "README.md").write_bytes(
-            b"# TEMPLATE-FROM: my-diy-tool-template/modules/paths/README.md\n" + tpl_bytes)
+            b"# TEMPLATE-FROM: my-diy-tool-template/template/paths/README.md\n" + tpl_bytes)
         cases.append(("A header-bearing .md", a / "README.md", False, "diff", None))
 
-        b = base / "b" / "src" / "modules" / "paths"
+        b = base / "b" / "src" / "template" / "paths"
         b.mkdir(parents=True)
         (b / "README.md").write_bytes(tpl_bytes)
         cases.append(("B byte-identical .md", b / "README.md", False, "ok", None))
 
-        c = base / "c" / "src" / "modules" / "paths"
+        c = base / "c" / "src" / "template" / "paths"
         c.mkdir(parents=True)
         (c / "README.md").write_bytes(b"# overridden shape\n" + tpl_bytes)
         (c / "paths.py").write_text(
-            "# TEMPLATE-FROM: my-diy-tool-template/modules/paths/paths.py | TEMPLATE-VER: 1.1.3\n"
+            "# TEMPLATE-FROM: my-diy-tool-template/template/paths/paths.py | TEMPLATE-VER: 1.1.3\n"
             "# TEMPLATE-LOCAL-OVERRIDE: selftest - module intentionally diverged\n"
             "X = 1\n", encoding="utf-8")
         cases.append(("C module-level OVERRIDE .md", c / "README.md", "paths.py",
@@ -1363,11 +1355,11 @@ def main() -> int:
         # ① 头部通道：工具自报出处的文件
         scanned, hdr_anoms = scan_tool(tool_dir)
         for tool_file, rel, is_declared, tool_ver in scanned:
-            rel = _norm_rel(LEGACY_ALIAS.get(rel, rel))
+            rel = LEGACY_ALIAS.get(rel, rel)
             compared.add(tool_file.resolve())
             compared_rels.add(rel)
             parts = rel.split("/")
-            if len(parts) >= 2 and parts[0] in ("modules", TPL_DIR_NAME):
+            if len(parts) >= 2 and parts[0] == TPL_DIR_NAME:
                 consumed.add(parts[1])
                 consumed_files.setdefault(parts[1], []).append(tool_file)
             kind, note, tv, pv = compare(tool_file, rel, is_blueprint, is_declared,
@@ -1395,8 +1387,6 @@ def main() -> int:
         # ② 布局通道：src/modules/<模块>/ 下与模板同名者，**不要求工具侧有头**
         for mod, pys in sorted(tpl_modules.items()):
             mod_dir = tool_dir / "src" / TPL_DIR_NAME / mod
-            if not mod_dir.is_dir():
-                mod_dir = tool_dir / "src" / "modules" / mod   # 过渡期旧布局（W1 收尾步删）
             if mod_dir.is_dir():
                 consumed.add(mod)
             # **脚本形态采纳**（lead 2026-09-19 裁定 (B)）：模块代码以 `src/<name>.py`
@@ -1468,8 +1458,6 @@ def main() -> int:
             if mod in consumed:
                 continue
             mod_dir3 = tool_dir / "src" / TPL_DIR_NAME / mod
-            if not mod_dir3.is_dir():
-                mod_dir3 = tool_dir / "src" / "modules" / mod   # 过渡期旧布局（W1 收尾步删）
             if declared_not_wired(mod_dir3):
                 not_wired.append((name, mod, mod_dir3 / "NOT-WIRED.md"))
                 print(f"[decl ] {name}: 模板 modules/{mod}/ 未采纳（已申报 via "
