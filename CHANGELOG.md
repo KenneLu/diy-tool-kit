@@ -2,6 +2,16 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## [update_helper 1.5.0] - 2026-09-27 (W5 前段, D4 方案 B)
+
+- **吸收 reme 两条失败可见性语义**（F14-①②，语义源=reme 已验证更新链 7242-7282）：
+  - `:giveup` 超时**写 FAILED marker**——此前只写日志：bat 在应用退出后运行，日志随
+    暂存被清扫，marker（用户数据区）是用户得知"更新没发生"的唯一通道；
+  - `:install_dead` **写 marker + KEPT 按实况报告**——只列真实存在的 SNAPSHOT/BACKUP，
+    旧措辞恒指向可能已轮转不存在的 snapshot 路径。
+- sync_check 2.0.2：E 组两条 marker 腿（段级断言，行级标签锚防注释劫持）。
+- 冻结锚点：本版为 W5 后段四仓重拷的宣告锚。
+
 ## 2026-09-27 (W1 rename, execution document 执行文档-20260927-四工具模板统一, Decision 8)
 
 - **`modules/` → `template/`** (git mv, 34 files renamed). Template-side canonical dir is now

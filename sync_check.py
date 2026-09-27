@@ -1,4 +1,7 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 2.0.1
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 2.0.2
+# 2.0.2（W5 前段）：E 组补两条 1.5.0 marker 腿（F14-①②）：giveup 段写 FAILED marker /
+#   install_dead 段写 marker 且 KEPT 按实况。段切片用**行级标签锚**（^:label$）——
+#   裸 split 会被 bat 注释里的字面 ':giveup is unreachable' 劫持（W5 实测：正确模板恒红）。
 # 2.0.1（W1 收尾步）：四仓已全部迁到 src/template/ 并换新头——**拆除 2.0.0 的全部过渡垫片**
 #   （_norm_rel 归一、src/modules 布局兜底、头部 modules/ 前缀容忍），布局与头部只认 template/。
 # 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡（垫片已在 2.0.1 拆除）。
@@ -604,6 +607,20 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
     deadguard_i = idx('if not exist "%s" goto install_dead' % newexe)
     tail = cmds[dead_i:keep_i if (keep_i is not None and dead_i is not None
                                   and keep_i > dead_i) else len(cmds)] if dead_i is not None else []
+    # 1.5.0 两段级断言的切片：**行级标签锚**（`^:label$`），不能用裸 split——bat 注释里
+    # 出现过字面 `:giveup is unreachable`（解释 :wait 循环的 rem 块），裸 split 会把切段
+    # 锚到注释上，段内容完全错位（W5 前段实测：F14-1 腿对正确模板恒红）。
+    import re as _re
+
+    def _seg(start_label, end_label):
+        m = _re.search(r"(?m)^%s\s*$" % _re.escape(start_label), text)
+        if not m:
+            return ""
+        rest = text[m.end():]
+        m2 = _re.search(r"(?m)^%s\s*$" % _re.escape(end_label), rest)
+        return rest[: m2.start()] if m2 else rest
+    giveup_seg = _seg(":giveup", ":cleanup")
+    dead_seg = _seg(":install_dead", ":giveup")
     return [
         # 节拍必须是**不依赖网络配置**的睡眠：`ping` 在丢 loopback ICMP 的机器上一拍 9.0s
         # （实测），名义 120s 变 ~18 分钟。见 C-33 / CONFORMANCE §4.1.20。
@@ -633,6 +650,12 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         ("回铺后 start 前也验 exe（否则回铺源为空时又是一条死路）",
          before(idx(":install_failed"), deadguard_i)),
         ("失败 marker", has('> "%FAILED%" echo')),
+        # 1.5.0（W5 前段，F14-①②）：两条失败路径的 marker 可见性——日志随暂存被清扫，
+        # marker（用户数据区）是应用退出后唯一幸存的报告通道；pop_failed_update_note 读它。
+        ("超时放弃写失败 marker（1.5.0 F14-1：giveup 段）",
+         '> "%FAILED%" echo update aborted' in giveup_seg),
+        ("install_dead 写 marker 且 KEPT 按实况（1.5.0 F14-2：不指向不存在的路径）",
+         '> "%FAILED%" echo update failed' in dead_seg and 'if not defined KEPT' in dead_seg),
         ("cleanup 删暂存", has('if exist "%WORK%" rmdir /s /q "%WORK%"')),
         ("脚本自删", has('del "%~f0"')),
         ("ASCII-only", text.isascii()),
