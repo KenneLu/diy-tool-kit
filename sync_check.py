@@ -1,4 +1,8 @@
-# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 1.9.0
+# TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 2.0.0
+# 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡——
+#   模板侧一律读 template/，工具侧 src/template/ 优先、src/modules/ 兜底；旧头
+#   "my-diy-tool-template/modules/..." 经 _norm_rel 归一到 template/ 再比对。
+#   四仓全部迁到 src/template/ 后，_norm_rel 与 src/modules 兜底一并删除（W1 收尾步）。
 # 1.9.0（#57，与 ls2t-dev 往复产出）：**三处静默出口分成三档可观测量** + NOT-WIRED 升格为申报口。
 #   原先 `scan_tool` 有三处 `continue` 都表示"当作这个文件没有出处"，而"没有出处"正是
 #   **工具自有文件**的正确观测量 ⇒ "头被覆盖/模块名写错/目标不存在"这类**缺陷输入**与
@@ -133,6 +137,16 @@ LEGACY_ALIAS = {
     "tray_kit.py": "modules/tray_kit/tray_kit.py",
     "log_kit.py": "modules/log_kit/log_kit.py",
 }
+
+# 2.0.0：模板仓目录已改名 template/；旧头/旧别名里的 modules/ 前缀归一到 template/（过渡期）
+TPL_DIR_NAME = "template"
+
+
+def _norm_rel(rel: str) -> str:
+    """旧头部路径归一：modules/ 前缀 → template/（模板仓改名后的过渡兼容）。"""
+    if rel.startswith("modules/"):
+        return TPL_DIR_NAME + "/" + rel[len("modules/"):]
+    return rel
 
 
 def repo_identity(path) -> str:
@@ -322,21 +336,21 @@ def scan_tool(tool_dir: Path):
             # 模板的同名 __init__.py（1.3.0 起模板 __init__.py 也带此头，否则会拿
             # __init__.py 去比 <模块>.py，产生假 DRIFT）。
             if py.name == "__init__.py":
-                rel = f"modules/{mod}/__init__.py"
+                rel = f"{TPL_DIR_NAME}/{mod}/__init__.py"
                 if not (TEMPLATE_DIR / rel).exists():
                     anomalies.append((py, "BAD-HDR",
                                       f"TEMPLATE-MODULE: {mod} 推导出 {rel}，模板中不存在"))
                     continue
             else:
-                rel = f"modules/{mod}/{mod}.py"
+                rel = f"{TPL_DIR_NAME}/{mod}/{mod}.py"
             if not (TEMPLATE_DIR / rel).exists():
                 # 布局兜底：模块文件夹下唯一 py 时按唯一者解析；不唯一则**出声**（原先静默跳过）
-                mod_dir = TEMPLATE_DIR / "modules" / mod
+                mod_dir = TEMPLATE_DIR / TPL_DIR_NAME / mod
                 cands = sorted(mod_dir.rglob("*.py")) if mod_dir.is_dir() else []
                 if len(cands) != 1:
                     anomalies.append((py, "BAD-HDR",
                                       f"TEMPLATE-MODULE: {mod} → {rel} 不存在，"
-                                      f"且 modules/{mod}/ 下候选 {len(cands)} 个（兜底不唯一）"))
+                                      f"且 {TPL_DIR_NAME}/{mod}/ 下候选 {len(cands)} 个（兜底不唯一）"))
                     continue
                 rel = cands[0].relative_to(TEMPLATE_DIR).as_posix()
         ver = VER_RE.search(head)
@@ -386,7 +400,7 @@ def no_header_legs(tool_dir: Path):
         if FROM_RE.search(head) or MODULE_RE.search(head) or OVERRIDE_RE.search(head):
             continue
         rel_to_tool = py.relative_to(tool_dir).as_posix()
-        if rel_to_tool.startswith("src/modules/"):
+        if rel_to_tool.startswith(("src/modules/", "src/template/")):
             ns_files.append(py)
         hit = idx.get(sha256_text(read_text(py)))
         if hit:
@@ -402,7 +416,7 @@ def template_modules() -> dict:
     不是拷贝源，排除；__pycache__ 等生成目录排除。
     """
     out = {}
-    base = TEMPLATE_DIR / "modules"
+    base = TEMPLATE_DIR / TPL_DIR_NAME
     if not base.is_dir():
         return out
     for mod_dir in sorted(base.iterdir()):
@@ -465,7 +479,7 @@ def _i18n_state_cases():
     从**包命名空间**读仍是 'zh'，而 `t()` 已英文。断言必须**从包读**（只读子模块测不出）。
     """
     import importlib.util
-    pkg_init = TEMPLATE_DIR / "modules" / "i18n" / "__init__.py"
+    pkg_init = TEMPLATE_DIR / TPL_DIR_NAME / "i18n" / "__init__.py"
     if not pkg_init.exists():
         return [("D i18n package state", False, "模板 modules/i18n/__init__.py 不存在")]
     name = "_tpl_i18n_selftest"
@@ -641,7 +655,7 @@ def _update_helper_cases():
     """
     import importlib.util
     out = []
-    path = TEMPLATE_DIR / "modules" / "update_helper" / "update_helper.py"
+    path = TEMPLATE_DIR / TPL_DIR_NAME / "update_helper" / "update_helper.py"
     if not path.exists():
         return [("E update_helper script", False, "模板 modules/update_helper/update_helper.py 不存在")]
     spec = importlib.util.spec_from_file_location("_tpl_update_helper_selftest", path)
@@ -670,7 +684,7 @@ def _update_helper_cases():
         mod._PUBLISHED["ready"] = None
         # 反向自证：老形状（包门面 import *）在 1.4.0 上拿不到派生状态 ⇒ 缺陷无法静默复现
         star_ns = {}
-        exec("from modules.update_helper.update_helper import *", star_ns)
+        exec("from template.update_helper.update_helper import *", star_ns)
         out.append(("E import * 不搬运 UPDATE_READY（结构上防死副本）",
                     "UPDATE_READY" not in star_ns and "PENDING_CMD" not in star_ns,
                     "import * 后%s" % ("含该名（危险）" if "UPDATE_READY" in star_ns else "不含该名")))
@@ -767,7 +781,7 @@ def _apply_bat_mutation_cases():
     """
     import importlib.util
     out = []
-    path = TEMPLATE_DIR / "modules" / "update_helper" / "update_helper.py"
+    path = TEMPLATE_DIR / TPL_DIR_NAME / "update_helper" / "update_helper.py"
     if not path.exists():
         return [("E-mut 变异矩阵", False, "模板 update_helper.py 不存在")]
     spec = importlib.util.spec_from_file_location("_tpl_uh_mut", path)
@@ -897,7 +911,7 @@ def _tray_kit_probe_cases():
     import importlib.util
     import ctypes as _ctypes
     out = []
-    path = TEMPLATE_DIR / "modules" / "tray_kit" / "tray_kit.py"
+    path = TEMPLATE_DIR / TPL_DIR_NAME / "tray_kit" / "tray_kit.py"
     if not path.exists():
         return [("F tray_kit probe", False, "模板 modules/tray_kit/tray_kit.py 不存在")]
     spec = importlib.util.spec_from_file_location("_tpl_tray_kit_selftest", path)
@@ -979,7 +993,7 @@ def _apply_bat_runtime_cases():
     import subprocess
     import time as _time
     out = []
-    path = TEMPLATE_DIR / "modules" / "update_helper" / "update_helper.py"
+    path = TEMPLATE_DIR / TPL_DIR_NAME / "update_helper" / "update_helper.py"
     if not path.exists():
         return [("E-runtime apply.bat", False, "模板 update_helper.py 不存在")]
     spec = importlib.util.spec_from_file_location("_tpl_uh_runtime", path)
@@ -1106,7 +1120,7 @@ def _header_silence_cases(base: Path):
     "没有样本的分支"（§4.1.13 同款教训：没有样本的分支等于没有判据）。
     """
     cases = []
-    tpl_paths = TEMPLATE_DIR / "modules" / "paths" / "paths.py"
+    tpl_paths = TEMPLATE_DIR / TPL_DIR_NAME / "paths" / "paths.py"
     if not tpl_paths.exists():
         return [("1.9.0 样本前置：模板 modules/paths/paths.py 存在", False, "缺模板件")]
     tpl_text = read_text(tpl_paths)
@@ -1194,12 +1208,12 @@ def selftest() -> int:
     ——"已知样本反向验证"必须是可重跑的资产。D 组原先是一个根目录独立脚本，无调用方
     （=死代码），折进来后自动获得"改坏即 exit 1"的保障（CONFORMANCE §4.1.13 同款教训）。
     """
-    tpl = TEMPLATE_DIR / "modules" / "paths" / "README.md"
+    tpl = TEMPLATE_DIR / TPL_DIR_NAME / "paths" / "README.md"
     if not tpl.exists():
         print("[selftest] FAIL: 模板 modules/paths/README.md 不存在")
         return 1
     tpl_bytes = tpl.read_bytes()
-    rel = "modules/paths/README.md"
+    rel = "template/paths/README.md"
     base = Path(tempfile.mkdtemp(prefix="sync_check_selftest_"))
     try:
         cases = []
@@ -1349,11 +1363,11 @@ def main() -> int:
         # ① 头部通道：工具自报出处的文件
         scanned, hdr_anoms = scan_tool(tool_dir)
         for tool_file, rel, is_declared, tool_ver in scanned:
-            rel = LEGACY_ALIAS.get(rel, rel)
+            rel = _norm_rel(LEGACY_ALIAS.get(rel, rel))
             compared.add(tool_file.resolve())
             compared_rels.add(rel)
             parts = rel.split("/")
-            if len(parts) >= 2 and parts[0] == "modules":
+            if len(parts) >= 2 and parts[0] in ("modules", TPL_DIR_NAME):
                 consumed.add(parts[1])
                 consumed_files.setdefault(parts[1], []).append(tool_file)
             kind, note, tv, pv = compare(tool_file, rel, is_blueprint, is_declared,
@@ -1380,7 +1394,9 @@ def main() -> int:
 
         # ② 布局通道：src/modules/<模块>/ 下与模板同名者，**不要求工具侧有头**
         for mod, pys in sorted(tpl_modules.items()):
-            mod_dir = tool_dir / "src" / "modules" / mod
+            mod_dir = tool_dir / "src" / TPL_DIR_NAME / mod
+            if not mod_dir.is_dir():
+                mod_dir = tool_dir / "src" / "modules" / mod   # 过渡期旧布局（W1 收尾步删）
             if mod_dir.is_dir():
                 consumed.add(mod)
             # **脚本形态采纳**（lead 2026-09-19 裁定 (B)）：模块代码以 `src/<name>.py`
@@ -1414,7 +1430,7 @@ def main() -> int:
             not_wired_md = declared_not_wired(mod_dir)
             for tpl_py in pys:
                 tpl_rel = tpl_py.relative_to(TEMPLATE_DIR).as_posix()
-                cand = mod_dir / tpl_py.relative_to(TEMPLATE_DIR / "modules" / mod)
+                cand = mod_dir / tpl_py.relative_to(TEMPLATE_DIR / TPL_DIR_NAME / mod)
                 if not cand.exists():
                     # 模块已被采纳（有目录或头部通道消费了它的其它文件），却缺这一件
                     # → [MISSING-FILE] 黄灯。整个模块都没采纳的交给 [MISSING-MODULE]，
@@ -1451,7 +1467,9 @@ def main() -> int:
         for mod in sorted(tpl_modules):
             if mod in consumed:
                 continue
-            mod_dir3 = tool_dir / "src" / "modules" / mod
+            mod_dir3 = tool_dir / "src" / TPL_DIR_NAME / mod
+            if not mod_dir3.is_dir():
+                mod_dir3 = tool_dir / "src" / "modules" / mod   # 过渡期旧布局（W1 收尾步删）
             if declared_not_wired(mod_dir3):
                 not_wired.append((name, mod, mod_dir3 / "NOT-WIRED.md"))
                 print(f"[decl ] {name}: 模板 modules/{mod}/ 未采纳（已申报 via "

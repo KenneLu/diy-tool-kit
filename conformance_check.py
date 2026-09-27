@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 1.9.29
+# TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.0
+# 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡——
+#   模板侧判据一律读 template/；工具侧 _find/mod_root 对 src/template/ 优先、src/modules/
+#   兜底；排除过滤器同时排除 modules/template 两个名字；C-34 正则双前缀并把表内
+#   modules/ 归一到 template/ 解析；C-35 import 正则加 template；模板 paths 导入名同步。
+#   四仓全部迁到 src/template/ 后，过渡兜底一并删除（W1 收尾步）。
 # 1.9.29：**C-40 孤儿口径修正（2026-09-20 发版暴露）**：`release/` 下必然有三类目录 ——
 #   ① 当前版本（跳过）/ ② **上一版**（历次构建的自然产物，§4.1.42 原话，**不登记**）/
 #   ③ **改名保留镜像** `_stale_*` / `*.pre-rebuild-*`（**有意动作，必须登记**）。
@@ -433,7 +438,13 @@ class Ctx:
         self._cache = {}
 
     def _find(self, *cands):
+        # 2.0.0（W1 改名过渡）：src/modules/... 候选自动加试 src/template/...（优先）
+        expanded = []
         for c in cands:
+            if c.startswith("src/modules/"):
+                expanded.append("src/template/" + c[len("src/modules/"):])
+            expanded.append(c)
+        for c in expanded:
             p = self.dir / c
             if p.exists():
                 return p
@@ -442,6 +453,12 @@ class Ctx:
     @property
     def src(self) -> Path:
         return self.dir / "src"
+
+    @property
+    def mod_root(self) -> Path:
+        """工具侧模块目录根：src/template（W1 改名后）优先，过渡期回落 src/modules。"""
+        new = self.src / "template"
+        return new if new.is_dir() else self.src / "modules"
 
     @property
     def entry(self):
@@ -1025,7 +1042,7 @@ def c18(c: Ctx):
 
 @check("C-19", "WARN", "模板件头部 TEMPLATE-FROM/TEMPLATE-VER 齐（B4-01/B4-03）")
 def c19(c: Ctx):
-    mods = c.src / "modules"
+    mods = c.mod_root
     if not mods.is_dir():
         return True, "无 src/modules/"
     missing = []
@@ -1047,7 +1064,7 @@ def c47(c: Ctx):
     §4.1 F-1）。本条把唯一被禁的形态独立成判据 —— 与 C-19 分工：C-19 管**有没有头**，
     本条管**是不是被禁的那一种**（一条判据一个职责，改 C-19 的语义会混淆两件事）。
     """
-    mods = c.src / "modules"
+    mods = c.mod_root
     if not mods.is_dir():
         return True, "无 src/modules/"
     hits = []
@@ -1276,7 +1293,7 @@ def c51(c: Ctx):
     # 传进来的回调**决定。把它也算进来是**假红**（判据把"回调调用点"误当成"退出入口"）。
     # 与 C-27 的 `code` 过滤同一条边界：**判据的适用范围必须自己先想清楚**（§4.1.18）。
     code = [p for p in c.py_files()
-            if "modules" not in p.relative_to(c.src).parts[:1]]
+            if not {"modules", "template"} & set(p.relative_to(c.src).parts[:1])]
     for p in code:
         src = c.read(p)
         if "quit_watch_loop" not in src:
@@ -1355,7 +1372,7 @@ def c52(c: Ctx):
     ② `pairs.json`（重形态，中文即键 —— reme 走这条，**不算缺**）。
     **扫描面照打**（纪律 ⑥）：没命中与没扫必须可区分。
     """
-    src_i18n = c.src / "modules" / "i18n"
+    src_i18n = c.mod_root / "i18n"
     has_dir = src_i18n.is_dir()
     has_pairs = (src_i18n / "pairs.json").exists()
     remote = _git_has_remote(c.dir)      # 只为打印现场，**不参与判定**
@@ -1383,7 +1400,7 @@ def _call_name(node) -> str:
 
 @check("C-20", "WARN", "启用 i18n 的工具无词表外中文（A1-10/E4-02）")
 def c20(c: Ctx):
-    mods = c.src / "modules" / "i18n"
+    mods = c.mod_root / "i18n"
     if (mods / "pairs.json").exists():
         return True, "重形态（pairs.json 中文即键，STANDARDS §E4 明示许可），跳过"
     if not c.has_i18n():
@@ -1456,7 +1473,7 @@ def c21(c: Ctx):
     外部读包拿到永久旧值（i18n 表现为菜单不刷新；update_helper 表现为 apply.cmd 永不拉起）。
     修法：门面只绑函数 + PEP 562 `__getattr__` 委派子模块（见两模块 2.1.1 / 1.1.0）。
     """
-    mods = c.src / "modules"
+    mods = c.mod_root
     if not mods.is_dir():
         return True, "无 src/modules/"
     bad = []
@@ -1614,7 +1631,7 @@ def c23(c: Ctx):
 
     正路只有两条（§D6）：**可变容器就地改**（`d.update()` / `d[k]=v`），或**经访问器暴露**。
     """
-    mods = c.src / "modules"
+    mods = c.mod_root
     if not mods.is_dir():
         return True, "无 src/modules/"
     bad = []
@@ -1824,11 +1841,11 @@ def c27(c: Ctx):
     检查器在**工具代码**（`src/**/*.py`，排除 `src/modules/**` 的拷贝本体与 `__init__.py`
     的转发导出）里找引用；找不到即报。
     """
-    mods = c.src / "modules"
+    mods = c.mod_root
     if not mods.is_dir():
         return True, "无 src/modules/"
     code = [p for p in c.py_files()
-            if "modules" not in p.relative_to(c.src).parts[:1]
+            if not {"modules", "template"} & set(p.relative_to(c.src).parts[:1])
             and p.name != "__init__.py"]
     bad, declared = [], 0
     for d in sorted(x for x in mods.iterdir() if x.is_dir()):
@@ -1841,7 +1858,7 @@ def c27(c: Ctx):
         # 声明取**模板正本**（`TEMPLATE_DIR/modules/<m>/README.md`）优先：要求是模块的属性，
         # 不该等工具把带锚点的 README 拷过去之后才生效——否则锚点加上当天所有工具都"无声明"，
         # 检查空转（首版实测）。工具侧 README 也读，兼容工具自己追加的声明。
-        readmes = [p for p in (TEMPLATE_DIR / "modules" / d.name / "README.md",
+        readmes = [p for p in (TEMPLATE_DIR / "template" / d.name / "README.md",
                                d / "README.md") if p.exists()]
         syms = sorted({s for r in readmes for s in _MUST_WIRE.findall(c.read(r))})
         for sym in syms:
@@ -2069,7 +2086,7 @@ def c29(c: Ctx):
     不是日志函数；拿它开火就是一句与事实相反的诊断（本文件的设计纪律 ④）。
     """
     code = [p for p in c.py_files()
-            if "modules" not in p.relative_to(c.src).parts[:1] and p.name != "__init__.py"]
+            if not {"modules", "template"} & set(p.relative_to(c.src).parts[:1]) and p.name != "__init__.py"]
     if not code:
         return True, "无工具代码"
     wired = {}
@@ -3290,7 +3307,7 @@ def c39(c: Ctx):
 
 @template_check("C-39", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c39_template(c: Ctx):
-    return check_default_snapshot(c.dir, "modules")
+    return check_default_snapshot(c.dir, "template")
 
 
 # ---------------------------------------------------------------- C-40
@@ -3374,7 +3391,9 @@ def orphan_entry_problems():
 def tool_version(root: Path):
     """源码 VERSION（单一事实源）：`src/main.py` 优先，其次 appconfig 的两个落点。"""
     import ast as _ast
-    for rel in ("src/main.py", "src/appconfig.py", "src/modules/appconfig/appconfig.py"):
+    for rel in ("src/main.py", "src/appconfig.py",
+                "src/template/appconfig/appconfig.py",
+                "src/modules/appconfig/appconfig.py"):
         f = root / rel
         if not f.exists():
             continue
@@ -3481,7 +3500,9 @@ def select_run_entry(run_values, root=None, app_id=None, app_name=None, local_ap
 
 def _read_app_name(root):
     """从 `src/modules/appconfig/appconfig.py` 读 **`APP_NAME`**（模板 autostart 契约的键名）。"""
-    ap = root / "src" / "modules" / "appconfig" / "appconfig.py"
+    ap = root / "src" / "template" / "appconfig" / "appconfig.py"
+    if not ap.is_file():
+        ap = root / "src" / "modules" / "appconfig" / "appconfig.py"   # 过渡期旧布局
     if not ap.exists():
         return None
     m = re.search(r'APP_NAME\s*=\s*["\']([^"\']+)',
@@ -3554,7 +3575,9 @@ def c40(c: Ctx):
     rel_dir = root / "release"
     rels = [p.name for p in sorted(rel_dir.iterdir()) if p.is_dir()] if rel_dir.is_dir() else []
     app_id = None
-    ap = root / "src" / "modules" / "appconfig" / "appconfig.py"
+    ap = root / "src" / "template" / "appconfig" / "appconfig.py"
+    if not ap.is_file():
+        ap = root / "src" / "modules" / "appconfig" / "appconfig.py"   # 过渡期旧布局
     if ap.exists():
         m = re.search(r'APP_ID\s*=\s*["\']([^"\']+)',
                       _masked_code_text(ap.read_text(encoding="utf-8", errors="replace")))
@@ -3677,7 +3700,7 @@ def c41(c: Ctx):
 
 @template_check("C-41", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c41_template(c: Ctx):
-    return check_quit_fallback(c.dir, "modules")
+    return check_quit_fallback(c.dir, "template")
 
 
 # ---------------------------------------------------------------- C-42
@@ -3940,7 +3963,7 @@ def c44(c: Ctx):
 
 @template_check("C-44", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c44_template(c: Ctx):
-    return check_bat_absolute_cmds(c.dir / "modules")
+    return check_bat_absolute_cmds(c.dir / "template")
 
 
 @check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
@@ -3952,7 +3975,7 @@ def c33(c: Ctx):
 @template_check("C-33", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c33_template(c: Ctx):
     """模板侧只扫 `modules/**`——那是会被拷进工具的正本代码（含渲染 bat 的 `.py` 模板）。"""
-    return check_ping_tick(c.dir / "modules")
+    return check_ping_tick(c.dir / "template")
 
 
 # ---------------------------------------------------------------- C-36
@@ -3996,7 +4019,7 @@ def c36_template(c: Ctx):
     扫描面（设计纪律 ⑥）：算子名 + 样本文件 + 三种变体的哈希 + 控制值，全部打印。
     """
     import importlib.util
-    mods = c.dir / "modules"
+    mods = c.dir / "template"
     samples = sorted(p for p in mods.rglob("*.py") if p.is_file()) if mods.exists() else []
     if not samples:
         return False, "扫描面：模板 modules/ 下 0 个 .py，取不到样本（判据不适用）"
@@ -4068,8 +4091,8 @@ def c37_template(c: Ctx):
     而那是**运行时事实**；共享位写错（比如顺手带上 `FILE_SHARE_DELETE`）在源码上
     完全看不出来，只有真的去 `unlink` 一次才知道。这正是"能实测的就别推断"。
     """
-    py = c.dir / "modules" / "paths" / "paths.py"
-    rd = c.dir / "modules" / "paths" / "README.md"
+    py = c.dir / "template" / "paths" / "paths.py"
+    rd = c.dir / "template" / "paths" / "README.md"
     missing = []
     if not py.is_file():
         return False, "扫描面：%s 不存在" % py
@@ -4086,7 +4109,7 @@ def c37_template(c: Ctx):
     import sys as _sys
     _sys.path.insert(0, str(c.dir))
     try:
-        paths = importlib.import_module("modules.paths.paths")
+        paths = importlib.import_module("template.paths.paths")
     except Exception as exc:                        # noqa: BLE001
         return False, "import 模板 paths.py 失败（判不了，不猜）：%r" % (exc,)
     ok, detail = c2_property(paths.hold_no_delete)
@@ -4108,7 +4131,7 @@ _DISPATCH_EXTS = (".py", ".md")
 
 
 def _dispatched_files(root: Path):
-    mods = root / "modules"
+    mods = root / "template"
     if not mods.is_dir():
         return []
     return [p for p in sorted(mods.rglob("*"))
@@ -4177,7 +4200,9 @@ _TOOL_COPY_SKIP = {"__pycache__"}
 
 def check_tool_copy_eol(root: Path, sub: str = "src"):
     """工具侧副本（`<sub>/modules/**` 的 `.py`/`.md`）必须全程 CRLF。"""
-    base = root / sub / "modules"
+    base = root / sub / "template"
+    if not base.is_dir():
+        base = root / sub / "modules"   # 过渡期旧布局（W1 收尾步删）
     if not base.is_dir():
         return True, "扫描面：无 %s/modules/（该工具不消费模板模块，判据不适用）" % sub
     files = [p for p in sorted(base.rglob("*"))
@@ -4220,7 +4245,7 @@ def c45(c: Ctx):
 #   ——**文件已自带的事实，不要再手抄一份**。本判据的方向是「**让判据去读产物**」。
 # **形态（最简，按 lead 的许可）**：逐行 regex 取 §1 行里的模块路径与"版本列"，
 #   与**文件头**的 `TEMPLATE-VER` 比；不符 ⇒ WARN。**表格解析脆就退化**——不追求覆盖别的表。
-_C34_ROW = re.compile(r"^\| `(modules/[^`]+)` \|")
+_C34_ROW = re.compile(r"^\| `((?:modules|template)/[^`]+)` \|")
 _C34_VER = re.compile(r"\|\s*([\d]+\.[\d.]+)\s*\|\s*$")
 
 
@@ -4238,6 +4263,9 @@ def check_registry_versions(root: Path):
         v = _C34_VER.search(line.rstrip())
         if not v:
             continue
+        # 2.0.0 过渡：表内 modules/ 前缀归一到实际目录 template/（改名后正本在 template/）
+        if rel.startswith("modules/"):
+            rel = "template/" + rel[len("modules/"):]
         f = root / rel
         if not f.exists():
             continue
@@ -4278,7 +4306,7 @@ def c34(c: Ctx):
 #   dsh/ocx 已路由** ⇒ 三家落地后 leg_b 覆盖**从 1 家变 4 家**。
 # **它同时把一条口径钉成断言**：ls2t-dev 的补丁"今天是 no-op"**不该是一句会过期的陈述**——
 #   **两条腿同时在场**，才使 "no-op" 成为**可机械验证的性质**（同族：把靠陈述的换成靠性质的）。
-_C35_IMPORT = re.compile(r"^\s*(?:import|from)\s+(main|modules|pipeline)\b")
+_C35_IMPORT = re.compile(r"^\s*(?:import|from)\s+(main|modules|template|pipeline)\b")
 _C35_PIN = re.compile(r"""(os\.environ\[|scratch_dir\s*\(|setdefault\s*\()""")
 _C35_PIN_KEY = re.compile(r"DATA_DIR|_CONFIG")
 _C35_BAT_PIN = re.compile(r"""(?i)^\s*set\s+"?[A-Z0-9_]*DATA_DIR=""")
@@ -4382,7 +4410,7 @@ def c32_template(c: Ctx):
     教训见 §4.1.18：判据存在 ≠ 被检查对象在范围内。模板 `update_helper` 正是这条判据的
     活样本（`pop_failed_update_note` 的"读 → 删 → log"顺序），不扫模板就等于不扫源头。
     """
-    return check_evidence_order(c.dir / "modules")
+    return check_evidence_order(c.dir / "template")
 
 
 def _rmtree_strict(path, tries=10):

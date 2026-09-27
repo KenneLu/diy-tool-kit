@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: icons | TEMPLATE-VER: 2.0.0
+# TEMPLATE-MODULE: icons | TEMPLATE-VER: 2.0.1
+# 2.0.1（W1 改名过渡）：模块互引改双式导入（try modules. / except template.）；W1 收尾步统一。
 """T6｜代码生成双 ico（G5）：构建期生成，仓库里不进二进制图标资源。
 
 2.0.0：生成**流程**全部在本模板（帧表/写入/__main__ 锚定），工具只通过
@@ -20,7 +21,10 @@ from pathlib import Path
 
 from PIL import Image
 
-from modules.appconfig import APP_ID, ICON_DRAW, ICON_ASSET
+try:                                     # W1 改名过渡：旧布局 src/modules/（四仓迁完删 try 分支）
+    from modules.appconfig import APP_ID, ICON_DRAW, ICON_ASSET
+except ImportError:                      # 新布局 src/template/
+    from template.appconfig import APP_ID, ICON_DRAW, ICON_ASSET
 
 TRAY_SIZES = (16, 24, 32, 48, 64, 256)
 # 100%~200% DPI 下外壳真实索取的像素档（reme-helper 同款清单）

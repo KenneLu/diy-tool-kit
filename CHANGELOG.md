@@ -2,6 +2,26 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-09-27 (W1 rename, execution document 执行文档-20260927-四工具模板统一, Decision 8)
+
+- **`modules/` → `template/`** (git mv, 34 files renamed). Template-side canonical dir is now
+  `template/<模块>/`. This entry itself implies no tool-side re-copy — module file contents are
+  untouched; only the two checkers, the §1 registry table, README index and blueprints.txt
+  wording changed.
+- **sync_check 1.9.0 → 2.0.0**: template side reads `template/` exclusively; tool side layout
+  channel prefers `src/template/` and falls back to `src/modules/` (transition compat,
+  removed in the W1 closing step); legacy `TEMPLATE-FROM: .../modules/...` headers are
+  normalized via `_norm_rel()` before comparison; NO-HDR namespace covers both roots.
+- **conformance_check 1.9.29 → 2.0.0**: `Ctx._find` auto-expands `src/modules/` candidates
+  with `src/template/` (preferred); new `Ctx.mod_root` property; module-namespace exclusion
+  filters drop both `modules` and `template`; C-34 row regex accepts both prefixes and
+  resolves `modules/` rows against `template/`; C-35 import regex adds `template`; template
+  paths.py import name updated; S-02/autostart key reads are dual-path.
+- **CONFORMANCE.md §1 registry**: 12 rows re-pointed `modules/…` → `template/…`
+  (same commit as the C-34 regex change — fail-open criteria must never desync).
+- Tool repos keep `src/modules/` + old headers for now — transition compat keeps all gates
+  green; each tool repo migrates to `src/template/` + new headers in its own W1 commit.
+
 ## 2026-09-20 (the template repo's own cleanliness: desensitize, style-match, and a defect class no byte scan could see)
 
 Three batches landed on the template repo itself (none of them touch `modules/**`, so no tool-side

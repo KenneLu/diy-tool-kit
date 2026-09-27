@@ -44,15 +44,15 @@
 
 | 模板件 | 能力 | 对外接口（稳定承诺） | 版本 |
 |---|---|---|---|
-| `modules/appconfig/appconfig.py` | 参数区：**唯一要改的文件** | `APP_ID` / `APP_NAME` / `REPO_OWNER` / `REPO_NAME` / `EXE_NAME` / `VERSION` / `ICON_DRAW(d, size)` | 1.0.1 |
-| `modules/paths/paths.py` | 数据区/播种/稳定位/**数据根重定向** | `APP_DIR` `RUN_DIR` `USER_DATA_DIR` `CONFIG_PATH` `LEGACY_CONFIG_PATH` `LOG_DIR` `LOG_PATH` `UPDATE_DIR` `INSTALL_DIR` `INSTALL_EXE` `is_stable_install()` `ensure_user_dirs()` `seed_config()` `process_pending_update()`（⛔ 已弃用） | 1.1.4 |
-| `modules/autostart/autostart.py` | 自启三件套 | `get_autostart_cmd(target="stable")` `is_autostart_enabled()` `set_autostart(bool)` `migrate_autostart(log=…)` | 1.1.3 |
-| `modules/update_helper/update_helper.py` | 更新三段式（查/下/换） | `check_update(cur, force=False, repo=None)` `download_and_prepare(..., repo=None, exe_name=None)` `build_apply_script(..., exe_name=None)` `UPDATE_READY` `PENDING_CMD` | 1.4.5 |
-| `modules/i18n/i18n.py` | 轻量中英双表（机制词表分离） | `init(lang)` `t(key,*args)` `load_language_from_config` `save_language_to_config` `detect_system_lang()` `load_tables()` `available_langs()` | 2.2.0 |
-| `modules/icons/icons.py` | 代码生成双 ico | `make_image(size)` `write_app_icons(out_dir)` / CLI | 2.0.0 |
-| `modules/tray_kit/tray_kit.py` | 单实例 / 退出请求 / token 掩码 / 签名重画 / **退出确认框** | `acquire_single_instance(app_id, mutex_name=None, log=…)` `single_instance_free(name)` `warn_duplicate_instance` `confirm_quit_dialog(app, text, init, parent=None, on_change=None)` `make_quit_request_path(dir)` `quit_watch_loop(stop, path, on_quit, beat)` `mask_token(url)` `MenuSignature(rebuild, menu_is_open, log)` | 2.2.1 |
-| `modules/log_kit/log_kit.py` | 滚动日志 1MB×3 + 打开日志目录 | `make_logger(log_dir)`（**log 为 print 形态**，见 D4-04/C-29） `get_logger(log_dir)` `LOG_MAX_BYTES` `LOG_BACKUPS` | 1.0.3 |
-| `modules/service_link/service_link.py` | 服务唯一性/接入/有界清理状态机 | `ServiceLink(probe, launch, terminate, graceful=None, adopt_pid=None, log)` `.refresh()` `.can_start()` `.start()` `.stop()` `.state` `.spectators`（**属性**，非方法） `.note_spectators()` | 0.1.0 |
+| `template/appconfig/appconfig.py` | 参数区：**唯一要改的文件** | `APP_ID` / `APP_NAME` / `REPO_OWNER` / `REPO_NAME` / `EXE_NAME` / `VERSION` / `ICON_DRAW(d, size)` | 1.0.1 |
+| `template/paths/paths.py` | 数据区/播种/稳定位/**数据根重定向** | `APP_DIR` `RUN_DIR` `USER_DATA_DIR` `CONFIG_PATH` `LEGACY_CONFIG_PATH` `LOG_DIR` `LOG_PATH` `UPDATE_DIR` `INSTALL_DIR` `INSTALL_EXE` `is_stable_install()` `ensure_user_dirs()` `seed_config()` `process_pending_update()`（⛔ 已弃用） | 1.1.5 |
+| `template/autostart/autostart.py` | 自启三件套 | `get_autostart_cmd(target="stable")` `is_autostart_enabled()` `set_autostart(bool)` `migrate_autostart(log=…)` | 1.1.4 |
+| `template/update_helper/update_helper.py` | 更新三段式（查/下/换） | `check_update(cur, force=False, repo=None)` `download_and_prepare(..., repo=None, exe_name=None)` `build_apply_script(..., exe_name=None)` `UPDATE_READY` `PENDING_CMD` | 1.4.6 |
+| `template/i18n/i18n.py` | 轻量中英双表（机制词表分离） | `init(lang)` `t(key,*args)` `load_language_from_config` `save_language_to_config` `detect_system_lang()` `load_tables()` `available_langs()` | 2.2.0 |
+| `template/icons/icons.py` | 代码生成双 ico | `make_image(size)` `write_app_icons(out_dir)` / CLI | 2.0.1 |
+| `template/tray_kit/tray_kit.py` | 单实例 / 退出请求 / token 掩码 / 签名重画 / **退出确认框** | `acquire_single_instance(app_id, mutex_name=None, log=…)` `single_instance_free(name)` `warn_duplicate_instance` `confirm_quit_dialog(app, text, init, parent=None, on_change=None)` `make_quit_request_path(dir)` `quit_watch_loop(stop, path, on_quit, beat)` `mask_token(url)` `MenuSignature(rebuild, menu_is_open, log)` | 2.2.1 |
+| `template/log_kit/log_kit.py` | 滚动日志 1MB×3 + 打开日志目录 | `make_logger(log_dir)`（**log 为 print 形态**，见 D4-04/C-29） `get_logger(log_dir)` `LOG_MAX_BYTES` `LOG_BACKUPS` | 1.0.4 |
+| `template/service_link/service_link.py` | 服务唯一性/接入/有界清理状态机 | `ServiceLink(probe, launch, terminate, graceful=None, adopt_pid=None, log)` `.refresh()` `.can_start()` `.start()` `.stop()` `.state` `.spectators`（**属性**，非方法） `.note_spectators()` | 0.1.0 |
 | `sync_check.py` | 防漂移哈希比对 + **无头/坏头/未接入申报**（1.9.0 起） | `python my-diy-tool-template/sync_check.py [--roots …]` | 1.9.0 |
 | `conformance_check.py` | 规范符合度机械检查（本条表与 §5.1 的执行者） | `python …/conformance_check.py [--roots …] [--only …] [--selftest] [--temp-leak[-save/-baseline]]` | 1.9.24 |
 
@@ -65,8 +65,8 @@
 
 | 制品 | 统一的"格式" | 逐工具各异的部分 |
 |---|---|---|
-| `modules/build_release/build.bat` | 门禁顺序、每步失败判定、`norun/nopause` 参数、ASCII-only、反斜杠 | `APPNAME`、编译清单、业务自测命令、`--add-data` 内容 |
-| `modules/build_release/release.bat` | 读版本→四项拒绝闸（脏树/暂存/非 main/本地≠远程）→打 tag 推送 | 版本读取路径随 src layout 调整 |
+| `template/build_release/build.bat` | 门禁顺序、每步失败判定、`norun/nopause` 参数、ASCII-only、反斜杠 | `APPNAME`、编译清单、业务自测命令、`--add-data` 内容 |
+| `template/build_release/release.bat` | 读版本→四项拒绝闸（脏树/暂存/非 main/本地≠远程）→打 tag 推送 | 版本读取路径随 src layout 调整 |
 | `.github/workflows/tests.yml` | 全分支+PR 触发、`PYTHONUTF8=1`、每门禁独立 step、失败上传日志工件 | 测试矩阵、大资源下载/skip |
 | `.github/workflows/release.yml` | `v*` tag 触发、zip + `.sha256`、`workflow_dispatch` 只出工件、run-name 区分 | 资源下载、构建步骤 |
 | `README.md` + `README.zh-CN.md` | 顶部语言切换行**精确格式**、同信息集八段（安装/交互/资源/配置与数据/更新/排障/开发/许可）、键名路径两语言一致 | 全部正文内容 |
@@ -74,7 +74,7 @@
 | `LICENSE` / `.gitignore` | MIT 文本；忽略清单（`build/ dist/ out/ release/ __pycache__ *.pyc *.spec *.log 活配置 大资源 生成 ico`） | 版权行、额外忽略项 |
 | `locales/zh.json` + `locales/en.json` | 扁平 KV、utf-8、zh 为基准键、en 缺失回退 | 全部词条 |
 | `config.json`（出厂模板） | JSON、与用户配置物理分离、随包分发 | 全部字段与默认值 |
-| `modules/*/README.md` | 四段式：定位 / 对外接口 / 采纳步骤 / 边界与坑 | 各模块内容 |
+| `template/*/README.md` | 四段式：定位 / 对外接口 / 采纳步骤 / 边界与坑 | 各模块内容 |
 | `blueprints.txt` | 一行一目录名、`#` 注释 | 名单（**只减不增**） |
 
 ### L3 纯业务 —— 必须留在工具内，**禁止进模板**
@@ -392,8 +392,8 @@ EXIT-06 破坏 = 用户可能在"以为只是关窗口"时把正在跑的服务�
 | 4.1.1 | `STANDARDS.md` A3-03 | 写"命名互斥量暂缓"，但 `tray_kit` 2.0.1 已把 `CreateMutexW` 作为标准接口，dsh/ocx 字节级一致消费——**规范落后于模板** | 已改为：命名互斥量由 `tray_kit` 提供并采纳；工具侧无需偏离登记 |
 | 4.1.2 | `STANDARDS.md` B2 表 | reme-helper 版本列 1.2.4，磁盘 1.2.5 | 发版时同步；建议 B2 版本列由脚本生成 |
 | 4.1.3 | `REVIEW.md` T7 行 | 称 local-speak2text 是 「`--quit` 请求文件蓝本」，当时磁盘上 l-s2t **没有** `--quit` | 蓝本标注改为 reme-helper；l-s2t 需补 `--quit` 或明确不做。<br>✅ **2026-09-19 已实现（本条按源码更正，推翻上面那句）**——ls2t-dev 的物证（`tmp.TzZ8BDq8Hk/data/local-speak2text/quit.request` 残留）经**读源码核实**，不是转述：① **生产者**：`src/main.py:1192` `elif "--quit" in sys.argv:` → `:1174` 的 `_request_quit()` 写 `tray_kit.make_quit_request_path(USER_DATA_DIR)`（`= <数据根>/quit.request`，定义在模板 `modules/tray_kit/tray_kit.py:244`）；② **消费者**：`main.py:1041-1046` 起了一个线程，`target=tray_kit.quit_watch_loop`、`args=(quit_stop, <同一路径>, on_quit)`，循环体 `tray_kit.py:253-265`：文件存在 → `unlink()` → 记一行 「quit requested via --quit」 → 调 `on_quit`（**走与托盘退出同一条清理路径**）。⇒ **写与读两端都在役**，不是"只写请求不做 watch"。**读法纪律**：本条此前那句"没有 `--quit`"本身没错（是当时的**时点读数**），错在**没有时点**——现在按源码写成"已实现 + 文件:行号"，任何人可复验。 |
-| 4.1.4 | `modules/icons/README.md` | 承诺 `make_image` / `write_app_icons(out_dir=".")`，正本实际是 `base_image()` / `make_icons(base_dir)` | 改 README 对齐正本 |
-| 4.1.5 | `modules/paths/README.md` | 承诺 `<APP>_CONFIG` 由本模块支持，正本 `paths.py` 1.1.2 **没有**读该环境变量（`CONFIG_PATH` 直派 `USER_DATA_DIR/config.json`）；而蓝本 l-s2t 的 `paths.py` 里**有** `LOCALSPEAK2TEXT_CONFIG`——**模板相对自家蓝本发生了功能回退** | 已改 README 标注现状。补实现须同批同步 dsh/ocx 副本（否则 sync_check 立刻红灯），**列为待办** |
+| 4.1.4 | `template/icons/README.md` | 承诺 `make_image` / `write_app_icons(out_dir=".")`，正本实际是 `base_image()` / `make_icons(base_dir)` | 改 README 对齐正本 |
+| 4.1.5 | `template/paths/README.md` | 承诺 `<APP>_CONFIG` 由本模块支持，正本 `paths.py` 1.1.2 **没有**读该环境变量（`CONFIG_PATH` 直派 `USER_DATA_DIR/config.json`）；而蓝本 l-s2t 的 `paths.py` 里**有** `LOCALSPEAK2TEXT_CONFIG`——**模板相对自家蓝本发生了功能回退** | 已改 README 标注现状。补实现须同批同步 dsh/ocx 副本（否则 sync_check 立刻红灯），**列为待办** |
 | 4.1.6 | `blueprints.txt` + `sync_check.py` | **蓝本豁免 = 永久盲区**：l-s2t 被豁免比对，模板已前进（`paths` 1.1.2 加了 `_DATA_DIR`），蓝本却停在原地且无人发现 | 豁免改为**限期**：每次模板升位后，蓝本必须回答"跟 or 不跟"并留痕；见 4.2 |
 | 4.1.7 | `STANDARDS.md` J 坑 | "诊断参数冒烟过 ≠ 正常模式可跑"已记录 ef9b381 的教训，但**没有升级为条款**，导致 l-s2t 一个月后踩同款 | 已升级为 D3-01 的硬性要求 + SINGLE-04 检查点 |
 | 4.1.8 | `STANDARDS.md` G4.1 条款 3（自启自愈） | 自愈的触发条件只有"注册表指向的 exe **不存在**"。当它指向一个**存在但已损坏/过期的版本目录**（本次：`release\local-speak2text-1.4.0\`，exe 在、但永远打不开）时**不会自愈**——每次开机照旧拉起坏版本 | 待裁定：自愈条件是否放宽为"指向的 exe 不是当前版本 且 当前实例处于稳定位"；或由更新器在替换后主动重写 Run 值。**在裁定前，构建脚本 `norun` 之外的一切换版本动作都要人工确认自启指向** |
@@ -477,7 +477,7 @@ EXIT-06 破坏 = 用户可能在"以为只是关窗口"时把正在跑的服务�
 
 | 4.1.49 | **重建新鲜度判据的分母只有 `src/**`，小于真实打包输入集**（任务 `#62`，2026-09-19，tpl-keeper 落地） | lead 的口径 `exe mtime > max(src/** mtime)` 只覆盖 `src/**`，而四家都有 **out-of-src datas**（l-s2t `*.ico`+`locales/`；dsh `*.ico`+`resources/`+`locales/`；ocx `*.ico`+`bin\plink.exe`+`locales/`；reme `*.ico`+`doc/`+`pairs.json`）⇒ **若只有 datas 变了，判据会说"新鲜"而产物其实是旧的**。与 `#58` 的 R-10 扫描面同族：**判据的分母小于事实的定义域**。本批次实测这些 out-of-src 输入**全部早于** exe ⇒ **缺口真实存在但当时零影响** | **已落 C-46（WARN，工具通道）**：分母 = `src/**`（剔 `__pycache__`/`*.pyc`）∪ `build.bat|scripts/build.bat` 的 `--add-data "SRC;DEST"` 源（展开 `%~dp0` / `%CD%` / `%APPNAME%`，展不开的源跳过）。**必须打印扫描面（输入件数 + `--add-data` 源数）与取到最大值的那条路径**——只给布尔是"无法复核的结论"（`receipt_check.py` 的教训）。**实测（2026-09-19）**：分母 29/28/28/34 件（dsh/ocx/l-s2t/reme）；**dsh 的 max 输入正是 out-of-src 的 `dsh-helper-taskbar.ico`（20:38:02 < exe 20:38:33）⇒ 补上的那一项就是承重项**；l-s2t / reme 因本波并发编辑 `src/**` 而**如实转 WARN（过期）**——⚠ **这是预期读数**：本轮明确**不重建**，如实留着，**不要为消 WARN 去构建**（否则违反用户范围约束）。**自证 4 条腿**（out-of-src 项变新 ⇒ 翻红 / 严格 `>`（等值即过期）/ 全旧 ⇒ 新鲜 / 空分母 ⇒ **不可判**）。  **另见 §4.1.65**（同一判据的**参照系**与**排除项**两个维度）。|
 | 4.1.50 | **bat 绝对路径化与判据锚点：模板侧已落地，工具侧归各仓**（任务 `#49/#50`，2026-09-19 tpl-keeper 核验） | `#49` 四项：① 模板 `modules/update_helper/update_helper.py` 渲染的 apply.bat **早已全绝对路径**（`%SystemRoot%\System32\{tasklist,find,Robocopy}.exe` + `…\WindowsPowerShell\v1.0\powershell.exe`，裸名 0；见 §4.1.46-补）；② 判据分类器已改为"首 token → 剥引号 → 取末段路径 → 去 `.exe` → 小写比命令名"（`sync_check._split_cmd`），裸名与绝对路径都识别、顺手消掉 `findstr` 误配；③ `idx()` 未命中**返回 `None` 不返回 `-1`**（`-1` 会流进 `>` 比较成**空真**）；④ 双向自证在 `sync_check --selftest` 的 **E-mut 组**。`#50`：删**真正执行安装的那一行**（`robocopy STAGE→TARGET`）**必须变红**——实测**死 3 条**（`检查 rc` / `替换前先快照` / `start 前有存在性守卫`），且"**空真集合为空**（没有判据停止工作）= 0 处"。**本轮补的模板侧缺口**：模板自己的 `modules/build_release/{build,release}.bat` 仍有 3 处裸名（`findstr`×2 / `robocopy`×1）⇒ **已按字节绝对路径化**，C-44 模板通道由 FAIL → `[ok]`（扫描面 2 个 bat）。**同批一次自伤留档**：用 heredoc→Python 写这批 bat 时，`\f` 落成了真 `0x0c`（正文成了 `System32<FF>indstr.exe`），而 **C-44 仍判绿**（只看 token 是否含分隔符）、**C-22 三项（CRLF/无 TAB/ASCII）也都不覆盖控制字符**——是**字节回读**当场抓住并按字节还原。⇒ 又一条"既有字节判据不看控制字符"的实证（与 §4.1.36 的 0x0c 家族同源）。 |
-| 4.1.51 | **自启自愈谓词是"存在性"，不能代理"当前性"**（任务 `#63`，2026-09-19；**登记，不写派发件**） | `modules/autostart/autostart.py` 的 `_cmd_alive(value)`（:86-93）判据 = "命令行里路径 token **全部存在**"。`release/` 保留历史版本目录的布局使该谓词**对废弃版本恒真** ⇒ `migrate_autostart`（:121-122）直接 `return`。历史实例：dsh 的 `dsh-helper` + `DSH-Helper`（**大小写不同的孤儿条目**）两条 Run 值都指着被废弃的 `release\dsh-helper-1.8.2\`；而 `migrate_autostart` 只读 `APP_NAME` ⇒ **大小写变体永不在其视野内**。**已消除的部分**：Run 键本轮已改指 1.8.1（HANDOFF §1.5）；`DSH-Helper` 孤儿条目已不存在（本日 22:12 **只读回读** Run 表，只剩一条 `dsh-helper`）。**判据侧已满足"漂移变红"**：C-40 强断言（Run 目标目录必须 == `release/<源码 VERSION>/`）的负控格 `live_dsh_case_flagged` 就是"1.8.2 vs VERSION 1.8.1 ⇒ FAIL"（逐字搬入真实反例，§4.1.42）。**未落地部分（推翻开关交 lead）**：把谓词改成"等于源码 VERSION 对应的目录"**必须改 `modules/autostart/autostart.py`**——那是**派发件**，改它会让 dsh/ocx/l-s2t 三份副本立刻 `[DIFF]`、`sync_check` 红灯、连带各自 `build.bat` 门禁 1.2 失败（与并发的 W5/W7/W8 直接冲突）。按"**影响最小的一侧**"本轮**不写派发件**。**✅ lead 2026-09-19 裁定（明确结论，勿当"没做"）**：本轮不写派发件，**谓词改造并入下一波可重拷波次（与 T4 `update_helper` 接口扩展 / 四家重拷同一批）**；理由 = ① 改它是**派发事件**，会让 dsh/ocx/l-s2t 三份副本 `[DIFF]`、`sync_check` 红、各自门禁 1.2 失败，且与并发 W5/W7/W8 冲突；② **C-40 已能兜住漂移**（强断言 + `<VERSION>` 目录比对 + 真实反例自证格），"**存在性谓词 + 当前性判据并存**"是可接受的稳态——漂移由**判据**抓住，不必由**谓词**阻止；③ 用户本轮约束是避免重构与范围膨胀。**附带登记**：大小写变体 Run 条目曾是 C-40 与 `migrate_autostart` 的**共同盲区**（两者都只读精确键名）。**2026-09-19 更新**：C-40 修复后（§4.1.53）取**全表**并把大小写变体键打进 detail 的 `[注]` ⇒ **判据侧已可见化**；但 `migrate_autostart` 的视野仍未变（它只读 `APP_NAME`），故本条谓词部分仍待可重拷波次（见任务 #9）。 |
+| 4.1.51 | **自启自愈谓词是"存在性"，不能代理"当前性"**（任务 `#63`，2026-09-19；**登记，不写派发件**） | `template/autostart/autostart.py` 的 `_cmd_alive(value)`（:86-93）判据 = "命令行里路径 token **全部存在**"。`release/` 保留历史版本目录的布局使该谓词**对废弃版本恒真** ⇒ `migrate_autostart`（:121-122）直接 `return`。历史实例：dsh 的 `dsh-helper` + `DSH-Helper`（**大小写不同的孤儿条目**）两条 Run 值都指着被废弃的 `release\dsh-helper-1.8.2\`；而 `migrate_autostart` 只读 `APP_NAME` ⇒ **大小写变体永不在其视野内**。**已消除的部分**：Run 键本轮已改指 1.8.1（HANDOFF §1.5）；`DSH-Helper` 孤儿条目已不存在（本日 22:12 **只读回读** Run 表，只剩一条 `dsh-helper`）。**判据侧已满足"漂移变红"**：C-40 强断言（Run 目标目录必须 == `release/<源码 VERSION>/`）的负控格 `live_dsh_case_flagged` 就是"1.8.2 vs VERSION 1.8.1 ⇒ FAIL"（逐字搬入真实反例，§4.1.42）。**未落地部分（推翻开关交 lead）**：把谓词改成"等于源码 VERSION 对应的目录"**必须改 `modules/autostart/autostart.py`**——那是**派发件**，改它会让 dsh/ocx/l-s2t 三份副本立刻 `[DIFF]`、`sync_check` 红灯、连带各自 `build.bat` 门禁 1.2 失败（与并发的 W5/W7/W8 直接冲突）。按"**影响最小的一侧**"本轮**不写派发件**。**✅ lead 2026-09-19 裁定（明确结论，勿当"没做"）**：本轮不写派发件，**谓词改造并入下一波可重拷波次（与 T4 `update_helper` 接口扩展 / 四家重拷同一批）**；理由 = ① 改它是**派发事件**，会让 dsh/ocx/l-s2t 三份副本 `[DIFF]`、`sync_check` 红、各自门禁 1.2 失败，且与并发 W5/W7/W8 冲突；② **C-40 已能兜住漂移**（强断言 + `<VERSION>` 目录比对 + 真实反例自证格），"**存在性谓词 + 当前性判据并存**"是可接受的稳态——漂移由**判据**抓住，不必由**谓词**阻止；③ 用户本轮约束是避免重构与范围膨胀。**附带登记**：大小写变体 Run 条目曾是 C-40 与 `migrate_autostart` 的**共同盲区**（两者都只读精确键名）。**2026-09-19 更新**：C-40 修复后（§4.1.53）取**全表**并把大小写变体键打进 detail 的 `[注]` ⇒ **判据侧已可见化**；但 `migrate_autostart` 的视野仍未变（它只读 `APP_NAME`），故本条谓词部分仍待可重拷波次（见任务 #9）。 |
 
 
 | 4.1.52 | **横幅「自报即自证」不成立：`conformance_check` 的横幅曾把 ref（`head:`）与内容 id 印在同一行**（任务 `#58`，2026-09-19 落地） | 工具**自印自己的 HEAD** = 被测对象供给判它的可观测量，属「**无判据**」而非「漏判」（与 `sync_check` 三处静默出口 `#57` 同构）。而自报的 `sha256` / `norm` 是**内容派生**、`head` 是 **ref** —— ref 必须由**读的人在外面配**（`git rev-parse HEAD` 的 blob id），两类证据**分开记、不互替**；`head(at pin)=X head(now)=Y` 仍把 ref 印进自报，不够。 | **已落**：`identity_line()` 的横幅改为 `# conformance_check <VER>  sha256:<raw>  norm:<norm>  at:<ISO>` —— 去掉 `head:`，保留内容 id 与**时点** `at:`（§4.1.28）。**被检仓库**的 `repo=<name> rev=<short> dirty=<yes|no>` 行**保留**：那是关于**对象**的外部证据，不是仪器自报。**同批条文**（路径解析两子句 + `FROM` 分支禁 `continue`）见 `STANDARDS.md §D8 附则 附 2/附 3`。 |
@@ -1105,7 +1105,7 @@ python -c "import pathlib,re;s=chr(92);p=re.compile('[A-Za-z]:'+s+s);[print(f) f
 | dsh | in-use 标记只能检测不能防护（须持句柄） | **CONFORMANCE §4.1.29** |
 | dsh | 启动自检打解析后的数据根/配置路径 | **CONFORMANCE §4.1.38** + C-38 |
 | ocx | 勾选作用域被误当触发条件 / 正确勾选形态 | **CONFORMANCE §4.1.58** + C-50 + §G4.2 条款 5 |
-| ocx | `os.system('start …')` 闪黑框、路径插值进 shell | `modules/update_helper/README.md`（`launch_pending_cmd`） |
+| ocx | `os.system('start …')` 闪黑框、路径插值进 shell | `template/update_helper/README.md`（`launch_pending_cmd`） |
 | ocx | 路径双真源只在打包态恰好一致 | **§F2**（单一真源；T12 建议补 dsh+ocx 锚点） |
 | reme | cmd `if defined X if "%X:~-1%"=="\"` 未定义变量展开成垃圾 | **CONFORMANCE §4.1.45**（同族 cmd 展开语义） |
 | reme | `attrib +R` 在目录上挡不住 `rmdir /s /q` | **CONFORMANCE §4.1.29**（防护须来自目录之外） |
