@@ -57,3 +57,19 @@ OWNED ──进程已消失──▶ NONE（自然收敛）
   教训：workspace 产物才是权威）；
 - `--quit`/外部退出导致 helper 被杀时无清理机会，服务越过托盘继续运行 = 预期行为
   （G4.2 条款 4），helper 重启后自动重新接入。
+
+
+## 0.2.0：启动编排三件 + 就绪钩子（W7）
+
+| API | 语义 |
+|---|---|
+| `start()` | 先入 STARTING 再 launch；launch 抛异常回滚 NONE（不留半启动态卡死状态机） |
+| `wait_ready(timeout, abort_event=None, interval=0.5)` | 轮询 probe 至健康/超时/abort。abort **立即**返回且不动进程（已 launch 的留 OWNED，由调用方处置） |
+| `ensure_running(timeout, ...)` | probe 命中→收养 ADOPTED；否则 start+wait_ready。「启动工具→拉服务→就绪后起隧道」的编排入口 |
+| `on_ready(callback)` | 就绪瞬间回调（异常不外抛）；tunnel_kit 的衔接点 |
+
+### abort_event 装配规约（shutdown 竞态，reme main.py:2826-2828 教训）
+
+**必须**把主程序的 STOP_EVENT 传给 `abort_event`：退出路径上等待必须比超时先断，
+否则用户看着托盘"卡住关不掉"。abort 只中断等待、不杀进程——退出链路本就整链收尾，
+服务归属 OWNED/ADOPTED 由既有 stop 语义处理。
