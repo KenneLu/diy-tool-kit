@@ -37,7 +37,7 @@ def _bundled_dirs():
     dirs = []
     meipass = getattr(sys, "_MEIPASS", "")
     for cand in (Path(meipass) / "resources" / "icons" if meipass else None,
-                 Path(__file__).resolve().parents[2] / "resources" / "icons"):
+                 Path(__file__).resolve().parents[3] / "resources" / "icons"):
         if cand and cand.is_dir():
             dirs.append(cand)
     return dirs
@@ -53,7 +53,7 @@ def init(config_icon_dir=None):
         p = Path(config_icon_dir)
         if p.is_dir():
             dirs.append(p)
-    app_dir = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])
+    app_dir = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[3])
     # 源码态与打包态共用 src 布局下仓库根的 resources/；打包态 _MEIPASS 下同构
     for p in (app_dir / "resources" / "icons",):
         if p.is_dir() and p not in dirs:
