@@ -43,8 +43,8 @@ my-diy-tool-template\
 |---|---|---|---|---|
 | [appconfig](template/appconfig/README.md) (T1) | 参数区：唯一要改的文件 | F2、D6/D15 | — | dsh、opencodex |
 | [paths](template/paths/README.md) (T2) | 数据区/播种/稳定位/**数据根重定向** | F1、F11/D12 | local-speak2text | （dsh/ocx 内联等构，见 REVIEW 矩阵） |
-| [autostart](template/autostart/README.md) (T3) | 自启三件套 | G4.1 | local-speak2text | 同上 |
-| [update_helper](template/update_helper/README.md) (T4) | 在线更新三段式 | G4、H6 | reme + l-s2t + dsh/ocx | **dsh、opencodex（字节级一致）** |
+| [autostart](template/autostart/README.md) (T3) | 自启三件套（Run 键名参数化） | G4.1 | —（基线已归模板正本） | dsh、opencodex、local-speak2text、reme（W4 全家接入） |
+| [update_helper](template/update_helper/README.md) (T4) | 在线更新三段式（含 marker 语义） | G4、H6 | —（基准移交模板 E 组判据，W5） | dsh、opencodex、local-speak2text、reme（W5 全收，字节级一致） |
 | [i18n](template/i18n/README.md) (T5) | 轻量中英双表 | E4、A2-T1 | local-speak2text | local-speak2text（完整版蓝本） |
 | [icons](template/icons/README.md) (T6) | 代码生成双 ico | G5 | local-speak2text | local-speak2text |
 | [tray_kit](template/tray_kit/README.md) (T7) | 单实例/--quit/token 掩码/签名重画/三循环 | E2(D14)、F13 | reme + local-speak2text | （机制以蓝本内联形态服役） |
