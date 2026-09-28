@@ -2,6 +2,22 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## [service_link 0.2.0 + tray_kit 2.3.0] - 2026-09-28 (W7-1)
+
+- **service_link 0.2.0：启动编排三件 + 就绪钩子**（代码 651bd49 先行落库，本条目补登）：
+  - `STATE_STARTING`：`start()` 先入 STARTING 再 launch，launch 抛异常回滚 NONE
+    （旧版失败把状态机卡在半启动态，后续 start 被"already running"拒绝）；
+  - `wait_ready(timeout, abort_event=None, interval=0.5)`：对齐 reme wait_for_health——
+    abort 立断且**不动进程**（shutdown 竞态：等满超时才退 = 托盘卡住关不掉）；
+  - `ensure_running(timeout, …)`：probe 命中→收养 ADOPTED；否则 start+wait_ready——
+    「启动工具→拉服务→就绪后起隧道」的编排入口（tunnel_kit 衔接点）；
+  - `on_ready(callback)`：就绪回调，异常不外抛；
+  - README：abort_event 装配规约（**必须**接主程序 STOP_EVENT）+ 开头状态机图/接口表
+    同步 0.2.0（消除追加段与正文新旧并存）。
+- **tray_kit 2.3.0：menu_is_open 下沉**（Decision 9）——MenuSignature 的配套探测器
+  （GUI_INMENUMODE 遍历本进程线程 + 前台窗口 #32768 兜底）此前四工具各内联约 40 行
+  近乎逐行重复，正本化进模板；四仓改为 `menu_is_open=tray_kit.menu_is_open`。
+
 ## [update_helper 1.5.0] - 2026-09-27 (W5 前段, D4 方案 B)
 
 - **吸收 reme 两条失败可见性语义**（F14-①②，语义源=reme 已验证更新链 7242-7282）：

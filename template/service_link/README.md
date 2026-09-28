@@ -15,11 +15,14 @@ helper 类工具与它托管的服务之间的**所有权状态机**。回答三
 
 ```
 NONE ──探测到服务────▶ ADOPTED ──stop──▶ NONE
-NONE ──start()──────▶ OWNED  ──stop──▶ NONE
+NONE ──start()──────▶ STARTING ──launch 成功──▶ OWNED ──stop──▶ NONE
+                       └─launch 抛异常──▶ NONE（回滚，不留半启动态）
 OWNED ──进程已消失──▶ NONE（自然收敛）
 ```
 
 - **NONE**：探测不到服务 → `start()` 允许。
+- **STARTING**（0.2.0）：`start()` 先入此态再 launch；launch 抛异常回滚 NONE
+  （旧版失败会把状态机卡在半启动态，后续 start 被"already running"拒绝）。
 - **ADOPTED**：服务在，但不是本 helper 启动的（helper 打开前就在跑）→ 接入
   pid 登记后固定；停止走优雅 API 优先、按 pid 兜底。
 - **OWNED**：本 helper 启动 → 持有句柄；停止按句柄终止整棵进程树。
@@ -31,9 +34,12 @@ OWNED ──进程已消失──▶ NONE（自然收敛）
 | 成员 | 说明 |
 |---|---|
 | `refresh()` | 每轮健康检查调用；探测 + 状态自然收敛。返回 `(state, healthy)` |
-| `can_start()` / `start()` | 唯一性守卫：仅 `NONE` 态允许启动；`start` 返回 `(ok, msg)` |
+| `can_start()` / `start()` | 唯一性守卫：仅 `NONE` 态允许启动；`start` 先入 STARTING 再 launch，异常回滚 NONE。返回 `(ok, msg)` |
+| `wait_ready(timeout, abort_event=None, interval=0.5)` | 0.2.0：轮询 probe 至健康/超时/abort；就绪触发 on_ready。abort 立断且**不动进程** |
+| `ensure_running(timeout=60.0, …)` | 0.2.0：probe 命中→收养 ADOPTED；否则 start+wait_ready。「服务就绪后起隧道」的编排入口 |
+| `on_ready(callback)` | 0.2.0：就绪回调（异常不外抛）；tunnel_kit 的衔接点 |
 | `stop()` | 有界清理：只关接入实例（ADOPTED 优雅优先）；返回 `(ok, msg)` |
-| `state` | `none / adopted / owned`——托盘状态行与菜单启停的禁用逻辑都从它派生 |
+| `state` | `none / starting / adopted / owned`——托盘状态行与菜单启停的禁用逻辑都从它派生 |
 | `spectators` | 发现但未接入的实例 pid（只登记，永不清理） |
 
 ## 采纳步骤（回调注入，模块零依赖）
