@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: appconfig | TEMPLATE-VER: 1.0.2
+# TEMPLATE-MODULE: appconfig | TEMPLATE-VER: 1.0.3
+# 1.0.3（W6）：文档化 ICON_STATE_ARTISTS（T6 状态贴图参数；icons 2.1.0 消费）
 """T1｜工具参数区：拷贝模板后**唯一允许（也需要）修改的文件**。
 
 工具差异只允许存在于一处（house 标准 D6 / D15）：
@@ -12,6 +13,8 @@
   EXE_NAME      打包产物 exe 文件名（更新器替换目标）
   ICON_DRAW(size) -> PIL.Image   托盘图标绘制函数（T6 icons.py 以 ICON_DRAW(256) 调用）
   ICON_ASSET     png 路径或 None 手工资产（T6，与 ICON_DRAW 二选一，ICON_ASSET 优先）
+  ICON_STATE_ARTISTS  dict[状态名, callable(base256)->Image256]（T6 状态贴图，W6。缺省 None=单
+                default 形态；"default" 态恒用 base 原图，不需也不能出现在本表）
 
 1.0.2（W4，随 autostart 1.2.0）：新增 `AUTOSTART_KEY`——Run 键名参数化，差异进参数件。
 1.0.1：修正自相矛盾——原先注释写 `ICON_DRAW(ctx, size)` 且未定义 ICON_ASSET，
