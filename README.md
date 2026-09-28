@@ -51,7 +51,8 @@ my-diy-tool-template\
 | [build_release](template/build_release/README.md) (T8+T9) | 门禁构建 + tag 发版链 | D1、G3/G4、H | local-speak2text | dsh、opencodex（工作流变体）、local-speak2text |
 | [log_kit](template/log_kit/README.md) (T12) | 滚动日志 1MB×3 + 打开日志目录 | D4(D13) | reme-helper | local-speak2text（dsh/ocx 内联等构） |
 | [baseline](template/baseline/README.md) (T11) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
-| [service_link](template/service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | ⏳ 模板就绪，工具接入待排期 |
+| [service_link](template/service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | opencodex、reme（W7 接入） |
+| [tunnel_kit](template/tunnel_kit/README.md) | ssh 反向隧道统一（三层探测/退避自愈/N=3 确认/OWNED-only 停止） | D10、F4 | opencodex、reme（W7 前内联隧道段） | opencodex、reme（W7 接入） |
 
 > **"现役用户/蓝本"列的目标态（2026-09-18 用户定，STANDARDS B4 原则③）**：四个工具**全部**
 > 消费模板（`src/template/<模块>/` 整文件夹采纳，路径统一）；"蓝本""内联等构"都是迁移中的
