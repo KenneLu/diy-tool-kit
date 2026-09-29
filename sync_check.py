@@ -375,6 +375,22 @@ def declared_not_wired(mod_dir: Path) -> str:
     return "NOT-WIRED.md" if (mod_dir / "NOT-WIRED.md").is_file() else ""
 
 
+def tool_references_module(tool_dir: Path, mod: str) -> bool:
+    """C-53 陈旧申报判定（W8-C）：工具 `src/` 顶层 .py 是否实际引用了模块名。
+
+    申报口的原生形态只在**缺失**时可见（#57：[decl] 挂在 missing 分支）——
+    模块一旦接线，NOT-WIRED.md 就成了**永不再被复核的陈述**。实测：W4 的 reme
+    autostart NOT-WIRED（i18n-unify 复核抓获，接线后申报仍躺了三个 Wave）。
+    判定口径取最保守的**文本引用**（import/from/属性访问/注释提及皆算）：
+    陈旧申报是黄灯，宁可多看一眼，不在机械层过滤。
+    """
+    pat = re.compile(r"\b%s\b" % re.escape(mod))
+    for p in sorted(tool_dir.glob("src/*.py")):
+        if p.is_file() and pat.search(read_text(p)):
+            return True
+    return False
+
+
 def no_header_legs(tool_dir: Path):
     """"缺头 ⇒ 报"的两条腿。返回 `(copies, ns_files)`。
 
@@ -1206,6 +1222,19 @@ def _header_silence_cases(base: Path):
     cases.append(("腿④ NOT-WIRED.md：无 ⇒ 空 / 有 ⇒ 认（同一目录，只加一个文件）",
                   before == "" and after == "NOT-WIRED.md",
                   f"before={before!r} after={after!r}"))
+
+    # 腿⑤ C-53 陈旧申报（W8-C）：申报在场 + src 引用 ⇒ True；申报在场 + 无引用 ⇒ False。
+    # 红格形态即 W4 reme autostart 实锤（NOT-WIRED 躺三个 Wave 无人复核）。
+    d8 = base / "leg5"
+    (d8 / "src" / "template" / "service_link").mkdir(parents=True)
+    (d8 / "src" / "template" / "service_link" / "NOT-WIRED.md").write_text(
+        "有意未接入（selftest 样本）\n", encoding="utf-8")
+    clean = not tool_references_module(d8, "service_link")
+    (d8 / "src" / "main.py").write_text(
+        "from template import service_link\n", encoding="utf-8")
+    wired = tool_references_module(d8, "service_link")
+    cases.append(("腿⑤ C-53 陈旧申报：无引用 ⇒ False / src 引用 ⇒ True（#57 盲区腿）",
+                  clean and wired, f"clean={clean} wired={wired}"))
     return cases
 
 
@@ -1326,7 +1355,7 @@ def main() -> int:
     drift, declared, missing, params, lags, nohdr, miss_mod, miss_file, diffs = (
         [], [], [], [], [], [], [], [], [])
     # 1.9.0 新增四条腿的可观测量（详见 scan_tool / no_header_legs 的 docstring）
-    bad_hdr, nohdr_copy, nohdr_ns, not_wired = [], [], [], []
+    bad_hdr, nohdr_copy, nohdr_ns, not_wired, stale_nw = [], [], [], [], []
 
     def emit(kind, name, tool_dir, tool_file, rel, note, tool_ver, tpl_ver, is_declared):
         leaf = tool_file.relative_to(tool_dir)
@@ -1441,6 +1470,12 @@ def main() -> int:
                         break
             # 模块级"有意未接入"申报口（#57）：见 declared_not_wired()
             not_wired_md = declared_not_wired(mod_dir)
+            # C-53 陈旧申报（W8-C）：申报在场但工具代码已引用该模块 ⇒ 黄灯。
+            if not_wired_md and tool_references_module(tool_dir, mod):
+                stale_nw.append((name, mod, not_wired_md))
+                print(f"[STALE-NW] {name}: src/{TPL_DIR_NAME}/{mod}/{not_wired_md} 申报"
+                      f"未接入，但 src/ 顶层已引用 {mod} —— 陈旧申报（接线后撤销申报，"
+                      f"或理由已过期需复核；#57 申报只在缺失时可见的盲区腿）")
             for tpl_py in pys:
                 tpl_rel = tpl_py.relative_to(TEMPLATE_DIR).as_posix()
                 cand = mod_dir / tpl_py.relative_to(TEMPLATE_DIR / TPL_DIR_NAME / mod)
@@ -1494,11 +1529,11 @@ def main() -> int:
     print()
     for name, tool_file, rel in missing:
         print(f"[MISS ] {name}: {TEMPLATE_DIR.name}/{rel} 不存在（检查头部路径）")
-    if lags or nohdr or miss_mod or miss_file or diffs or nohdr_ns:
+    if lags or nohdr or miss_mod or miss_file or diffs or nohdr_ns or stale_nw:
         print(f"needs human decision (yellow, non-blocking): "
               f"lag={len(lags)}, doc-md-diff={len(diffs)}, nohdr={len(nohdr)}, "
               f"missing-module={len(miss_mod)}, missing-file={len(miss_file)}, "
-              f"no-header-in-modules={len(nohdr_ns)}"
+              f"no-header-in-modules={len(nohdr_ns)}, stale-not-wired={len(stale_nw)}"
               f" —— 见 my-diy-tool-template/对齐台账.md 对应格子")
     print(f"summary: {len(drift)} undeclared drift, {len(lags)} blueprint lag(s), "
           f"{len(declared)} declared override(s), {len(params)} param file(s), "
@@ -1506,7 +1541,7 @@ def main() -> int:
           f"{len(miss_mod)} missing module(s), {len(miss_file)} missing file(s), "
           f"{len(missing)} missing template(s), {len(bad_hdr)} bad header(s), "
           f"{len(nohdr_copy)} stripped-header copy(ies), {len(nohdr_ns)} unheaded-in-modules, "
-          f"{len(not_wired)} declared not-wired")
+          f"{len(not_wired)} declared not-wired, {len(stale_nw)} stale not-wired")
     if drift or missing or bad_hdr or nohdr_copy:
         print("fix: 把模板修复同步到该工具（独立 commit + 门禁绿），或在文件头申报 TEMPLATE-LOCAL-OVERRIDE。")
         print("     [BAD-HDR]（申报的出处不可解析）与 [NO-HDR-COPY]（拷贝被剥掉头）为**红灯**：")
