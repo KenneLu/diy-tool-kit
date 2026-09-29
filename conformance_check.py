@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 # TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.2
+# 2.0.3（W8-C）：**C-45 反转 + 孤立 CR 扩腿**——F-R1 根治（五仓 .gitattributes
+#   `* text=auto eol=lf`）后家族行尾基线反转：工具侧副本必须**全程 LF**（原为 CRLF）；
+#   孤立 CR（0x0D 不伴随 0x0A）单列报警（F-1 实锤：build.bat 行中 `\r` 被折成单字节
+#   CR，cmd 剥 CR 后路径静默损坏、构建丢贴图资产）。selftest 样本同步反转+红格扩腿，
+#   仪器侧 bytes([10])/bytes([13]) 构造（转义绞杀禁令判据化首例）。
 # 2.0.2（W3 后段收尾）：**C-52 收窄**——pairs.json 重形态 grandfather 终结（reme 已迁
 #   轻形态 locales/*.json，执行文档 W3 后段）。合法 i18n 形态只剩 src/template/i18n/
 #   目录一种：i18n_gap 删 has_pairs 形参；C-20 删重形态跳过腿（词表外中文检查全家族生效）；
@@ -4163,34 +4168,37 @@ def _first_lone_lf(blob: bytes) -> int:
 
 
 def check_dispatched_eol(root: Path):
-    """派发件（`.py`/`.md`）必须全程 CRLF。返回 `(ok, detail)`。
+    """派发件（`.py`/`.md`）必须全程 LF 且无孤立 CR（2.0.3 反转，与 C-45 同基线）。返回 `(ok, detail)`。
 
     为什么要有这条：模板是**拷贝式分发**（B4）——**正本的行尾就是四份副本的行尾**。
-    正本被某个编辑器整文件写成 LF-only 时：`py_compile` 照旧绿、`sync_check` 照旧
-    `[ok]`（两边同为 LF，归一化哈希一致）、C-22 只管 `.bat`/`.cmd`——**没有任何一层
-    会报**。实测现场（2026-09-19）：`modules/log_kit/log_kit.py` 被整文件重写成 LF，
-    是**读回字节**才发现的。**没人查的一致性问题一定会漂**，所以给它一条可见的 WARN。
+    F-R1 根治（2026-09-28）后家族基线 = LF（五仓 .gitattributes `* text=auto eol=lf`）；
+    正本若被某个编辑器整文件写成 CRLF：`py_compile` 照旧绿、`sync_check` 照旧 `[ok]`
+    （两边同为 CRLF，归一化哈希一致）、C-22 只管 `.bat`/`.cmd` 的 **CRLF 例外**——
+    除本条外没有任何一层会报。孤立 CR（F-1 形态）同理单列。
     """
     files = _dispatched_files(root)
     if not files:
-        return True, "模板 modules/ 下没有 .py/.md（判据不适用）"
+        return True, "模板 template/ 下没有 .py/.md（判据不适用）"
     bad = []
     for p in files:
         blob = p.read_bytes()
         crlf = blob.count(b"\r\n")
-        lone = blob.count(b"\n") - crlf
-        if lone:
-            bad.append("%s:%d 行尾是 LF（共 %d 处；CRLF %d 处）"
-                       % (p.relative_to(root).as_posix(), _first_lone_lf(blob), lone, crlf))
+        lone_cr = blob.count(b"\r") - crlf
+        if crlf:
+            bad.append("%s 行尾含 CRLF（共 %d 处；F-R1 后家族基线为 LF）"
+                       % (p.relative_to(root).as_posix(), crlf))
+        elif lone_cr:
+            bad.append("%s 含孤立 CR 0x0D（共 %d 处；F-1 形态）"
+                       % (p.relative_to(root).as_posix(), lone_cr))
     if bad:
-        return False, ("%d/%d 个派发件不是全程 CRLF：%s。【正确形态】统一 CRLF——"
-                       "正本的行尾会被原样拷进四个工具，而 LF-only 不报错、不触发任何"
-                       "现有判据（C-22 只管 .bat/.cmd），只能靠本条可见"
+        return False, ("%d/%d 个派发件行尾异常（须全程 LF、无孤立 CR）：%s。【正确形态】"
+                       "按字节统一 LF——正本的行尾会被原样拷进四个工具，而编辑器悄悄改的"
+                       "行尾不报错、不触发任何其他判据（C-22 只管 .bat/.cmd 的 CRLF 例外）"
                        % (len(bad), len(files), "；".join(bad)))
-    return True, "%d 个派发件（.py/.md）全部 CRLF" % len(files)
+    return True, "%d 个派发件（.py/.md）全程 LF 且无孤立 CR" % len(files)
 
 
-@template_check("C-31", "WARN", "模板派发件（.py/.md）必须全程 CRLF（C-22 只管 bat/cmd）")
+@template_check("C-31", "WARN", "模板派发件（.py/.md）必须全程 LF 且无孤立 CR（F-R1 基线；C-22 只管 bat/cmd 例外）")
 def c31(c: Ctx):
     return check_dispatched_eol(c.dir)
 
@@ -4210,34 +4218,45 @@ _TOOL_COPY_SKIP = {"__pycache__"}
 
 
 def check_tool_copy_eol(root: Path, sub: str = "src"):
-    """工具侧副本（`<sub>/modules/**` 的 `.py`/`.md`）必须全程 CRLF。"""
+    """工具侧副本（`<sub>/template/**` 的 `.py`/`.md`）必须全程 LF（2.0.3 反转 + 孤立 CR 扩腿）。
+
+    2026-09-28 F-R1 根治后家族基线 = LF（五仓 .gitattributes `* text=auto eol=lf`；
+    bat/cmd 保 CRLF 是 .gitattributes 例外，不在本扫描面的 .py/.md 里）。
+    孤立 CR（`\\r` 不伴随 `\\n`）单独报警——F-1 实锤形态：`%CD%\\resources` 的
+    `\\r` 被写工具折成 0x0D 单字节后，cmd 剥 CR、源路径静默变 `%CD%esources`，
+    下次构建贴图资产不进包（l-s2t f795177 / reme 5e67c22 两仓实修）。
+    """
     base = root / sub / "template"
     if not base.is_dir():
-        return True, "扫描面：无 %s/modules/（该工具不消费模板模块，判据不适用）" % sub
+        return True, "扫描面：无 %s/template/（该工具不消费模板模块，判据不适用）" % sub
     files = [p for p in sorted(base.rglob("*"))
              if p.is_file() and p.suffix.lower() in _DISPATCH_EXTS
              and not any(part in _TOOL_COPY_SKIP for part in p.parts)]
     if not files:
-        return True, "扫描面：%s/modules/ 下没有 .py/.md（判据不适用）" % sub
+        return True, "扫描面：%s/template/ 下没有 .py/.md（判据不适用）" % sub
     bad = []
     for p in files:
         blob = p.read_bytes()
         crlf = blob.count(b"\r\n")
-        lone = blob.count(b"\n") - crlf
-        if lone:
-            bad.append("%s:%d 行尾是 LF（共 %d 处；CRLF %d 处）"
-                       % (p.relative_to(root).as_posix(), _first_lone_lf(blob), lone, crlf))
+        lone_cr = blob.count(b"\r") - crlf
+        if crlf:
+            bad.append("%s 行尾含 CRLF（共 %d 处；F-R1 后家族基线为 LF）"
+                       % (p.relative_to(root).as_posix(), crlf))
+        elif lone_cr:
+            bad.append("%s 含孤立 CR 0x0D（共 %d 处；F-1 形态：cmd 剥 CR 后路径类字面量"
+                       "静默损坏，构建丢资产）"
+                       % (p.relative_to(root).as_posix(), lone_cr))
     if bad:
-        return False, ("%d/%d 个工具侧副本不是全程 CRLF：%s。【为什么这条必须单独存在】"
-                       "`sync_check` 按 `read_text()` 比内容、**行尾被归一化** ⇒ 只改行尾的"
-                       "重拷在它眼里是**零效果、照旧 `[ok]`**（实测：icons.py×3 + service_link.py×1）。"
-                       "【正确形态】按**字节**统一 CRLF（**不要用 `read_text`/`write_text`**"
+        return False, ("%d/%d 个工具侧副本行尾异常（须全程 LF、无孤立 CR）：%s。"
+                       "【为什么这条必须单独存在】`sync_check` 按 `read_text()` 比内容、"
+                       "**行尾被归一化** ⇒ 只改行尾的重拷在它眼里是**零效果、照旧 `[ok]`**。"
+                       "【正确形态】按**字节**统一 LF（**不要用 `read_text`/`write_text`**"
                        "——那一对会改掉你要对比的字节）"
                        % (len(bad), len(files), "；".join(bad)))
-    return True, "%d 个工具侧副本（%s/modules/** 的 .py/.md）全部 CRLF" % (len(files), sub)
+    return True, "%d 个工具侧副本（%s/template/** 的 .py/.md）全程 LF 且无孤立 CR" % (len(files), sub)
 
 
-@check("C-45", "WARN", "工具侧副本（src/modules/** 的 .py/.md）必须全程 CRLF（sync_check 看不见行尾）")
+@check("C-45", "WARN", "工具侧副本（src/template/** 的 .py/.md）必须全程 LF 且无孤立 CR（F-R1 基线；sync_check 看不见行尾）")
 def c45(c: Ctx):
     """见上方注释。**按字节判**：`sync_check` 的归一化会吃掉行尾，故这条必须独立存在。"""
     return check_tool_copy_eol(c.dir)
@@ -5374,11 +5393,15 @@ def selftest() -> int:
             print("[selftest] %s  C-44 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-45（2026-09-19，lead 升为本波必办）：**工具侧副本的行尾**。
-        # 三格：LF 副本（红）/ CRLF 副本（绿）/ 无 modules 目录（不适用=绿）。
+        # C-45（2026-09-19 立；2026-09-29 2.0.3 **反转+扩腿**：F-R1 后基线=LF，
+        # 且孤立 CR（F-1 形态）单列红格）。
+        # 四格：LF 副本（绿）/ CRLF 副本（红）/ 孤立 CR（红，F-1）/ 无目录（不适用=绿）。
+        bsn = bytes([10]); bscr = bytes([13, 10])          # 仪器侧 bytes 构造（转义绞杀禁令）
         c45_cases = (
-            ("lf_copy_flagged", "template/mod1/a.py", b"x = 1\ny = 2\n", False),
-            ("crlf_copy_ok", "template/mod1/a.py", b"x = 1\r\ny = 2\r\n", True),
+            ("lf_copy_ok", "template/mod1/a.py", b"x = 1" + bsn + b"y = 2" + bsn, True),
+            ("crlf_copy_flagged", "template/mod1/a.py", b"x = 1" + bscr + b"y = 2" + bscr, False),
+            ("lone_cr_flagged_f1", "template/mod1/a.py",
+             b"p = r'%CD%'" + bytes([13]) + b'resources' + bsn, False),
             ("no_modules_dir_ok", None, None, True),
         )
         for name, rel, blob, want in c45_cases:
@@ -5661,16 +5684,18 @@ def selftest() -> int:
             print("[selftest] %s  C-36 %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-31：派发件行尾。正 / 负样本各一，另加一条"范围"样本——
-        # 模板专属目录（build_release/）里的 LF 不算，防止判据扩成"模板全仓"后误伤。
+        # C-31：派发件行尾（2.0.3 反转：基线=LF）。正 / 负样本各一，另加"范围"样本与
+        # 孤立 CR 红格（F-1 形态）——仪器侧 bytes 字面量已经过 od 抽查（不含转义绞杀面）。
         c31_cases = (
-            ("crlf_dispatched_ok",
-             {"template/demo/a.py": b"x = 1\r\ny = 2\r\n",
-              "template/demo/README.md": b"# demo\r\n"}, True),
-            ("lf_only_dispatched_flagged",
-             {"template/demo/a.py": b"x = 1\ny = 2\n"}, False),
+            ("lf_dispatched_ok",
+             {"template/demo/a.py": b"x = 1\ny = 2\n",
+              "template/demo/README.md": b"# demo\n"}, True),
+            ("crlf_only_dispatched_flagged",
+             {"template/demo/a.py": b"x = 1\r\ny = 2\r\n"}, False),
             ("mixed_eol_flagged",
              {"template/demo/a.py": b"x = 1\r\ny = 2\n"}, False),
+            ("lone_cr_flagged",
+             {"template/demo/a.py": b"p = 1" + bytes([13]) + b"res\n"}, False),
             ("template_only_dir_ignored",
              {"template/build_release/tool.py": b"x = 1\n"}, True),
         )
