@@ -2,6 +2,15 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## [tunnel_kit 0.1.2] - 2026-09-29 (W8-C, N3)
+
+- **alive() 的 probe 回调异常改 fail-open**（蓝本 #45 对齐）：探测跑不成 ≠ 不健康——
+  OWNED/ADOPTED 态保持现态、不触发重连（NONE 态仍 False，无链路可保）。0.1.1 前为
+  fail-closed，仪器故障会被当链路死亡触发无谓重连；消费方 ocx 本地 probe_target
+  一直是对的（fail-open），模板自此与蓝本一致。
+- README 同步：probe 异常方向节 + F-R4「退避翻倍休眠名单」更新（ocx 已于 W8-C N1
+  实现完整序列，休眠名单只剩 reme——N2 降级留痕）。
+
 ## [service_link 0.2.0 + tray_kit 2.3.0] - 2026-09-28 (W7-1)
 
 - **service_link 0.2.0：启动编排三件 + 就绪钩子**（代码 651bd49 先行落库，本条目补登）：

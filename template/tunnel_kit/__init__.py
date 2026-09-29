@@ -1,4 +1,4 @@
-# TEMPLATE-MODULE: tunnel_kit | TEMPLATE-VER: 0.1.1
+# TEMPLATE-MODULE: tunnel_kit | TEMPLATE-VER: 0.1.2
 """tunnel_kit 包门面：函数/类按引用绑定，无状态可复制。"""
 from .tunnel_kit import (  # noqa: F401
     DEFAULTS,
