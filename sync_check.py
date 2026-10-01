@@ -383,6 +383,9 @@ def tool_references_module(tool_dir: Path, mod: str) -> bool:
     autostart NOT-WIRED（i18n-unify 复核抓获，接线后申报仍躺了三个 Wave）。
     判定口径取最保守的**文本引用**（import/from/属性访问/注释提及皆算）：
     陈旧申报是黄灯，宁可多看一眼，不在机械层过滤。
+    **已知误报形态（W8-C F-R7 实证）**：版本名册类注释（如「service_link 0.2.0
+    已是模板正本拷贝」）会命中本口径——处置=人工核消费方后将结论写回
+    NOT-WIRED.md（自证），黄灯长亮即有档可查，不是噪音。
     """
     pat = re.compile(r"\b%s\b" % re.escape(mod))
     for p in sorted(tool_dir.glob("src/*.py")):
