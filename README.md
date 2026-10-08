@@ -27,8 +27,8 @@ my-diy-tool-template\
   家族规范.md         ← 规范正文（A–J 分节）
   合规对照表.md       ← 逐条对照表：76 条款 × 四工具状态 + 检查命令 + 重点域深挖
   复审记录.md            ← 三轮复审机制 + 对应关系矩阵 + 复审记录
-  sync_check.py        ← T10 漂移检查（构建门禁的一个闸）
-  conformance_check.py ← 机械判据（C-xx 条款的判据本体）
+  sync_check.py        ← 漂移检查（构建门禁的一个闸）
+  conformance_check.py ← 机械判据（语义 slug 判据本体）
   交接\             ← 交接文件夹（接手必读；索引见其 README.md）
   blueprints.txt       ← 蓝本/待对齐工具名单（只减不增）
   CHANGELOG.md / LICENSE / .gitignore
@@ -41,35 +41,35 @@ my-diy-tool-template\
 
 | 模块 | 能力 | 规范出处 | 蓝本 | 现役用户 |
 |---|---|---|---|---|
-| [appconfig](template/appconfig/README.md) (T1) | 参数区：唯一要改的文件 | F2、D6/D15 | — | dsh、opencodex |
-| [paths](template/paths/README.md) (T2) | 数据区/播种/稳定位/**数据根重定向** | F1、F11/D12 | local-speak2text | （dsh/ocx 内联等构，见 REVIEW 矩阵） |
-| [autostart](template/autostart/README.md) (T3) | 自启三件套（Run 键名参数化） | G4.1 | —（基线已归模板正本） | dsh、opencodex、local-speak2text、reme（W4 全家接入） |
-| [update_helper](template/update_helper/README.md) (T4) | 在线更新三段式（含 marker 语义） | G4、H6 | —（基准移交模板 E 组判据，W5） | dsh、opencodex、local-speak2text、reme（W5 全收，字节级一致） |
-| [i18n](template/i18n/README.md) (T5) | 轻量中英双表 | E4、A2-T1 | local-speak2text | local-speak2text（完整版蓝本） |
-| [icons](template/icons/README.md) (T6) | 代码生成双 ico | G5 | local-speak2text | local-speak2text |
-| [tray_kit](template/tray_kit/README.md) (T7) | 单实例/--quit/token 掩码/签名重画/三循环 | E2(D14)、F13 | reme + local-speak2text | （机制以蓝本内联形态服役） |
-| [build_release](template/build_release/README.md) (T8+T9) | 门禁构建 + tag 发版链 | D1、G3/G4、H | local-speak2text | dsh、opencodex（工作流变体）、local-speak2text |
-| [log_kit](template/log_kit/README.md) (T12) | 滚动日志 1MB×3 + 打开日志目录 | D4(D13) | reme-helper | local-speak2text（dsh/ocx 内联等构） |
-| [baseline](template/baseline/README.md) (T11) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
-| [service_link](template/service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | opencodex、reme（W7 接入） |
-| [tunnel_kit](template/tunnel_kit/README.md) | ssh 反向隧道统一（三层探测/退避自愈/N=3 确认/OWNED-only 停止） | D10、F4 | opencodex、reme（W7 前内联隧道段） | opencodex、reme（W7 接入） |
+| [appconfig](template/appconfig/README.md) | 参数区：唯一要改的文件 | F2 | — | dsh、opencodex |
+| [paths](template/paths/README.md) | 数据区/播种/稳定位/**数据根重定向** | F1 | local-speak2text | （dsh/ocx 内联等构，见 REVIEW 矩阵） |
+| [autostart](template/autostart/README.md) | 自启三件套（Run 键名参数化） | G4.1 | —（基线已归模板正本） | dsh、opencodex、local-speak2text、reme |
+| [update_helper](template/update_helper/README.md) | 在线更新三段式（含 marker 语义） | G4、H6 | — | dsh、opencodex、local-speak2text、reme （字节级一致） |
+| [i18n](template/i18n/README.md) | 轻量中英双表 | E4、A2-i18n | local-speak2text | local-speak2text（完整版蓝本） |
+| [icons](template/icons/README.md) | 代码生成双 ico | G5 | local-speak2text | local-speak2text |
+| [tray_kit](template/tray_kit/README.md) | 单实例/--quit/token 掩码/签名重画/三循环 | E2 | reme + local-speak2text | （机制以蓝本内联形态服役） |
+| [build_release](template/build_release/README.md) | 门禁构建 + tag 发版链 | D1、G3/G4、H | local-speak2text | dsh、opencodex（工作流变体）、local-speak2text |
+| [log_kit](template/log_kit/README.md) | 滚动日志 1MB×3 + 打开日志目录 | — | reme-helper | local-speak2text（dsh/ocx 内联等构） |
+| [baseline](template/baseline/README.md) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
+| [service_link](template/service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | opencodex、reme（已接入） |
+| [tunnel_kit](template/tunnel_kit/README.md) | ssh 反向隧道统一（三层探测/退避自愈/N=3 确认/OWNED-only 停止） | — | opencodex、reme（前内联形态） | opencodex、reme |
 
-> **"现役用户/蓝本"列的目标态（2026-09-18 用户定，STANDARDS B4 原则③）**：四个工具**全部**
+> **"现役用户/蓝本"列的目标态（2026-09-18 用户定，§公共模板库 原则③）**：四个工具**全部**
 > 消费模板（`src/template/<模块>/` 整文件夹采纳，路径统一）；"蓝本""内联等构"都是迁移中的
 > 临时形态——工具与模板合不上时，优先优化模板的接口与架构，不给工具留豁免；sync_check
 > 的豁免名单（blueprints.txt）只减不增。
 
 ## 新工具拼接指南（从零到发布）
 
-1. **定级**：对照 STANDARDS §A 全表逐条过（别只看触发列——基线 8 这类挂在
+1. **定级**：对照 §能力分级总表 全表逐条过（别只看触发列——基线 8 这类挂在
    "开源/交付他人"下的条目最容易漏，2026-09-18 实测翻过车）；
-   **收尾时对照 CONFORMANCE §2 全表逐行自查**，每行给出 `文件:行号` 证据；
+   **收尾时对照 §2 全表逐行自查**，每行给出 `文件:行号` 证据；
 2. **必拷**：`template/appconfig/`（填参数）+ `template/paths/`；
 3. **按需选模块**：托盘工具 → `tray_kit` + `log_kit` + `autostart` + `build_release`；
    公开发布 → `baseline`（双语 README）+ `update_helper`；要图标 → `icons`；双语 UI → `i18n`；
 4. 每个拷贝文件**顶部加**：`# TEMPLATE-FROM: my-diy-tool-template/template/<模块>/<文件> | TEMPLATE-VER: <模板版本>`；
    有意定制改加 `# TEMPLATE-LOCAL-OVERRIDE: <原因>`；
-5. `main()` 装配顺序：单实例 → paths.seed → 日志 → 自启自愈 → 托盘（D14 八段）→ 更新检查；
+5. `main()` 装配顺序：单实例 → paths.seed → 日志 → 自启自愈 → 托盘（八段）→ 更新检查；
 6. build.bat 门禁加 sync_check 闸（本地；CI 检出不含 my-diy-tool-template，跑不了）；
 7. `--smoke` 写上、CHANGELOG 开张、tag `v<semver>` 发版。
 
@@ -79,13 +79,13 @@ my-diy-tool-template\
 
 - **模板升级**：改 `template/<x>/` → 升该文件 `TEMPLATE-VER` → 各工具跑 sync_check →
   逐工具独立 commit（**每个 commit 前验证修改有效**）+ 门禁绿 + semver 判级
-  （+0.0.1 可自判；**+0.1 / +1 仅用户确认**——D16；push 是用户决定权）；
-  **日常维护一般不发版，commit 累计较多才集中发版**，发版前必须人工功能回归（G3 第 6 条）；
-- **三轮复审**：R1 机械比对 / R2 语义对照 / R3 回归验证——机制、矩阵与记录见
-  [复审记录.md](复审记录.md)。模板升位后必跑三轮；工具发版前至少跑 R1。
+  （+0.0.1 可自判；**+0.1 / +1 仅用户确认**——；push 是用户决定权）；
+  **日常维护一般不发版，commit 累计较多才集中发版**，发版前必须人工功能回归；
+- **三轮复审**：机械比对 / 语义对照 / 回归验证——机制、矩阵与记录见
+  [复审记录.md](复审记录.md)。模板升位后必跑三轮；工具发版前至少跑机械比对（三轮之一）。
 
 ## 两条红线（全文最短、违者必翻车）
 
 1. **实例隔离**：测试/工具链实例必须 `<APP>_DATA_DIR` 重定向独立数据区，
-   严禁与常驻实例共享任何落盘文件（F11 血案）；
-2. **路径只出自 T2**：任何模块禁止自己拼 config/log/update 路径。
+   严禁与常驻实例共享任何落盘文件（血案）；
+2. **路径只出自 paths**：任何模块禁止自己拼 config/log/update 路径。

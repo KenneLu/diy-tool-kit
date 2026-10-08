@@ -1,15 +1,15 @@
 @echo off
-rem T8 build gate skeleton - copy into the tool and fill the <...> placeholders.
-rem Layout (G1/B3): release\<APPNAME>-<VERSION>\<APPNAME>.exe - the exe never carries
+rem build_release build gate skeleton - copy into the tool and fill the <...> placeholders.
+rem Layout (naming-and-version): release\<APPNAME>-<VERSION>\<APPNAME>.exe - the exe never carries
 rem a version; the release folder and zip name do.
 rem ASCII only in this file: cmd.exe parses it with the OEM code page.
 rem Usage: build.bat [norun] [nopause] | build.bat clean --force
 rem
-rem Step skeleton = STANDARDS D1 (public build flow). Keep the ORDER; tool-specific
+rem Step skeleton = STANDARDS build-gate (public build flow). Keep the ORDER; tool-specific
 rem steps go ONLY at the marked INSERT POINTS. Every step fails non-zero - never
 rem judge success by eye.
 rem   0 preflight : VERSION parse / target dir free / running-instance target guard
-rem   1 cheap     : compile -> template sync -> i18n (T1) -> tray suites -> tests
+rem   1 cheap     : compile -> template sync -> i18n -> tray suites -> tests
 rem   2 selftest  : core path with real resources
 rem   3 package   : icon -> PyInstaller -> assemble -> deliverable checks
 rem   4 frozen    : smoke (dual env pin) -> trigger checks -> DONE
@@ -30,7 +30,7 @@ if /i "%~1"=="clean" goto :do_clean
 
 set PY=python
 set APPNAME=<APP_ID>
-rem APP_UC = APP_ID uppercased with '-' turned into '_' (B3/NAME-10),
+rem APP_UC = APP_ID uppercased with '-' turned into '_' (naming-and-version/env-var-derivation),
 rem e.g. dsh-helper -> DSH_HELPER. Used for the dual isolation pin below.
 set APP_UC=<APP_ID_UC>
 rem Path of the template repo as seen from this tool (for the sync gate).
@@ -40,7 +40,7 @@ rem ---------------------------------------------------------------------------
 rem 0.1 VERSION - single source of truth (point at ONE place: main.py or appconfig.py)
 rem Two-step parse. Do NOT use "tokens=2,*": it hands the REST OF THE LINE to the
 rem variable, so a trailing comment becomes part of the version and turns
-rem RELEASE_DIR into garbage. Rule (B3): nothing after the closing quote but blanks.
+rem RELEASE_DIR into garbage. Rule (naming-and-version): nothing after the closing quote but blanks.
 rem   step 1  split on '='                               ->  "1.4.0"   # comment
 rem   step 2  drop quotes, keep first space-delimited token  ->  1.4.0
 rem ---------------------------------------------------------------------------
@@ -57,17 +57,17 @@ set FROZEN_EXE=%RELEASE_DIR%\%APPNAME%.exe
 echo [VERSION] %VERSION%  release: %RELEASE_DIR%
 
 rem ---------------------------------------------------------------------------
-rem 0.2 target dir (G1 RELAXED 2026-09-19, C2): existence is INFO, not a refusal.
+rem 0.2 target dir (RELAXED 2026-09-19, exe-delete-guard): existence is INFO, not a refusal.
 rem One-version-one-dir is kept by *rebuilding from scratch*, not by refusing.
 rem The refusal condition is 0.3 (live instance running FROM the target dir); the
-rem kernel side is C2 - the instance holds its own exe without FILE_SHARE_DELETE,
+rem kernel side is exe-delete-guard - the instance holds its own exe without FILE_SHARE_DELETE,
 rem so deleting it fails loudly (winerror 32) instead of hollowing it silently.
 rem CLEANLINESS IS NOT RELAXED: the old dir is removed in 0.3b, after the guard.
 rem ---------------------------------------------------------------------------
 if exist "%RELEASE_DIR%" echo [INFO] %RELEASE_DIR% exists - will be removed and rebuilt from scratch.
 
 rem ---------------------------------------------------------------------------
-rem 0.3 running-instance guard (D1-02 refined 2026-09-19)
+rem 0.3 running-instance guard (build-run-detect refined 2026-09-19)
 rem Refuse ONLY when a live instance runs FROM this build's target dir. Building a
 rem DIFFERENT version dir is safe: files differ, the frozen smoke pins its own data
 rem dir and takes no mutex. The dangerous case is deleting/overwriting the dir a
@@ -84,7 +84,7 @@ if errorlevel 1 (
 )
 
 rem ---------------------------------------------------------------------------
-rem 0.3b cleanliness (G1 relaxed): remove the existing same-version dir NOW, so the
+rem 0.3b cleanliness (relaxed): remove the existing same-version dir NOW, so the
 rem build always assembles from scratch and never reuses a stale file. A live
 rem instance would have been refused in 0.3; any other lock fails loudly here.
 rem ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ if exist "%TEMPLATE%\sync_check.py" (
   echo [WARN] do not contain the template repo; that gap is accepted and documented.
 )
 
-rem 1.3 i18n table coverage (T1 triggers) - enable when the tool ships i18n
+rem 1.3 i18n table coverage (bilingual-i18n triggers) - enable when the tool ships i18n
 rem echo [GATE] 1.3 i18n coverage ...
 rem %PY% tests\test_i18n.py
 
@@ -140,7 +140,7 @@ if exist tests\*.py (
     exit /b 1
   )
 ) else (
-  echo [ERROR] no tests\ directory - D1 requires one (capabilities exist, so do
+  echo [ERROR] no tests\ directory - build-gate requires one (capabilities exist, so do
   echo [ERROR] regressions). Missing tests are a GAP, not an allowed difference.
   if not defined NOPAUSE pause
   exit /b 1
@@ -207,7 +207,7 @@ if not exist "%RELEASE_DIR%\_internal\base_library.zip" (
 )
 
 rem ---------------------------------------------------------------------------
-rem 4 frozen verify - ALWAYS pin BOTH env vars (instance isolation, F11/D12):
+rem 4 frozen verify - ALWAYS pin BOTH env vars (instance isolation):
 rem   APP_UC_CONFIG    the config THIS package ships
 rem   APP_UC_DATA_DIR  the whole data root -> inside the release dir
 rem Without the data-dir pin the smoke writes into the user's live AppData.

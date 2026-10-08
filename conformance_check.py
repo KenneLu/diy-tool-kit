@@ -1,59 +1,58 @@
 # -*- coding: utf-8 -*-
 # TEMPLATE-MODULE: conformance_check | TEMPLATE-VER: 2.0.2
-# 2.0.3（W8-C）：**C-45 反转 + 孤立 CR 扩腿**——F-R1 根治（五仓 .gitattributes
+# 2.0.3：**dispatch-eol 反转 + 孤立 CR 扩腿**——根治（五仓 .gitattributes
 #   `* text=auto eol=lf`）后家族行尾基线反转：工具侧副本必须**全程 LF**（原为 CRLF）；
-#   孤立 CR（0x0D 不伴随 0x0A）单列报警（F-1 实锤：build.bat 行中 `\r` 被折成单字节
+#   孤立 CR（0x0D 不伴随 0x0A）单列报警（实锤：build.bat 行中 `\r` 被折成单字节
 #   CR，cmd 剥 CR 后路径静默损坏、构建丢贴图资产）。selftest 样本同步反转+红格扩腿，
 #   仪器侧 bytes([10])/bytes([13]) 构造（转义绞杀禁令判据化首例）。
-# 2.0.2（W3 后段收尾）：**C-52 收窄**——pairs.json 重形态 grandfather 终结（reme 已迁
-#   轻形态 locales/*.json，执行文档 W3 后段）。合法 i18n 形态只剩 src/template/i18n/
-#   目录一种：i18n_gap 删 has_pairs 形参；C-20 删重形态跳过腿（词表外中文检查全家族生效）；
+# 2.0.2：**bilingual-i18n-default 收窄**——pairs.json 重形态 grandfather 终结。合法 i18n 形态只剩 src/template/i18n/
+#   目录一种：i18n_gap 删 has_pairs 形参；no-uncharted-chinese 删重形态跳过腿（词表外中文检查全家族生效）；
 #   自测腿 neg_pairs_form_ok → pos_pairs_no_dir_is_gap 守卫格（豁免若回潮当场红）。
-#   C-52 扫描面文案残留的 src/modules/ 同步改 src/template/。
-# 2.0.1（W1 收尾步）：四仓已全部迁到 src/template/——**拆除 2.0.0 的全部过渡垫片**
-#   （_find 双前缀展开、mod_root 回落、排除过滤器双名、C-34 双前缀与归一、
-#   appconfig 双路径、C-35 加 modules、C-45 base 回落），一律只认 template/。
-# 2.0.0（W1 改名，D8）：模板仓 modules/ → template/ 双布局过渡（垫片已在 2.0.1 拆除）。
-# 1.9.29：**C-40 孤儿口径修正（2026-09-20 发版暴露）**：`release/` 下必然有三类目录 ——
+#   bilingual-i18n-default 扫描面文案残留的 src/modules/ 同步改 src/template/。
+# 2.0.1：四仓已全部迁到 src/template/——**拆除 2.0.0 的全部过渡垫片**
+#   （_find 双前缀展开、mod_root 回落、排除过滤器双名、registry-ver-eq-header 双前缀与归一、
+#   appconfig 双路径、isolation-two-legs 加 modules、dispatch-eol base 回落），一律只认 template/。
+# 2.0.0：模板仓 modules/ → template/ 双布局过渡（垫片已在 2.0.1 拆除）。
+# 1.9.29：**autostart-registry-guard 孤儿口径修正（2026-09-20 发版暴露）**：`release/` 下必然有三类目录 ——
 #   ① 当前版本（跳过）/ ② **上一版**（历次构建的自然产物，§4.1.42 原话，**不登记**）/
 #   ③ **改名保留镜像** `_stale_*` / `*.pre-rebuild-*`（**有意动作，必须登记**）。
 #   旧实现把 ② 也算"待登记孤儿" ⇒ 登记量随发版次数**线性增长**、漏登是必然的
 #   （本次发版一次就新增 4 条）。ORPHAN_VERSIONS 同步重写为只收 ③（4 条，措辞按新 Run 键更新）。
-# 1.9.28：**C-52 口径变更（用户 2026-09-20 裁定）**：*"默认所有工具都应该支持双语"* ——
+# 1.9.28：**bilingual-i18n-default 口径变更（用户 2026-09-20 裁定）**：*"默认所有工具都应该支持双语"* ——
 #   不再把"是否已开源"当开关。理由：四家全是公开仓库 ⇒ 开关恒开；而它作为开关的**副作用**
-#   是给判据留了一条**豁免分支**（C-20 遇"未启用"直接放行、没人核对前提）。
+#   是给判据留了一条**豁免分支**（no-uncharted-chinese 遇"未启用"直接放行、没人核对前提）。
 #   ⇒ `i18n_gap` 删掉 `if not has_remote: return False`，只看"有没有 i18n"。
 #   自证腿加一格 **`pos_no_remote_still_gap`**（传 has_remote=False 也必须报）——
 #   这一格是"开关语义已移除"的守卫：哪天回退成 False，就说明有人把开关加回来了。
-# 1.9.27：**新增 C-52（FAIL）**= T1 触发（有远端仓库 = 已开源）的工具**必须启用 i18n**。
-#   补 **C-20 的豁免盲区**：C-20 遇到"未启用 i18n"直接 `return True, "T1 未触发或待办"`
+# 1.9.27：**新增 bilingual-i18n-default（FAIL）**= 中英双语 i18n 触发（有远端仓库 = 已开源）的工具**必须启用 i18n**。
+#   补 **no-uncharted-chinese 的豁免盲区**：no-uncharted-chinese 遇到"未启用 i18n"直接 `return True, "中英双语 i18n 未触发或待办"`
 #   —— **放行**，而**没有任何判据核对那个理由是否成立**。于是"该启用却没启用"是一个
 #   不红不黄、连跳过了什么都不打印的状态（§4.1.18 同族：判据的**豁免分支**就是盲区）。
-#   触发做成可判：`git remote` 非空 ⇒ 必须有 `src/modules/i18n/` 或 `pairs.json`（§E4 许可）。
+#   触发做成可判：`git remote` 非空 ⇒ 必须有 `src/modules/i18n/` 或 `pairs.json`（§双语i18n 许可）。
 #   判不了（非 git 仓库）按未触发放行，但**打印扫描面**（纪律 ⑥）。
 #   自证 4 腿：红格（有远端+无 i18n）/ 未触发（无远端）/ 重形态 pairs / 有目录。
-# 1.9.26：**新增 C-51（FAIL）**= 无 UI 的退出入口（`--quit`）不得沿用持久化清理勾选
-#   （§4.1.43 / C-41 同族）。C-41 只查**降级分支**（except / `if x is None:`），
+# 1.9.26：**新增 headless-quit-explicit-stops（FAIL）**= 无 UI 的退出入口（`--quit`）不得沿用持久化清理勾选
+#   （§4.1.43 / quit-fallback-keep-service 同族）。quit-fallback-keep-service 只查**降级分支**（except / `if x is None:`），
 #   **不覆盖 `--quit` 这条无 UI 路径**（本判据补上）。
 #   实测缺陷（2026-09-20 排查用户报告时发现）：reme `quit_watch_loop` 调
 #   `shutdown_tray(TRAY_ICON)` 不传 kwargs ⇒ stop_* 落 None ⇒ 回读 CFG[quit_stop_*]
 #   ⇒ **勾过一次"退出时停服务"的用户，会被一次外部 `--quit` 静默停掉服务**。
 #   自证 2 腿（红格 = reme 修前真身；反向格 = 显式 stop_*=False 必须放行）。
-# 1.9.25：**新增 C-50（FAIL）**= 退出路径的「未勾选」分支不得执行破坏性动作
-#   （G4.2 **条款 5** 明文："不勾 = 服务与隧道越过托盘生命周期继续运行"）。
+# 1.9.25：**新增 unticked-no-destructive（FAIL）**= 退出路径的「未勾选」分支不得执行破坏性动作
+#   。
 #   由来：**用户报告 2026-09-20** —— ocx 关闭后即使没勾选也把隧道关了。
 #   实测根因：`on_quit` 把清理拆成 `if stop_tunnels: kill…` / **`else: terminate 所有
 #   OWNED 句柄`** ⇒ 没勾选也清。**把条款 3 的「作用域规则」当成了「触发条件」**：
 #   条款 5 管**要不要清**、条款 3 管**清理谁**，分工不可互推。
 #   dsh/reme 无此病（两者压在同一条 `if <勾选>:` 里，`else` 只记日志）。
 #   自证 3 腿（红格 = ocx 修前真身；反向格 = 勾选分支里 kill 合法 / else 只记日志放行）。
-# 1.9.24：**R-10 加宽**（任务 A2 / §4.1.55）= ① **换 key：裸名 → 全路径**（`_leak_key`），
+# 1.9.24：**临时残留增量断言 加宽**（任务 A2 / §4.1.55）= ① **换 key：裸名 → 全路径**（`_leak_key`），
 #   覆盖 `names_a`/`names_b`/`TMP_DECLARED_PATHS` 三处——否则多根下同名目录会被集合并集
 #   去重吃掉、白名单也会暗吃掉别根的同名目录；② **扩根**：`%TEMP%` 之外纳入 l-s2t 仓内
 #   三处落点（`build/test-data`、`build/selftest-data`、`release/<ver>/smoke-data`，它们既不在
 #   `%TEMP%`、又被 `.gitignore` 的 `build/`+`release/` 遮住 ⇒ 无人兜底）；③ 每个根各自打印
 #   **扫描面（候选数）+ 双腿命中数**。自证增 1 格（同名两根不去重 + 全路径豁免反向格）。
-# 1.9.23：**补 C-44 段首盲区**（任务 A1 / §4.1.56）= `_bat_cmd_tokens` 在段首为 `if` 时
+# 1.9.23：**补 bat-abs-cmd-path 段首盲区**（任务 A1 / §4.1.56）= `_bat_cmd_tokens` 在段首为 `if` 时
 #   按 cmd 条件语法（`[not] [/i] errorlevel|exist|defined|cmdextversion <arg>` / `str1==str2`）
 #   推进到**命令 token**，使 `if exist X findstr …` 这类裸名可判。
 #   **只对 `if` 段推进，不做全空白切分**——后经合成电池实测：全空白切分会把 `echo find`、
@@ -61,70 +60,70 @@
 #   **改前/改后对照（在本家族 6 个根的全部 11 个 .bat 上）**：新增命中 **0**、消失 **0**
 #   （即不误伤现有任何合法行）；潜伏形态由合成电池证明（5/5 正样本命中、9/9 合法负样本不命中）。
 #   自证增 2 格（判别力格 + 反向格），合计 7 格。
-# 1.9.22：**修 C-27 假红**（P5 批次暴露）：C-27 遍历 `src/modules/**` 时不认
+# 1.9.22：**修 module-wiring-referenced 假红**（P5 批次暴露）：module-wiring-referenced 遍历 `src/modules/**` 时不认
 #   `NOT-WIRED.md`（sync_check 的"有意不接入"申报口，§4.1.48）⇒ 把**如实申报**的
 #   模块按"已采纳"查 MUST-WIRE，报成 FAIL（l-s2t/reme 的 `update_helper` 各一条）。
 #   修法：该目录下有 `NOT-WIRED.md` ⇒ **跳过**（"不采纳"当然不接线）。
 #   自证 2 腿（红格 = 有声明零引用必报；反向格 = 同一份 + NOT-WIRED 必不报）。
-# 1.9.21：**新增 C-49（FAIL）**= 破坏性动作的守卫探测，**探测自身失败不得判为「不健康」**
-#   （任务 #45 / §D3.2；§4.1.31 立的通用纪律的机械形态）。形态：**四条件同时满足才报** ——
+# 1.9.21：**新增 probe-fail-open（FAIL）**= 破坏性动作的守卫探测，**探测自身失败不得判为「不健康」**
+#   （对照表 §3.2 守卫失败放行；§4.1.31 立的通用纪律的机械形态）。形态：**四条件同时满足才报** ——
 #   ① 函数有 `except` 且不重新抛出；② 该分支的失败结果是 `False`（分支内 `return False`，
 #   或分支不 return 而函数末尾是 `return False`）；③ 函数名出现在 `if not f(` 守卫里，
 #   且守卫体内含破坏性动词；④ **函数本身必须是纯探测** —— 体内不得直接执行破坏性动作
 #   （否则就是"动作本身"，`False` 是它的**正确语义**，如 reme `_rmtree_verified`）。
 #   **ocx `probe_target` 修前正是这个形态**（返回值决定 `kill_target_procs` = 杀用户隧道）。
 #   自证 4 腿（红格 + 三条反向格：失败放行 / 良性动作 / **动作执行者**）。
-# 1.9.20：**新增 C-48（FAIL）**= 自建 Tk 控件不得用**中文字面量**做文案（R1 §3 T3 的守卫）。
+# 1.9.20：**新增 no-chinese-ui-literal（FAIL）**= 自建 Tk 控件不得用**中文字面量**做文案。
 #   由来：reme 的退出确认框 6 处硬编码中文，**英文模式下整框中文**，而当时三层判据全绿 ——
-#   C-20（"词表外中文"）对**重形态** i18n 直接跳过（rem 是「中文即键」，中文不算"词表外"）。
+#   no-uncharted-chinese（"词表外中文"）对**重形态** i18n 直接跳过（rem 是「中文即键」，中文不算"词表外"）。
 #   判据形态：**只看函数体**（剔签名默认值 —— 模板 `confirm_text="退出"` 是向后兼容默认，
 #   其 docstring 明说"不传则用中文默认值"，调用方经 `t()` 传词条 ⇒ 不是缺陷）、
 #   只看**控件构造处的 `text=` 中文字面量**。两条合法通道都放行：
 #   ① `translate_tree(w)` 事后递归替换（reme 修后用这条）；② **参数注入** `text=body_text`
 #   （模板 `tray_kit.confirm_quit_dialog` 走这条）。另附：`.title(` 不得传裸 `APP_NAME`。
 #   自证 3 腿（红格 = reme 修前真身；两条反向格 = translate_tree / 参数注入都必须放行）。
-# 1.9.19：**W6 独立复核后的三处判据修正**（登记见 CONFORMANCE §4.1 F）：
-#   ① **新增 C-47（FAIL）**= 派发件头不得用被禁形态 `TEMPLATE-MODULE` —— C-19 的 `and` 链
-#      反把它列为合法形态 ⇒ R1 §2.1 那 13 处 `MODULE→FROM` 修复**没有任何守卫**（回归不会红）。
+# 1.9.19：**独立复核后的三处判据修正**（登记见 §4.1 F）：
+#   ① **新增 no-template-module-header（FAIL）**= 派发件头不得用被禁形态 `TEMPLATE-MODULE` —— template-header-complete 的 `and` 链
+#      反把它列为合法形态 ⇒ 那 13 处 `MODULE→FROM` 修复**没有任何守卫**（回归不会红）。
 #      自证 3 腿（判别力格 = 旧谓词必漏 / 两条反向格 = 别误伤 FROM 与 LOCAL-OVERRIDE）。
-#   ② **修 C-06 空真**（§4.1 F-2）= 只看**命令位置**：新增 `_strip_bat_prose` 剔 `rem`/`::`/`echo` ——
+#   ② **修 both-readmes-in-release 空真**= 只看**命令位置**：新增 `_strip_bat_prose` 剔 `rem`/`::`/`echo` ——
 #      旧实现是纯 token 存在性，**reme 被自己的注释与错误提示骗绿**（删掉真拷贝行仍报"均随包"）。
 #      自证 2 腿（红格 = 只有散文时必须红）。
-#   ③ **修 C-46 分母**（§4.1 F-4）= `src/modules/**/*.md` **不计入构建输入**（是给人读的派发件，
+#   ③ **修 build-freshness 分母**= `src/modules/**/*.md` **不计入构建输入**（是给人读的派发件，
 #      不是 PyInstaller 打包输入）⇒ **只改文档不再误报"过期"**；自证 1 腿（含同目录 `.py` 反向格）。
-#   ④ **登记但明确不改**：C-44 段首盲区（§4.1.56 —— 无真实案例 + 改动有假红风险）；
-#      **驳回**"恢复横幅 `head:`"（§4.1.57 —— 那是任务 #58 的有意设计，差异 ≠ 回退）。
+#   ④ **登记但明确不改**：bat-abs-cmd-path 段首盲区（§4.1.56 —— 无真实案例 + 改动有假红风险）；
+#      **驳回**"恢复横幅 `head:`"（§4.1.57 —— 那是 的有意设计，差异 ≠ 回退）。
 # 1.9.18：l-s2t 孤儿登记补「键名口径 = APP_NAME 非 APP_ID」+ 采集时点（§4.1.53）；纯登记文案，无判据行为变更。
-# 1.9.17：C-46 的「过期」WARN 消息内联声明**本轮不重建 ⇒ 预期读数**（防下一个人去追它 / 去构建）；纯文案，无行为变更。
-# 1.9.16：**C-40 选键改为「路径优先、键名兜底」**（§4.1.53/§4.1.54）= 家族 Run 键名无单一契约（模板 autostart 用 APP_NAME / reme 内联用 APP_ID），只认键名必漏一半；路径腿枚举全表、命中「值路径落在本工具仓库根或稳定安装位之下」，键名腿兜底 dev 态，且**打印实际走的哪条腿**。自证 5 条腿（两条正样本 + 外来项反向格）。
-# 1.9.15：**修 C-40 键名假绿**（§4.1.53）= Run 键名从「按 `APP_ID` 单查」改为「取全表 + 按 `APP_NAME`→`APP_ID` 双候选选键并打印命中」——l-s2t 的 `APP_ID=local-speak2text` ≠ `APP_NAME=LocalSpeak2Text`，旧实现读不到 ⇒ 强断言从未执行；附大小写变体键提示（§4.1.51）。自证 4 条腿。
-# 1.9.14：**新增 C-46**（WARN）= **重建新鲜度分母补全为构建输入集**（`src/**` ∪ `--add-data` 源，四家皆有 out-of-src datas）；自证 4 条腿（含「同一 exe 因 out-of-src 项变新而翻红」的承重格）。
-# 1.9.13：**新增 C-35**（WARN）= **实例隔离两条腿**（测试文件自钉 + build.bat 整体外套），判别力已实测（关腿⇒ reme 11 红）。
-# 1.9.12：**新增 C-34**（WARN，模板通道）= **§1 登记表版本列 == 文件头 TEMPLATE-VER**（手抄副本必然滞后）；自证 2 条腿。
-# 1.9.11：**新增 C-45**（WARN）= **工具侧副本（`src/modules/**` 的 .py/.md）必须全程 CRLF**（`sync_check` 按 read_text 比、行尾被归一化），按字节判；自证 3 条腿。
-# 1.9.10：**新增 C-44**（FAIL）= **bat 里闭集命令（find/findstr/ping/tasklist/robocopy/where/reg/timeout）必须用绝对路径**，与 C-33（ping 当节拍）**独立**；只看命令位置，自证 5 条腿。
-# 1.9.9：**新增 C-43**（FAIL）= **`if` 条件里的 `:~` 子串扩展**（未定义时会中止整个脚本）——**窄版**：嵌套 `if`（无 `:~`）与动作一侧的 `:~` 均判绿，自证 4 条腿。
-# 1.9.8：**新增 C-42**（FAIL）= **重定向位置不得出现 `dev/null`**（收窄版：不写成“全文不得出现 dev/”，否则注释里的路径与 URL 会误报）；文本口径与 C-33 同一条边界（正文保留、散文不算），自证 5 条腿。
-# 1.9.7：**新增 C-41**（FAIL）= 退出确认的「链路不可用」分支必须固定为**不停服务**（不得沿用已存勾选）——判据只看降级分支，**原生框那一支不算**；
+# 1.9.17：build-freshness 的「过期」WARN 消息内联声明**本轮不重建 ⇒ 预期读数**（防下一个人去追它 / 去构建）；纯文案，无行为变更。
+# 1.9.16：**autostart-registry-guard 选键改为「路径优先、键名兜底」**（§4.1.53/§4.1.54）= 家族 Run 键名无单一契约（模板 autostart 用 APP_NAME / reme 内联用 APP_ID），只认键名必漏一半；路径腿枚举全表、命中「值路径落在本工具仓库根或稳定安装位之下」，键名腿兜底 dev 态，且**打印实际走的哪条腿**。自证 5 条腿（两条正样本 + 外来项反向格）。
+# 1.9.15：**修 autostart-registry-guard 键名假绿**（§4.1.53）= Run 键名从「按 `APP_ID` 单查」改为「取全表 + 按 `APP_NAME`→`APP_ID` 双候选选键并打印命中」——l-s2t 的 `APP_ID=local-speak2text` ≠ `APP_NAME=LocalSpeak2Text`，旧实现读不到 ⇒ 强断言从未执行；附大小写变体键提示（§4.1.51）。自证 4 条腿。
+# 1.9.14：**新增 build-freshness**（WARN）= **重建新鲜度分母补全为构建输入集**（`src/**` ∪ `--add-data` 源，四家皆有 out-of-src datas）；自证 4 条腿（含「同一 exe 因 out-of-src 项变新而翻红」的承重格）。
+# 1.9.13：**新增 isolation-two-legs**（WARN）= **实例隔离两条腿**（测试文件自钉 + build.bat 整体外套），判别力已实测（关腿⇒ reme 11 红）。
+# 1.9.12：**新增 registry-ver-eq-header**（WARN，模板通道）= **§1 登记表版本列 == 文件头 TEMPLATE-VER**（手抄副本必然滞后）；自证 2 条腿。
+# 1.9.11：**新增 dispatch-eol**（WARN）= **工具侧副本（`src/modules/**` 的 .py/.md）必须全程 CRLF**（`sync_check` 按 read_text 比、行尾被归一化），按字节判；自证 3 条腿。
+# 1.9.10：**新增 bat-abs-cmd-path**（FAIL）= **bat 里闭集命令（find/findstr/ping/tasklist/robocopy/where/reg/timeout）必须用绝对路径**，与 no-ping-as-sleep（ping 当节拍）**独立**；只看命令位置，自证 5 条腿。
+# 1.9.9：**新增 no-tilde-substr-in-if**（FAIL）= **`if` 条件里的 `:~` 子串扩展**（未定义时会中止整个脚本）——**窄版**：嵌套 `if`（无 `:~`）与动作一侧的 `:~` 均判绿，自证 4 条腿。
+# 1.9.8：**新增 no-dev-null-redirect**（FAIL）= **重定向位置不得出现 `dev/null`**（收窄版：不写成“全文不得出现 dev/”，否则注释里的路径与 URL 会误报）；文本口径与 no-ping-as-sleep 同一条边界（正文保留、散文不算），自证 5 条腿。
+# 1.9.7：**新增 quit-fallback-keep-service**（FAIL）= 退出确认的「链路不可用」分支必须固定为**不停服务**（不得沿用已存勾选）——判据只看降级分支，**原生框那一支不算**；
 #   实测模板 + 四家全绿（今天无违规，立判据是为了防 `tray_kit` 统一之后长回去），自证 5 条腿。
-# 1.9.6：**新增 C-40**（FAIL）= 版本目录 ↔ 自启目标必须一致（强断言）+ 孤儿版本目录必须两栏登记（WARN）；读**磁盘 + 注册表**，纯函数 + 可注入 `path_exists` （样本不受活状态污染），自证 6 条。
+# 1.9.6：**新增 autostart-registry-guard**（FAIL）= 版本目录 ↔ 自启目标必须一致（强断言）+ 孤儿版本目录必须两栏登记（WARN）；读**磁盘 + 注册表**，纯函数 + 可注入 `path_exists` （样本不受活状态污染），自证 6 条。
 #   **实测：dsh = FAIL**（源码 VERSION=1.8.1 而 Run 键指着 `release\dsh-helper-1.8.2\`）。
 # 1.9.5 三条：
-#   ① **新增 C-39**（工具通道 + 模板通道，FAIL）=**派生值必须取自本次调用的实参**：默认参数不得取“会被重绑的模块级名字”或可变字面量，**良性常量必须放行**（三档判别，否则就是噪音判据）。
-#   ② **判据读散文两例已修**（§4.1.37）：`_strip_docstrings` 挖 AST 裸字符串表达式、`_masked_code_text` 就地掩码保行号、扫描面排除仪器自身并打印排除项（C-33 / C-30）。
-#   ③ **C-38 改形态**：锚在 `startup` 行之后 20 行内 + 一次性行不计入
+#   ① **新增 default-arg-snapshot-safe**（工具通道 + 模板通道，FAIL）=**派生值必须取自本次调用的实参**：默认参数不得取“会被重绑的模块级名字”或可变字面量，**良性常量必须放行**（三档判别，否则就是噪音判据）。
+#   ② **判据读散文两例已修**（§4.1.37）：`_strip_docstrings` 挖 AST 裸字符串表达式、`_masked_code_text` 就地掩码保行号、扫描面排除仪器自身并打印排除项（no-ping-as-sleep / mkdtemp-owned-prefix）。
+#   ③ **startup-self-identify 改形态**：锚在 `startup` 行之后 20 行内 + 一次性行不计入
 #      （原“文件前 N 行”按字面会假绿）；“判不了”按 WARN 报。
 # 1.9.4 两条（都来自复核员的实测）：
 #   ① **身份行加 `at:` 时点**——"任何「命中 N 个」的转述都必须自带时点"（同一族：扫描面说「扫了什么」、时点说「什么时候」）。实证：reme 残留我广播成 8、**当前是 5**（消失 4、新增 1）——**残留集是活的**，本轮第二次栽在这上面。
-#   ② **`TMP_DECLARED_PATHS` 的口径写清**：**声明过的、且会随下次构建自动重建的位置**，正确处置是**进白名单**，**不是要求清理**——清理既不持久，又会产生**虚假的进展感**（看起来清干净了，下次门禁又长出来）。# 1.9.3：① **新增 C-37（模板通道，FAIL）= C-2 拒绝删除句柄**：静态半（`paths.py` 提供
+#   ② **`TMP_DECLARED_PATHS` 的口径写清**：**声明过的、且会随下次构建自动重建的位置**，正确处置是**进白名单**，**不是要求清理**——清理既不持久，又会产生**虚假的进展感**（看起来清干净了，下次门禁又长出来）。# 1.9.3：① **新增 exe-delete-guard（模板通道，FAIL）= 拒绝删除句柄**：静态半（`paths.py` 提供
 #   `hold_no_delete` / `hold_exe_delete_guard` + README 的 `<!-- MUST-WIRE -->`，否则四家
 #   拷走了也**没人调用**）+ **性质半**（用临时文件实测：持句柄时 `unlink` / `rmtree(父目录)`
 #   **必须失败**，释放后 `unlink` **必须成功**这个判别控制）。自检另加**判别力样本**：
 #   把共享位写成 `…|FILE_SHARE_DELETE`（允许别人删）的原语**必须被抓住**——共享位写错在
 #   源码上完全看不出来，只能实测。
-#   ② **C-29 补两条"不下判"样本**：`log=` 后面给的是**日志路径**（`log_path` 变量 /
+#   ② **log-accepts-varargs 补两条"不下判"样本**：`log=` 后面给的是**日志路径**（`log_path` 变量 /
 #   `HELPER_UPDATE_LOG` 常量）时必须 `[ok]`（不下判）——l-s2t/reme 的真实形态，报红就是假红。
-#   ③ **顺手补两条已漏登记的索引行**：C-36 自 1.9.1 起实现，却一直没进 CONFORMANCE §5.1 表
+#   ③ **顺手补两条已漏登记的索引行**：normalize-eol-insensitive 自 1.9.1 起实现，却一直没进 §5.1 表
 #   （"索引里缺条目本身就是盲区"——这次是**我自己**犯的）。
 #   ④ **另修两处转义损坏**（本轮实测发现，都是"描述这个坑的文本自己踩坑"）：
 #      `家族规范.md:492` 的 `System32<0x0c>ind.exe`（应为 `System32\find.exe`）、
@@ -134,7 +133,7 @@
 # 1.9.2：**腿 B 按复核员的实测再放宽一次 + 扫描面口径修正**（lead 转达复核员取证后裁定）：
 #   ① **不再要求 `config.json`、不设深度上限**：旧签名（config 在 ≤1 层 + 顶层下存在 `*.log`）
 #      抓不到 `tmp.6FcrxXYxmM\d\local-speak2text`（3 层、只有 `log/`）这类真实残留。
-#      新签名 = **任意深度存在名为 `log` 的目录**（B3 规定日志落 `<数据根>/log/`）。
+#      新签名 = **任意深度存在名为 `log` 的目录**（§命名与版本 规定日志落 `<数据根>/log/`）。
 #      **候选口径实测后才选**（同一次扫描，顶层目录 95 / 条目 647）：
 #        V0 旧签名 7 命中 / V1「任意深度存在 `*.log` 文件」13 命中（多出的 5 个是他程序日志：
 #        WebView 缓存、vmware、virtual_camera、kzip_sogou… ⇒ **太宽、制造假红**，否掉）/
@@ -152,20 +151,20 @@
 #   ⑤ **[BROKEN] 档**（lead 批准）：判据**自身抛异常**不再混进"检出违规"——独立成档、
 #      进汇总计数、**独立进退出码**（不计 FAIL、也不被 WARN 咽掉）。由来：`check_md_tabs`
 #      是收 `Path` 的助手却在重构后**留着 `@check` 装饰器**，四个工具各报一条"检查异常"，
-#      **看起来像工具坏了**，整整一轮排查方向是错的（STANDARDS §J"幽灵判据"）。
+#      **看起来像工具坏了**，整整一轮排查方向是错的（§实战坑"幽灵判据"）。
 #      自检样本：一条故意抛异常的判据必须得到 `(0 FAIL, 0 WARN, 1 BROKEN)`。
 #      **同批还补**：本文件自己的 selftest 收尾**必须消费 `_rmtree_strict` 的返回值**
-#      （原来只调用不看返回，等于"加了重试但不看结果"——正是 C-30 要治的形状）。
+#      （原来只调用不看返回，等于"加了重试但不看结果"——正是 mkdtemp-owned-prefix 要治的形状）。
 # 1.9.1：**身份行**（lead 批准）：每次运行的第一行打印
 #   `# conformance_check <VER>  sha256:<raw>  norm:<归一化>`
 #   —— `raw` = 文件逐字节 sha256，`norm` = sync_check 口径（剔 `# TEMPLATE-*` 行后哈希）。
-#   **两种都印**，因为本家族同时用两套口径发哈希（ALIGNMENT §0 专门钉过这件事）；
+#   **两种都印**，因为本家族同时用两套口径发哈希；
 #   只印一种，迟早有人拿另一套去对，得出"对不上"的假结论。
-#   动机：同一类分歧（tray_kit 版本 / 183 行 / C-11）今晚发生了**三次**，每次都靠人工
+#   动机：同一类分歧（tray_kit 版本 / 183 行 / run-detect-match-exe）今晚发生了**三次**，每次都靠人工
 #   对齐修订号，成本极高。**一行身份行让任何贴回来的输出自证身份**——是旧快照还是磁盘
-#   这份，看第一行就知道。它同时是 R-EVID 的**自动化形式**：让工具自己打印时点，
+#   这份，看第一行就知道。它同时是 取证实读 的**自动化形式**：让工具自己打印时点，
 #   比要求每个人记得贴时点可靠（"用结构代替纪律"）。
-# 1.9.0：① **C-30 补上"覆盖缺口必须自己报出来"**（lead 裁定：判据可以自己失效比泄漏更糟）。
+# 1.9.0：① **mkdtemp-owned-prefix 补上"覆盖缺口必须自己报出来"**（lead 裁定：判据可以自己失效比泄漏更糟）。
 #   ① 新增上半：**mkdtemp 前缀必须可静态归属**——从源码枚举 `mkdtemp(...)` 的 `prefix` 实参
 #      （含**包装函数的调用点**，如 `scratch_dir(prefix)`：dsh/ocx/l-s2t 三家真实前缀都在
 #      调用点上）；f-string / 变量 / 无 prefix 等推不出的站点，必须在模块级字面量
@@ -173,7 +172,7 @@
 #      登记表的值非字面量 = 判据读不到 = 等于没登记，也红；登记了却对不上站点 = 过期 WARN。
 #   ② 下半扫描范围 **tests/ → 全工具**：真实树立刻多出一处 **reme `src/main.py:7409`
 #      `rmtree(work, ignore_errors=True)`**（`work` = 7405 的 mkdtemp 根），是同一缺陷的
-#      生产代码形态；只看 tests/ 会整个溜过去。首跑真实树：**C-30 1 FAIL（reme，
+#      生产代码形态；只看 tests/ 会整个溜过去。首跑真实树：**mkdtemp-owned-prefix 1 FAIL（reme，
 #      `src/main.py:7405` 的 `prefix=f"{APP_ID}-update-"` 未登记）**，其余三工具 ok。
 #   ③ 运行期取证改成**两条腿**（task #43，lead 裁定）：腿 A 生成器派生（前缀枚举 + 登记表；
 #      裸 `mkdtemp()` → 系统默认前缀 `tmp`，列为**弱前缀**并单独 WARN，因为它会撞上无关目录）、
@@ -182,7 +181,7 @@
 #      外部 CLI、探针脚本造的目录**源码里没有调用点**，腿 A 结构上抓不到。判别形态（`_name_shape`）：
 #      `tmp.gVxHfxTMya`（带点+10）= GNU `mktemp -d`；`tmpigscx7m2`（无点+8）= Python `mkdtemp()`。
 #      所以腿 B 必须打印**名字形态直方图**——它把"有残留"变成"该去改谁"（进程规则 vs 仓库代码）。
-#      腿 B **形态派生**（`_SHAPE_RULE`：**任意深度存在名为 `log` 的目录**——B3 规定日志一律落
+#      腿 B **形态派生**（`_SHAPE_RULE`：**任意深度存在名为 `log` 的目录**——§命名与版本 规定日志一律落
 #      `<数据根>/log/`，故"有 log 目录"就是数据根的不变量；**不看名字、不要求 config.json、
 #      不设深度上限、log 里的文件是 0 字节甚至没有文件都算**）。**必须打印扫描面**——
 #      实测：112 个顶层目录上腿 A = **0**、腿 B = **20**，20 个全在腿 A 命中之外；若把签名
@@ -201,7 +200,7 @@
 #      没有 config.json`**）：旧签名两种写法全抓不到。候选口径在同一次扫描上实测对照——
 #      「任意深度存在 `*.log` **文件**」= 13 命中，**多出的 6 个里 5 个是他程序日志**
 #      （WebView 缓存、vmware、virtual_camera、kzip_sogou…）⇒ **太宽，制造假红**，否掉；
-#      采用「任意深度存在 `log` **目录**」= 8 命中（7 个自家数据根 + 1 个外来程序的 log/）。
+#      采用「任意深度存在 `log` **目录**」= 8 命中（7 个自家数据根 + 1 个外来程序的 log）。
 #      FP 残余风险在案；另有**已声明位置白名单** `TMP_DECLARED_PATHS`（构建脚本明写的固定数据位，
 #      不算泄漏）。
 #   ④ 新增运行期取证/验收（只读）：`--temp-leak`（列出 %TEMP% 命中，**永远 exit 0**——
@@ -211,11 +210,11 @@
 #      残留目录的 mtime 就是 16:11（门禁运行当口 ⇒ 当时在产生新的），而 tpl-keeper 稍后
 #      复扫同一批 19 个前缀得 **0 命中**——两次测量各自成立，谁也不能替对方下结论；
 #      "清一遍就好了"同样只是一个时点，只有增量断言不依赖历史存量。
-#   ⑤ 本工具自守 C-30：selftest 收尾从 `rmtree(..., ignore_errors=True)` 改成
+#   ⑤ 本工具自守 mkdtemp-owned-prefix：selftest 收尾从 `rmtree(..., ignore_errors=True)` 改成
 #      `_rmtree_strict`（删后回读、失败抛错）——同一个 %TEMP% 泄漏形态，判据作者自己也会犯。
 #   样本 11 条（前缀 7 + 清理 4），含 dsh/ocx/l-s2t 的 `param_prefix_literal_calls_ok`。
-#   · 新增 **C-31（WARN，模板正本专属）**：派发件（`modules/**` 的 `.py`/`.md`，排除模板
-#   专属的 `build_release/` `baseline/`）必须全程 CRLF。由来：C-22 只管 `.bat`/`.cmd`，
+#   · 新增 **template-original-eol（WARN，模板正本专属）**：派发件（`modules/**` 的 `.py`/`.md`，排除模板
+#   专属的 `build_release/` `baseline/`）必须全程 CRLF。由来：bat-byte-hygiene 只管 `.bat`/`.cmd`，
 #   **模板里的 `.py`/`.md` 被写成 LF 没有任何一层会报**（`py_compile` 绿、`sync_check` 两边
 #   同为 LF 也绿）——`log_kit.py` 被整文件重写那次就是"读回字节"才发现的。lead 批准为
 #   **WARN**（不误伤将来有意为之的文件，但让不一致可见）。为此新开 `TEMPLATE_CHECKS` 注册表：
@@ -224,19 +223,19 @@
 #   `service_link/README.md` / `service_link/service_link.py`），且**工具侧副本同样是 LF**
 #   （dsh/ocx/l-s2t 的 `autostart.py`、reme 的 `service_link/*`）——要改成 CRLF 必须
 #   **正本 + 全部副本同批**（只改正本会让 `sync_check` 立刻 `[DIFF]`），属一次"可重拷"冻结事件。
-#   · **C-30 第二路径：可折叠模块常量**（lead 2026-09-19 裁定"低成本做法"）：模块级
+#   · **mkdtemp-owned-prefix 第二路径：可折叠模块常量**（lead 2026-09-19 裁定"低成本做法"）：模块级
 #   `APP_ID = "reme-helper"` + `prefix=f"{APP_ID}-update-"` 其实**推得出**（折成
 #   `reme-helper-update-`），不该逼作者写登记表。只认模块级字面量；同名再赋不同值或赋非
 #   字面量 → 该名字不可折叠（**宁缺勿猜**）。登记口径同步升级为**两态**：未登记 → FAIL /
 #   已登记 → OK（原 WARN 留了"把字面量改成变量即可降级"的逃逸口）。样本 +3（折叠常量 / 折叠
-#   拼接 / 同名冲突仍红）。**真实树**：reme 靠折叠转 `[ok]`，C-30 只剩 `rmtree(work, ignore_errors=True)`。
-#   · **C-28 补扫模板正本 + §4.1.18**（lead 批准"最省事形态"）：此前 `main()` 用
+#   拼接 / 同名冲突仍红）。**真实树**：reme 靠折叠转 `[ok]`，mkdtemp-owned-prefix 只剩 `rmtree(work, ignore_errors=True)`。
+#   · **md-no-tab 补扫模板正本 + §4.1.18**（lead 批准"最省事形态"）：此前 `main()` 用
 #   `d.name not in {..., TEMPLATE_DIR.name}` 把模板仓**显式排除**，于是模板自己的 `.md`
-#   从未被扫过，而模板是四份副本之源——**"判据存在 ≠ 被检查对象在范围内"**。只让 C-28
+#   从未被扫过，而模板是四份副本之源——**"判据存在 ≠ 被检查对象在范围内"**。只让 md-no-tab
 #   额外扫一遍模板仓、只报一次（不给模板开整轮：它没有 `src/` + `build.bat`，会空转甚至误报）。
-#   **留档**：C-28 的规则文本自己那条 CHANGELOG 里就落进两个真 TAB（想写两字符 `` `\t` ``，
+#   **留档**：md-no-tab 的规则文本自己那条 CHANGELOG 里就落进两个真 TAB（想写两字符 `` `\t` ``，
 #   写进去的是真 TAB，`HEAD 188bbcc` 上已存在）——**描述这个坑的文档，本身踩了这个坑**。
-# 1.8.0：新增 **C-30**：测试里对 **mkdtemp 根目录**的清理必须可验证——禁 `ignore_errors` 吞掉。
+# 1.8.0：新增 **mkdtemp-owned-prefix**：测试里对 **mkdtemp 根目录**的清理必须可验证——禁 `ignore_errors` 吞掉。
 #   根因（实测）：四工具在 %TEMP% 积了 **133~138 个**自家前缀目录，每个里恰好一个文件
 #   `<app>/log/<app>.log`——**`log_kit` 的 FileHandler 句柄还开着**（Windows 拒删在用文件），
 #   而 `rmtree(..., ignore_errors=True)` 把失败静默吞掉 → 每跑一次泄漏一个，**门禁全绿**。
@@ -245,55 +244,55 @@
 #   **首跑真实树即发现自身**一处**漏报**并修掉：reme 写的是 `root = Path(tempfile.mkdtemp(...))`，
 #   只认裸调用会让最该检查的文件报"本条不适用"——现在按"赋值右侧含 mkdtemp"判定（l-s2t 的
 #   `scratch_dir(...)` 包装形态也一并认了，根目录计数由 4→9）。真实树现值：四工具 0 FAIL。
-# 1.7.2：C-11 补收 **`.Path` + 目录精确比较**这一族（不带 `-Name` 的写法，如
+# 1.7.2：run-detect-match-exe 补收 **`.Path` + 目录精确比较**这一族（不带 `-Name` 的写法，如
 #   `Get-Process | Where-Object {$_.Path -eq ...}`）——它比 `tasklist | findstr` 的**子串匹配
 #   更强**（无子串歧义，直接比"运行实例所在目录 == 本次构建目标"），此前会掉进"认不出形态"
 #   的 WARN 里，等于**对着更强的实现报"判不了"**。样本按 lead 点名的名字对齐：
 #   `pos_ps_getprocess` / `pos_tasklist_findstr` / `neg_no_detection`(WARN)，
 #   另加 `pos_ps_path_compare`、`neg_substring_only`(FAIL)、`neg_no_c_literal`(WARN)。
 # 1.7.1：设计纪律 ④ 升级——**"不认识形态" ≠ "检出违规"**（lead 裁定，本轮最强的一条判据要求）。
-#   ① C-10 的两处兜底（既无探针也无守卫调用节点 / 有 --smoke 但无 `def smoke`）改报 **WARN**：
+#   ① smoke-no-bypass-startup 的两处兜底（既无探针也无守卫调用节点 / 有 --smoke 但无 `def smoke`）改报 **WARN**：
 #     判据看不出"绕过"（那取决于 `--smoke` 与守卫在 main() 里的先后），只能说"不认识这个形态"。
-#   ② C-11 拆成三档：`tasklist|findstr` 取得出字面量且对得上 → ok；**对不上 → FAIL（确证）**；
+#   ② run-detect-match-exe 拆成三档：`tasklist|findstr` 取得出字面量且对得上 → ok；**对不上 → FAIL（确证）**；
 #     看得到 `tasklist|findstr` 但取不出 `/c:"字面量"` → **WARN（形态不认识）**。
-#   ③ 保留 FAIL 的两处（C-10 的 AST 真跑守卫节点、C-11 的错误字面量）**其余措辞改成"确证"**，
+#   ③ 保留 FAIL 的两处（smoke-no-bypass-startup 的 AST 真跑守卫节点、run-detect-match-exe 的错误字面量）**其余措辞改成"确证"**，
 #     让消息与检出物一致（纪律 ④a）。
-#   ④ C-11 补三条样本：`pos_tasklist_findstr`（此前**正中靶心的分支反而没有样本**）、
-#     `neg_substring_only`（带版本号字面量 = D1-02 真实违规 ⇒ FAIL）、`neg_no_c_literal`（⇒ WARN）。
-#     C-10 的两条 WARN 样本也补上 sev 断言（原先只断言 ok，severity 变了没人知道）。
-# 1.7.0：新增 **C-29**：交给模板件的日志函数必须接受可变参数（print 形态）。
+#   ④ run-detect-match-exe 补三条样本：`pos_tasklist_findstr`（此前**正中靶心的分支反而没有样本**）、
+#     `neg_substring_only`（带版本号字面量 = 工程·运行检测串 真实违规 ⇒ FAIL）、`neg_no_c_literal`（⇒ WARN）。
+#     smoke-no-bypass-startup 的两条 WARN 样本也补上 sev 断言（原先只断言 ok，severity 变了没人知道）。
+# 1.7.0：新增 **log-accepts-varargs**：交给模板件的日志函数必须接受可变参数（print 形态）。
 #   根因是 `update_helper`（7 处多参调用）与 `log_kit` 1.0.2（单参闭包）**说不同的话**，
 #   而 dsh/ocx/l-s2t 各写了一份互不相同的本地 log 包装把冲突分别盖住/藏住。
 #   首跑真实树即报出 **l-s2t**（`src/main.py:80 def log(message)` + 231/998/1043 三处
 #   `log=log`），并附实测证据：模板件 L257/L390 的两个位置参数直接 TypeError。
 #   三条样本：varargs_log_ok / single_arg_wired_flagged / single_arg_unused_ok。
 #   同时 **log_kit 1.0.3 把 log 统一为 print 形态**（这是判据能成立的前提）。
-# 1.6.0：① **修 C-11 假红灯**（dsh/ocx）：它们用 PowerShell `Get-Process -Name <APPNAME>`
+# 1.6.0：① **修 run-detect-match-exe 假红灯**（dsh/ocx）：它们用 PowerShell `Get-Process -Name <APPNAME>`
 #   做运行检测，旧实现只认 `tasklist | findstr` → 报"未找到运行检测"（一句与事实相反的诊断）。
 #   现在两种形态都认；**两者都没有时按 WARN 报**——框架支持检查按分支返回级别（3 元组）。
-# 1.5.0：① **修 C-10 假红灯**（reme）："结果被消费"≠"必须写成 if"——探针**作为参数交给
+# 1.5.0：① **修 smoke-no-bypass-startup 假红灯**（reme）："结果被消费"≠"必须写成 if"——探针**作为参数交给
 #   check() 助手**也算消费；兜底分支改按 **AST 调用节点**找真跑守卫（原来对函数体做文本匹配，
 #   把注释里的 single_instance_free() 当成了真调用 → 打印与事实相反的诊断）。新增两条样本：
 #   pos_probe_passed_to_check_helper / pos_guard_name_in_comment_only。
-#   ② 新增 **C-28（WARN）**：本仓 `.md` 不得含 0x09 TAB（lead 裁定：不扩到所有文本文件，
+#   ② 新增 **md-no-tab（WARN）**：本仓 `.md` 不得含 0x09 TAB（lead 裁定：不扩到所有文本文件，
 #   只挑手写中文文档这一类，误报成本低）。
 # 1.4.0：新增三条「当天缺陷没有现役条款能拦」的机械判据（各带正负样本）：
-#   C-25 门禁步骤必须**既存在又能被执行**（reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
-#   C-26 `start` 前必须存在性守卫——外部程序"成功"不能只靠排除失败码（robocopy rc=0 ≠ 成功）
-#   C-27 模块采纳 = 拷贝 + 接线（README `<!-- MUST-WIRE: sym -->` 声明的符号须在**工具代码**里被引用）
-# 1.3.0：新增 **C-22 bat/cmd 字节卫生**（CRLF + 无 0x09 + 纯 ASCII，逐文件逐行报位置）。
+#   gate-steps-runnable 门禁步骤必须**既存在又能被执行**（reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
+#   start-existence-guard `start` 前必须存在性守卫——外部程序"成功"不能只靠排除失败码（robocopy rc=0 ≠ 成功）
+#   module-wiring-referenced 模块采纳 = 拷贝 + 接线（README `<!-- MUST-WIRE: sym -->` 声明的符号须在**工具代码**里被引用）
+# 1.3.0：新增 **bat-byte-hygiene bat/cmd 字节卫生**（CRLF + 无 0x09 + 纯 ASCII，逐文件逐行报位置）。
 #   把"bat 必须 CRLF + 纯 ASCII"从口头纪律升级成可执行判据；五条 selftest 样本（TAB / LF-only /
 #   非 ASCII / 混合 / 合规）。构建产物与脚手架目录（release/out/dist/_internal/.cache/.verify-scratch）
 #   跳过——它们不是作者手写、也不入库。
-# 1.2.0：C-10 判据重写——旧判据只要 smoke() 里出现 `mutex|single_instance` **任意子串**就算过，
+# 1.2.0：smoke-no-bypass-startup 判据重写——旧判据只要 smoke() 里出现 `mutex|single_instance` **任意子串**就算过，
 #   太松（"把 --smoke 提前分派 + 留一句注释"就能骗过），**区分不了"覆盖了"与"绕过了"**。
-#   现判据（D3.3）：smoke() 内必须有**探针** `mutex_name_is_valid(...)` 且**判了结果**；
+#   现判据（§自检与测试·探针形态）：smoke() 内必须有**探针** `mutex_name_is_valid(...)` 且**判了结果**；
 #   真跑守卫（acquire_single_instance）判 FAIL 并说明会弹模态框挂死构建；
 #   `single_instance_free` 不算探针（用户实例在跑时返回 False → 假红）。四种形态各一条 selftest。
-# 1.1.0：新增 C-23（模块级状态被 global 重绑 = 脆形态）与 C-24（菜单读的容器状态未进签名 /
-#   有菜单无签名机制），补 STANDARDS §D6 的机械阶梯 C-21 → C-23 → C-24；两条都有 --selftest
-#   正反样本。C-22 号被"bat/cmd 字节卫生"占用，故本组从 C-23 起编号。
-"""CONFORMANCE §5.1 的机械化落地：把"靠 AI 记得住"变成"不绿就报"。
+# 1.1.0：新增 no-global-rebind（模块级状态被 global 重绑 = 脆形态）与 menu-state-in-signature（菜单读的容器状态未进签名 /
+#   有菜单无签名机制），机械阶梯 no-star-import-state → no-global-rebind → menu-state-in-signature；两条都有 --selftest
+#   正反样本。bat-byte-hygiene 号被"bat/cmd 字节卫生"占用，故本组从 no-global-rebind 起编号。
+"""§5.1 的机械化落地：把"靠 AI 记得住"变成"不绿就报"。
 
 与 sync_check.py 的分工：
   sync_check.py        只管「拷贝件与模板正本是否一致」（哈希级）
@@ -306,23 +305,23 @@
   ③ FAIL = 硬违规（默认让退出码非 0）；WARN = 需要人判断，只提示；
   ④ **"不认识形态"与"检出违规"必须分开**（2026-09-19 由 lead 升级，合并原有两条口径）：
      (a) 判据的"不通过消息"**必须与它实际检出的东西一致**——检不出就说检不出，不许拿不相干
-         的模式去解释失败（C-10 曾把"消费形态不认识"说成"真跑守卫"，误导出错误修法）；
+         的模式去解释失败（smoke-no-bypass-startup 曾把"消费形态不认识"说成"真跑守卫"，误导出错误修法）；
      (b) 遇到**判据自己不认识的形态**时，一律 **WARN + "形态不认识，需人工确认"**，并在消息里
          写明"期望什么形态 / 实际看到什么"。**不认识 ≠ 违规**；**FAIL 只能用在确实检出违规
          证据的时候**（AST 调用节点、行号 + 实际值这类）。
      (c) **判准：分支级别取决于「它检出的东西」，不取决于「它期望的形态」**——确证违规 → FAIL；
          检不出/形态不认识/证据不足 → WARN。降错方向的代价是**真缺陷从红灯变黄灯、GATE 不再拦**。
-     * 为什么升级：同一元缺陷一天内出现**三次**——C-10 的 `check()` 形态、C-10 的正则读注释、
-       C-11 的 PowerShell 形态；每次都是"判据只认自己那一款，别款一律报违规"。误判一次，
+     * 为什么升级：同一元缺陷一天内出现**三次**——smoke-no-bypass-startup 的 `check()` 形态、smoke-no-bypass-startup 的正则读注释、
+       run-detect-match-exe 的 PowerShell 形态；每次都是"判据只认自己那一款，别款一律报违规"。误判一次，
        人就再也不信这个工具（纪律 ①）。
   ⑤ **判据的每条限定，都必须用"已知正例"回验过才算数**（2026-09-19 加）：前四条管
-     "判据的**输出**要诚实"，⑤ 管"判据的**构造过程**要回验"。实证（复核员做 C-32 时逐条回验）：
+     "判据的**输出**要诚实"，⑤ 管"判据的**构造过程**要回验"。实证（复核员做 no-delete-before-report 时逐条回验）：
      加"同一语句块"→ 漏掉正典、命中 0；加"最近一条赋值"→ 落在 `except` 里的 `detail = ""`
      上，命中 4、**漏了 reme**；改成"遍历所有先前赋值"才 5/5 全真。**"收紧条件"不能靠加限定词
      的直觉**。推论：**样本必须抄真实现场的形状**——用想象的形状写样本，会得到"全绿但漏真案"。
   ⑥ **判据报"ok / 不适用 / 0 命中"时，必须同时给出它的扫描面**（2026-09-19 加，lead 依
      tpl-keeper 的实证升级）：**"只报 0 命中"与"确实没有"在输出上不可区分**——本族反复栽
-     的形状。**"没命中 ≠ 没问题"**。实证（C-30 首版自犯）：只认裸调用 `X = mkdtemp(...)`，
+     的形状。**"没命中 ≠ 没问题"**。实证（mkdtemp-owned-prefix 首版自犯）：只认裸调用 `X = mkdtemp(...)`，
      于是 reme 的 `root = Path(tempfile.mkdtemp(...))` **被静默跳过**——**最该被检的文件被判成
      "本条不适用"**；改按"赋值右侧含 `mkdtemp(`"+认包装调用点后 → reme 1 / l-s2t 9 / dsh 6 /
      ocx 6。落地：ok/不适用分支必须打印"扫了哪些路径、候选几个、命中几个"（`--temp-leak` 是
@@ -331,9 +330,9 @@
      在范围内）、⑥ 管**覆盖**（没命中 ≠ 没问题）。
   ⑦ **同一件事只允许一份判据：禁止自造第二套"加强版"**（2026-09-19 加，lead 裁定后立）：
      两份判据会各自漂移、各自误报，最后由"**没人知道该信哪个**"——**判据自己成为新的漂移源**，
-     与 §4.1.18"索引缺条目本身就是盲区"并列。实证：复核员的 C-30 增强草案未到时，本文件作者
+     与 §4.1.18"索引缺条目本身就是盲区"并列。实证：复核员的 mkdtemp-owned-prefix 增强草案未到时，本文件作者
      **拒绝**并行自造一版"加强版前缀判据"；后到的草案必须**合并进同一个检查**，不并存。
-     同族第二形态（lead 当日更正）：**"判据的机制"与"取证的方法"不能混成一句话**——C-30 从
+     同族第二形态（lead 当日更正）：**"判据的机制"与"取证的方法"不能混成一句话**——mkdtemp-owned-prefix 从
      第一版起就是**读源码判定**，而"枚举前缀再回查 `%TEMP%`"是**一次性的取证方法**。
      落地：新增检查前先问"这条是否已有实现/草案"；有则扩展那一个（或等它）。
      与 ④⑥ 的分工：④ 输入形态、⑥ 覆盖、⑦ 唯一性——三条一起堵住"判据自己变成漂移源"。
@@ -342,10 +341,10 @@
   python my-diy-tool-template/conformance_check.py                  # my_diy_tools 下全部工具
   python my-diy-tool-template/conformance_check.py --roots dsh-helper local-speak2text
   python my-diy-tool-template/conformance_check.py --strict         # WARN 也计入退出码
-  python my-diy-tool-template/conformance_check.py --only C-08 C-09
+  python my-diy-tool-template/conformance_check.py --only mutex-name-valid single-guard-fail-open
   python my-diy-tool-template/conformance_check.py --selftest       # 合成样本反向自证各判据
 
-C-30 的运行期验收（**增量断言**，残留免疫；"清一遍"不算证据）：
+mkdtemp-owned-prefix 的运行期验收（**增量断言**，残留免疫；"清一遍"不算证据）：
   跑测试前：… --roots <工具> --temp-leak-save build\\_tmpbase.txt
   跑完门禁：… --roots <工具> --temp-leak-baseline build\\_tmpbase.txt   # 新增非空 = 泄漏复现
 """
@@ -417,9 +416,9 @@ def identity_line() -> str:
                      if not _re.match(r"^\s*#\s*TEMPLATE-", ln))
     m = _re.search(r"TEMPLATE-VER:\s*([\d.]+)", text[:2000])
     ver = m.group(1) if m else "?"
-    # **横幅不印 ref**（任务 #58，2026-09-19）：工具自印自己的 HEAD = 被测对象供给判它的
+    # **横幅不印 ref**（2026-09-19）：工具自印自己的 HEAD = 被测对象供给判它的
     # 可观测量，属"无判据"而非"漏判"。ref 由读的人在外面配（`git rev-parse HEAD` 的 blob id），
-    # 与自报的 sha256/norm **两类证据分开记、不互替**（§D8 附则 附 2）。
+    # 与自报的 sha256/norm **两类证据分开记、不互替**（§证据锚 附则 附 2）。
     # `at:`（lead 2026-09-19 加，"计数必须带时点"）：**任何"命中 N 个"的转述都需要时点**——
     # 残留集是活的（本轮 reme 从 8 变 5：消失 4、新增 1），缺时点的数字会让接收方去找
     # 已不存在的东西。**扫描面说"扫了什么"，时点说"什么时候"**，两者齐了读数才可判。
@@ -459,7 +458,7 @@ class Ctx:
 
     @property
     def mod_root(self) -> Path:
-        """工具侧模块目录根（W1 改名后为 src/template）。"""
+        """工具侧模块目录根。"""
         return self.src / "template"
 
     @property
@@ -572,7 +571,7 @@ def check(cid, severity, title):
 
 # **模板正本专属**判据：`main()` 里只跑一次（`Ctx.dir` = 模板仓根），不跟着工具跑 N 遍。
 # 为什么单开一张表：这类判据的对象是**正本自己**（拷出去之前的样子），按工具重复执行既
-# 不增加信息、又把同样的行刷 N 遍淹没真信号。首个成员是 C-31（派发件行尾）。
+# 不增加信息、又把同样的行刷 N 遍淹没真信号。首个成员是 template-original-eol（派发件行尾）。
 TEMPLATE_CHECKS = []
 
 
@@ -583,21 +582,21 @@ def template_check(cid, severity, title):
     return deco
 
 
-# ---------------------------------------------------------------- C-01 / C-02
-@check("C-01", "FAIL", "一级目录不出现 .py（B1-02）")
+# ---------------------------------------------------------------- root-dir-no-py / no-src-tests-dir
+@check("root-dir-no-py", "FAIL", "一级目录不出现 .py（骨架·一级白名单）")
 def c01(c: Ctx):
     hits = sorted(p.name for p in c.dir.glob("*.py"))
     return (not hits), ("根目录 .py: " + ", ".join(hits)) if hits else "一级无 .py"
 
 
-@check("C-02", "FAIL", "不存在 src/tests（B1-01）")
+@check("no-src-tests-dir", "FAIL", "不存在 src/tests（骨架·src布局）")
 def c02(c: Ctx):
     p = c.src / "tests"
     return (not p.exists()), str(p) if p.exists() else "无 src/tests"
 
 
-# ---------------------------------------------------------------- C-03 / C-04
-@check("C-03", "FAIL", "版本单一事实源，只写一处（A1-03）")
+# ---------------------------------------------------------------- version-single-source / registry-version-match
+@check("version-single-source", "FAIL", "版本单一事实源，只写一处（基线·版本单源）")
 def c03(c: Ctx):
     hits = []
     for p in c.py_files():
@@ -607,7 +606,7 @@ def c03(c: Ctx):
     return (len(hits) == 1), ("VERSION 定义: " + ", ".join(hits)) if hits else "未找到 VERSION"
 
 
-@check("C-04", "WARN", "登记表版本 == 磁盘版本（B2-01）")
+@check("registry-version-match", "WARN", "登记表版本 == 磁盘版本（骨架·登记表版本）")
 def c04(c: Ctx):
     std = TEMPLATE_DIR / "家族规范.md"
     if not std.exists():
@@ -615,7 +614,7 @@ def c04(c: Ctx):
     text = std.read_text(encoding="utf-8", errors="replace")
     m = re.search(r"\|\s*%s\s*\|[^|]*\|[^|]*\|\s*`([\d.]+)`" % re.escape(c.name), text)
     if not m:
-        return False, "B2 登记表无 %s 行" % c.name
+        return False, "工具登记表无 %s 行" % c.name
     table_ver = m.group(1)
     disk = ""
     for p in c.py_files():
@@ -628,8 +627,8 @@ def c04(c: Ctx):
     return (table_ver == disk), "表 %s / 磁盘 %s" % (table_ver, disk)
 
 
-# ---------------------------------------------------------------- C-05..C-07
-@check("C-05", "FAIL", "README 语言切换行精确格式（A1-08/DOC-02）")
+# ---------------------------------------------------------------- readme-lang-switch-line..no-generated-ico-in-git
+@check("readme-lang-switch-line", "FAIL", "README 语言切换行精确格式（基线·双语README/对照表§3.5 文档·切换行格式）")
 def c05(c: Ctx):
     en, zh = c.dir / "README.md", c.dir / "README.zh-CN.md"
     if not (en.exists() and zh.exists()):
@@ -666,7 +665,7 @@ def _strip_bat_prose(text: str) -> str:
     return "\n".join(out)
 
 
-@check("C-06", "WARN", "两份 README 都随 release 复制（DOC-05）")
+@check("both-readmes-in-release", "WARN", "两份 README 都随 release 复制（对照表§3.5 文档·README随包）")
 def c06(c: Ctx):
     """只看**命令位置**：排除 `rem`/`::` 注释行与 `echo` 行。
 
@@ -675,7 +674,7 @@ def c06(c: Ctx):
     `rem Both READMEs ship: … README.zh-CN.md …` 与 `:371` 的
     `echo [ERROR] README.zh-CN.md was not copied…` 仍含该字面量 ⇒ 判据照旧报"均随包"
     （verifier 2026-09-19 用纯字符串变异实测，dsh/ocx/l-s2t 同变异**转红**=负控通过，
-    只有 reme 空真）。与 C-44「只看命令位置」同一手法：**提到 ≠ 执行**。
+    只有 reme 空真）。与 bat-abs-cmd-path「只看命令位置」同一手法：**提到 ≠ 执行**。
     """
     text = c.build_blob
     if not text:
@@ -685,7 +684,7 @@ def c06(c: Ctx):
     return has_zh, ("build.bat 未复制 README.zh-CN.md" if not has_zh else "两份 README 均随包")
 
 
-@check("C-07", "FAIL", "代码生成的 ico 不入库（A1-01/G2-01/G5-01）")
+@check("no-generated-ico-in-git", "FAIL", "代码生成的 ico 不入库（基线·git入库卫生）")
 def c07(c: Ctx):
     files = c.git_files("*.ico", "*.png")
     if files is None:
@@ -693,10 +692,10 @@ def c07(c: Ctx):
     ico = [f for f in files if f.lower().endswith(".ico")]
     if ico:
         return False, "生成物入库: " + ", ".join(ico[:6])
-    return True, "无 ico 入库（png 手工资产按 B1 允许）"
+    return True, "无 ico 入库（png 手工资产按 §目录结构 允许）"
 
 
-# ---------------------------------------------------------------- C-08..C-11
+# ---------------------------------------------------------------- mutex-name-valid..run-detect-match-exe
 def _literal_value(raw: bool, text: str) -> str:
     """把源码里的字符串字面量还原成"值"：普通字符串 `\\\\` 是**一个**反斜杠。"""
     if raw:
@@ -719,12 +718,12 @@ def _indent_block(lines, idx):
     return out
 
 
-@check("C-08", "FAIL", "互斥体名合法：Local\\ 前缀后不得再有反斜杠（SINGLE-01）")
+@check("mutex-name-valid", "FAIL", "互斥体名合法：Local\\ 前缀后不得再有反斜杠（单实例·互斥体名合法）")
 def c08(c: Ctx):
     """用 AST 取字面量的**值**——注释里引用的反例（如本模块头部的说明）不算违规。"""
     gf = c.guard_file
     if gf is None:
-        return True, "未发现自建守卫（可能未启用 T12）"
+        return True, "未发现自建守卫（可能未启用 单实例检测）"
     rel = gf.relative_to(c.dir).as_posix()
     try:
         tree = ast.parse(c.read(gf))
@@ -743,7 +742,7 @@ def c08(c: Ctx):
     return (not bad), ("非法互斥体名（含第二个反斜杠）: " + "; ".join(bad)) if bad else "命名合法"
 
 
-@check("C-09", "FAIL", "守卫自身失败必须放行（SINGLE-02/D3.2）")
+@check("single-guard-fail-open", "FAIL", "守卫自身失败必须放行（单实例·失败放行/§自检与测试·失败方向）")
 def c09(c: Ctx):
     gf = c.guard_file
     if gf is None:
@@ -769,7 +768,7 @@ def c09(c: Ctx):
 
 
 # 探针 = "验名字合法性，不占锁不弹窗"。**不能**认 single_instance_free：用户常驻实例
-# 在跑时它返回 False，拿它当冒烟断言会假红（D3.3 的禁忌之一）。
+# 在跑时它返回 False，拿它当冒烟断言会假红（§自检与测试·探针形态 的禁忌之一）。
 _PROBE_NAMES = {"mutex_name_is_valid"}
 # 真跑守卫：命中即说明冒烟可能弹模态框把构建挂死（**只在探针缺失时**拿来作提示）。
 _GUARD_NAMES = {"acquire_single_instance", "single_instance_free", "warn_duplicate_instance"}
@@ -816,13 +815,13 @@ def _guarded_probe_calls(fn) -> tuple:
     return guarded, plain
 
 
-@check("C-10", "FAIL", "诊断参数不绕过正常启动路径：smoke 须有守卫**探针**并判结果（D3.1/D3.3）")
+@check("smoke-no-bypass-startup", "FAIL", "诊断参数不绕过正常启动路径：smoke 须有守卫**探针**并判结果（§自检与测试·不绕启动路径/§自检与测试·探针形态）")
 def c10(c: Ctx):
     """判据要能区分"**覆盖了**"和"**绕过了**"——这是本条两轮修正的核心。
 
     * 旧判据（2.0.x）：`smoke()` 里出现 `mutex|single_instance` **任意子串**就算过。
       太松：把 `--smoke` 提前分派、函数体里留一句注释提到 mutex 都能骗过它。
-    * 现判据（D3.3）：**AST 取 `def smoke` 的 body 范围**，要求其中有**探针调用**
+    * 现判据（§自检与测试·探针形态）：**AST 取 `def smoke` 的 body 范围**，要求其中有**探针调用**
       `mutex_name_is_valid(...)`，且该调用**被条件/断言消费**（`if not …` / `assert`）。
       只调用不判断 = 没有覆盖；写在注释里 = 更不算（子串判据会误收，AST 不会）。
     * 反例（不许当解）：`acquire_single_instance()` **真跑** —— 用户常驻实例在跑时会弹
@@ -866,16 +865,16 @@ def c10(c: Ctx):
     # 判据只认识"已知形态"；工具完全可能把覆盖包在别的助手函数里。所以报 WARN 并写明
     # 期望形态与实际所见，把判断交回人——**不认识 ≠ 违规**。
     return False, ("**判不了（形态不认识）**：smoke() 里既没有探针 `mutex_name_is_valid(...)` 的"
-                   "调用节点，也没有真跑守卫的调用节点。**若你确实绕过了守卫，那才是 SINGLE-04/"
-                   "D3.1 违规**——但本判据看不出'绕过'（那取决于 `--smoke` 与守卫在 main() 里的"
+                   "调用节点，也没有真跑守卫的调用节点。**若你确实绕过了守卫，那才是 单实例·smoke不绕/"
+                   "§自检与测试·不绕启动路径 违规**——但本判据看不出'绕过'（那取决于 `--smoke` 与守卫在 main() 里的"
                    "先后），所以只报 WARN，请人工确认。期望形态：`if not "
                    "tray_kit.mutex_name_is_valid(APP_ID): raise RuntimeError(...)`；"
                    "实际看到：smoke() 里没有任何已知守卫符号的调用节点。"), "WARN"
 
 
-@check("C-11", "FAIL", "运行检测匹配串能命中当前 exe 名（SINGLE-05/D1-02）")
+@check("run-detect-match-exe", "FAIL", "运行检测匹配串能命中当前 exe 名（单实例·检测串相符/工程·运行检测串）")
 def c11(c: Ctx):
-    """三种形态，**认不出时只报 WARN**（2026-09-19 修假红灯，与 C-10 同类）。
+    """三种形态，**认不出时只报 WARN**（2026-09-19 修假红灯，与 smoke-no-bypass-startup 同类）。
 
     dsh/ocx 用 **PowerShell `Get-Process -Name <APPNAME>`** 做运行检测，旧实现只认
     `tasklist | findstr`，于是对它们报"未找到运行检测"——**假红灯 + 误导诊断**（人家明明有）。
@@ -913,7 +912,7 @@ def c11(c: Ctx):
         # 不带 `-Name` 时（如 `Get-Process | Where-Object {$_.Path -eq ...}`）此前会掉进
         # "认不出形态"的 WARN 里，那是对着更强的实现报"判不了"。认得就明确放行。
         if "Get-Process" in line and ".Path" in line:
-            return True, ("PowerShell `Get-Process` 取 `.Path` 做**目录精确比较**（SINGLE-05 的"
+            return True, ("PowerShell `Get-Process` 取 `.Path` 做**目录精确比较**（单实例·检测串相符 的"
                           "强化形态：无子串歧义）")
     if saw_tasklist_without_literal:
         return False, ("**判不了（形态不认识）**：看到 `tasklist | findstr`，但取不出 `/c:\"...\"` "
@@ -926,8 +925,8 @@ def c11(c: Ctx):
                    "若该工具确有自有实现，请把它的形态补进本检查"), "WARN"
 
 
-# ---------------------------------------------------------------- C-12..C-15
-@check("C-12", "FAIL", "菜单签名重画被消费（E2-09）")
+# ---------------------------------------------------------------- menu-signature-consumed..tray-open-log-dir
+@check("menu-signature-consumed", "FAIL", "菜单签名重画被消费")
 def c12(c: Ctx):
     if c.entry is None:
         return True, "无入口文件"
@@ -943,14 +942,14 @@ def c12(c: Ctx):
     return False, "既无 MenuSignature 也无内联签名/占用探测（菜单每拍全量重建，开着会被打断）"
 
 
-@check("C-13", "WARN", "存在队列封送骨架（E1-03/I-03）")
+@check("ui-marshal-skeleton", "WARN", "存在队列封送骨架（落地·入口骨架）")
 def c13(c: Ctx):
     hits = [p.relative_to(c.dir).as_posix() for p in c.py_files()
             if re.search(r"\bui_q\b|\bui_post\b|\bui_call\b", c.read(p))]
     return bool(hits), ("队列封送在: " + ", ".join(hits)) if hits else "未发现 ui_q/ui_post"
 
 
-@check("C-14", "FAIL", "日志轮转 1MB x 3（D4-02）")
+@check("log-rotation-1mb", "FAIL", "日志轮转 1MB x 3（工程·日志轮转）")
 def c14(c: Ctx):
     lk = c._find("src/template/log_kit/log_kit.py", "src/log_kit.py", "log_kit.py")
     if lk is None:
@@ -962,7 +961,7 @@ def c14(c: Ctx):
     return ok, ("%s 缺 maxBytes/backupCount" % rel) if not ok else "%s 轮转参数在位" % rel
 
 
-@check("C-15", "WARN", "托盘有「打开日志目录」（D4-02/A3-02）")
+@check("tray-open-log-dir", "WARN", "托盘有「打开日志目录」（工程·日志轮转/暂缓·日志查看器）")
 def c15(c: Ctx):
     pats = ("打开日志目录", "open_log_dir", "Open log folder", "open_logs")
     hits = [p.relative_to(c.dir).as_posix() for p in c.py_files()
@@ -974,8 +973,8 @@ def c15(c: Ctx):
     return bool(hits), ("日志目录入口在: " + ", ".join(hits)) if hits else "未发现「打开日志目录」入口"
 
 
-# ---------------------------------------------------------------- C-16..C-20
-@check("C-16", "FAIL", "实例隔离：_CONFIG 与 _DATA_DIR 两个 env 都要有（B3-04/B4-04）")
+# ---------------------------------------------------------------- isolation-both-envs..no-uncharted-chinese
+@check("isolation-both-envs", "FAIL", "实例隔离：_CONFIG 与 _DATA_DIR 两个 env 都要有（骨架·双环境变量/骨架·实例隔离）")
 def c16(c: Ctx):
     """找**实际读取点**，两种写法都要认：
         os.environ.get("LOCALSPEAK2TEXT_DATA_DIR")          # 字面量
@@ -1010,11 +1009,11 @@ def c16(c: Ctx):
     return True, "; ".join("%s@%s" % (s, ",".join(h[:2])) for s, h in want.items())
 
 
-@check("C-17", "FAIL", "测试不触碰用户真实注册表/数据区（B4-04/D3-03）")
+@check("tests-no-real-data", "FAIL", "测试不触碰用户真实注册表/数据区（骨架·实例隔离/工程·测试只读）")
 def c17(c: Ctx):
     tdir = c.dir / "tests"
     if not tdir.is_dir():
-        return True, "无 tests/（已在 B1-01 单列）"
+        return True, "无 tests/（已在 骨架·src布局 单列）"
     bad = []
     for p in tdir.rglob("*.py"):
         text = c.read(p)
@@ -1027,7 +1026,7 @@ def c17(c: Ctx):
     return (not bad), ("测试写用户注册表且无还原: " + ", ".join(bad)) if bad else "测试未触碰用户注册表（或已备份还原）"
 
 
-@check("C-18", "FAIL", "build.bat 门禁含 sync_check 与测试（B4-03/D1-05/D3-02）")
+@check("gate-sync-and-tests", "FAIL", "build.bat 门禁含 sync_check 与测试（骨架·防漂移四件/工程·业务自测/工程·测试门禁）")
 def c18(c: Ctx):
     text = c.build_blob
     if not text:
@@ -1042,7 +1041,7 @@ def c18(c: Ctx):
     return (not problems), "; ".join(problems) if problems else "门禁含 sync_check 与测试"
 
 
-@check("C-19", "WARN", "模板件头部 TEMPLATE-FROM/TEMPLATE-VER 齐（B4-01/B4-03）")
+@check("template-header-complete", "WARN", "模板件头部 TEMPLATE-FROM/TEMPLATE-VER 齐（骨架·拷贝件归一/骨架·防漂移四件）")
 def c19(c: Ctx):
     mods = c.mod_root
     if not mods.is_dir():
@@ -1058,13 +1057,13 @@ def c19(c: Ctx):
     return (not missing), ("无模板头: " + ", ".join(missing)) if missing else "模板件头部齐全"
 
 
-@check("C-47", "FAIL", "派发件头不得用被禁形态 `TEMPLATE-MODULE`（已被 `TEMPLATE-FROM` 取代）")
+@check("no-template-module-header", "FAIL", "派发件头不得用被禁形态 `TEMPLATE-MODULE`（已被 `TEMPLATE-FROM` 取代）")
 def c47(c: Ctx):
-    """R1 §2.1 那 13 处 `# TEMPLATE-MODULE:` → `# TEMPLATE-FROM:` 的修复，**当时没有守卫**：
-    C-19 的判定串反而把 `TEMPLATE-MODULE` 列为合法形态（`"TEMPLATE-MODULE" not in head`
+    """那 13 处 `# TEMPLATE-MODULE:` → `# TEMPLATE-FROM:` 的修复，**当时没有守卫**：
+    template-header-complete 的判定串反而把 `TEMPLATE-MODULE` 列为合法形态（`"TEMPLATE-MODULE" not in head`
     是它 `and` 链里的一项）⇒ **回归不会被任何判据抓住**（verifier 2026-09-19 复核发现，
-    §4.1 F-1）。本条把唯一被禁的形态独立成判据 —— 与 C-19 分工：C-19 管**有没有头**，
-    本条管**是不是被禁的那一种**（一条判据一个职责，改 C-19 的语义会混淆两件事）。
+）。本条把唯一被禁的形态独立成判据 —— 与 template-header-complete 分工：template-header-complete 管**有没有头**，
+    本条管**是不是被禁的那一种**（一条判据一个职责，改 template-header-complete 的语义会混淆两件事）。
     """
     mods = c.mod_root
     if not mods.is_dir():
@@ -1082,16 +1081,16 @@ def c47(c: Ctx):
 _TK_TEXT_CN = re.compile(r"text\s*=\s*[\"']([^\"']*[\u4e00-\u9fff][^\"']*)[\"']")
 
 
-@check("C-48", "FAIL", "自建 Tk 控件不得用**中文字面量**做文案（须走 t()/translate_tree）")
+@check("no-chinese-ui-literal", "FAIL", "自建 Tk 控件不得用**中文字面量**做文案（须走 t()/translate_tree）")
 def c48(c: Ctx):
-    """R1 §3 T3：reme 的退出确认框有 6 处硬编码中文，**英文模式下整个框仍是中文**，
-    而当时**三层判据全绿** —— C-20（"词表外中文"）对**重形态** i18n 直接跳过
+    """reme 的退出确认框有 6 处硬编码中文，**英文模式下整个框仍是中文**，
+    而当时**三层判据全绿** —— no-uncharted-chinese（"词表外中文"）对**重形态** i18n 直接跳过
     （rem 是「中文即键」，中文本身不算"词表外"）。⇒ 重形态工具缺的正是这条腿。
 
     **判据只看"控件构造处的 `text=` 是不是中文字面量"**（不是"有没有 translate_tree"）：
     合法通道有两条 —— ① `translate_tree(w)` 事后递归替换（reme 修后用的就是它）；
     ② **参数注入**（`text=body_text`，词条在调用点经 `t()` 传入；模板
-    `tray_kit.confirm_quit_dialog` 走这条，见 R1 §2.1 第 2 项）。两条都放行，
+    `tray_kit.confirm_quit_dialog` 走这条）。两条都放行，
     只有"中文字面量写死在控件构造处"才报。
     另附一条：`.title(` 不得传裸 `APP_NAME`（常量，不随语言走）。
     """
@@ -1135,11 +1134,11 @@ def c48(c: Ctx):
 _DESTRUCTIVE_KW = ("kill", "terminate", "stop_", "stop(", "rmtree", "unlink", "remove", "delete")
 
 
-@check("C-49", "FAIL", "破坏性动作的守卫探测：探测自身失败不得判为「不健康」（#45/§D3.2）")
+@check("probe-fail-open", "FAIL", "破坏性动作的守卫探测：探测自身失败不得判为「不健康」（对照表 §3.2 守卫失败放行）")
 def c49(c: Ctx):
     """#45：ocx `probe_target` 的 `except Exception: pass` + 末尾无条件 `return False`，
     而它的返回值被用来决定 `kill_target_procs`（**杀用户正在用的那条隧道**）。
-    ⇒ 探测**自身**出毛病（ssh 缺失 / 超时）＝"拆用户的东西"，与 §D3.2
+    ⇒ 探测**自身**出毛病（ssh 缺失 / 超时）＝"拆用户的东西"，与 对照表 §3.2
     （守卫自身失败要**放行**）正好相反。§4.1.31 立的通用纪律，本条是它的机械形态。
 
     **三条件同时满足才报**（缺一条都会噪声化）：
@@ -1221,7 +1220,7 @@ _DESTRUCTIVE_CALLS = ("terminate", "kill", "stop_service", "stop_process_group",
                       "rmtree", "unlink", "remove")
 
 
-@check("C-50", "FAIL", "退出路径的「未勾选」分支不得执行破坏性动作（G4.2 条款 5）")
+@check("unticked-no-destructive", "FAIL", "退出路径的「未勾选」分支不得执行破坏性动作")
 def c50(c: Ctx):
     """G4.2 **条款 5 明文**：*退出确认弹窗提供"顺便关闭服务/隧道"勾选项，默认不勾；
     **不勾 = 服务与隧道越过托盘生命周期继续运行***。
@@ -1267,18 +1266,18 @@ def c50(c: Ctx):
                             name = call.func.id
                         if name in _DESTRUCTIVE_CALLS:
                             problems.append(
-                                "%s:%d %s() 的 else 分支调用 %s() —— 未勾选时不得清理（G4.2-5）"
+                                "%s:%d %s() 的 else 分支调用 %s() —— 未勾选时不得清理"
                                 % (rel, getattr(sub, "lineno", 0), node.name, name))
     return (not problems), ("；".join(problems) if problems else "退出路径的未勾选分支均无破坏性动作")
 
 
-@check("C-51", "FAIL", "无 UI 的退出入口（--quit）不得沿用持久化清理勾选（§4.1.43/C-41 同族）")
+@check("headless-quit-explicit-stops", "FAIL", "无 UI 的退出入口（--quit）不得沿用持久化清理勾选（§4.1.43/quit-fallback-keep-service 同族）")
 def c51(c: Ctx):
     """`--quit` 是**无 UI 的外部入口**（外部工具/脚本在用）：**没有任何人**被问过。
 
     若它沿用 `CFG["quit_stop_*"]`（那是用户在**有确认框**的语境下保存的偏好），就变成
-    "**辅助机制在无人确认的情况下停掉用户正在用的服务**" —— `§4.1.43` / C-41 的母题。
-    C-41 只查**降级分支**（`except` / `if x is None:`），**不覆盖这条路径**（本判据补上）。
+    "**辅助机制在无人确认的情况下停掉用户正在用的服务**" —— `§4.1.43` / quit-fallback-keep-service 的母题。
+    quit-fallback-keep-service 只查**降级分支**（`except` / `if x is None:`），**不覆盖这条路径**（本判据补上）。
 
     实测缺陷（2026-09-20 排查用户报告时发现）：reme `quit_watch_loop` 调
     `shutdown_tray(TRAY_ICON)` **不传 kwargs** ⇒ `stop_reme/stop_tunnels` 落 `None`
@@ -1293,7 +1292,7 @@ def c51(c: Ctx):
     # ⚠ **只查工具侧**（排除 `src/modules/**`）：模板 `tray_kit.quit_watch_loop` 是
     # **机制件** —— 它只 `on_quit()` 回调，**自己不读任何配置**；"要不要清"由**调用方
     # 传进来的回调**决定。把它也算进来是**假红**（判据把"回调调用点"误当成"退出入口"）。
-    # 与 C-27 的 `code` 过滤同一条边界：**判据的适用范围必须自己先想清楚**（§4.1.18）。
+    # 与 module-wiring-referenced 的 `code` 过滤同一条边界：**判据的适用范围必须自己先想清楚**（§4.1.18）。
     code = [p for p in c.py_files()
             if "template" not in p.relative_to(c.src).parts[:1]]
     for p in code:
@@ -1330,7 +1329,7 @@ def c51(c: Ctx):
 
 
 def _git_has_remote(path):
-    """工具是否**有远端仓库**（= A2 T1 的触发条件"已开源发布"的可判形态）。
+    """工具是否**有远端仓库**（= A2 中英双语 i18n 的触发条件"已开源发布"的可判形态）。
     返回 True / False / **None（判不了）**—— 三态，因为"非 git 仓库"不能当成"未触发"。"""
     import subprocess
     try:
@@ -1349,32 +1348,32 @@ def i18n_gap(has_remote, has_i18n_dir):
     **2026-09-20 口径变更（用户裁定）**：*"**默认所有工具都应该支持双语**"* ——
     不再把"是否已开源"当作开关。理由两条：
       * 四家**全部**是公开仓库 ⇒ 该触发条件对**每一家**都成立，开关实际上**恒开**；
-      * 更糟的是它的**副作用**：作为开关，它给判据留了一条**豁免分支** —— C-20 遇到
+      * 更糟的是它的**副作用**：作为开关，它给判据留了一条**豁免分支** —— no-uncharted-chinese 遇到
         "未启用"直接放行，**没人核对那个前提**，"该有却没有"于是不红不黄（§4.1.18 同族）。
       * 本家族是**拷贝式模板**：新工具一定从模板拷出 ⇒ **默认就该带双语**，
         "没有"才是需要解释的例外。
     ⇒ 保留 `has_remote` 形参，只为让**自证腿能验证"开关语义已移除"**
       （传 False 也必须报）——它**不再参与判定**。
 
-    **2026-09-27 W3 后段收窄**：pairs.json 重形态 grandfather 终结（reme 已迁
+    **2026-09-27 后段收窄**：pairs.json 重形态 grandfather 终结（reme 已迁
     轻形态 locales）⇒ 合法形态只剩 `src/template/i18n/` 目录一种。
     `has_pairs` 形参删除——它曾是"收窄前合法"的守卫，收窄后保留只会再开豁免口。
     """
     return not has_i18n_dir
 
 
-@check("C-52", "FAIL", "所有工具默认必须支持双语 i18n（用户 2026-09-20 裁定：默认，不设开关）")
+@check("bilingual-i18n-default", "FAIL", "所有工具默认必须支持双语 i18n（用户 2026-09-20 裁定：默认，不设开关）")
 def c52(c: Ctx):
     """**默认要求**（用户裁定）：本家族每个工具都必须有 i18n —— 不依赖任何触发条件。
 
     由来（两层，都要记住）：
-      1. **C-20 的豁免分支是盲区**：它遇到"未启用 i18n"直接
-         `return True, "未启用 i18n（T1 未触发**或待办**）"` ⇒ **放行**，
+      1. **no-uncharted-chinese 的豁免分支是盲区**：它遇到"未启用 i18n"直接
+         `return True, "未启用 i18n（中英双语 i18n 未触发**或待办**）"` ⇒ **放行**，
          而**没有任何判据核对那个理由**（这个工具是否真没开源？）。
       2. **用户 2026-09-20 的裁定**：*"默认所有工具都应该支持双语"* ——
          四家全是公开仓库，"是否开源"这个开关**恒开**，留着它只会继续制造豁免角落。
 
-    合法形态**一种**（W3 后段收窄，2026-09-27）：`src/template/i18n/` 目录（轻形态，
+    合法形态**一种**：`src/template/i18n/` 目录（轻形态，
     词表 locales/*.json）。pairs.json 重形态 grandfather 已终结（reme 迁轻形态完成）。
     **扫描面照打**（纪律 ⑥）：没命中与没扫必须可区分。
     """
@@ -1403,9 +1402,9 @@ def _call_name(node) -> str:
     return ""
 
 
-@check("C-20", "WARN", "启用 i18n 的工具无词表外中文（A1-10/E4-02）")
+@check("no-uncharted-chinese", "WARN", "启用 i18n 的工具无词表外中文（基线·文案集中）")
 def c20(c: Ctx):
-    """**2026-09-27 W3 后段口径升级**：词表 = `locales/*.json` 的 zh 值集 + t() 调用。
+    """**2026-09-27 后段口径升级**：词表 = `locales/*.json` 的 zh 值集 + t() 调用。
 
     旧口径"t() 调用点外不得有中文"对**数据驱动文案**（词表值存进数据表、显示时
     `t(item[...])` 统一翻译——reme 模式）全部误报：中文在数据源而非调用点。
@@ -1414,7 +1413,7 @@ def c20(c: Ctx):
     出现在 locales zh 值集（静态可判，与运行时反查同一张表）。
     """
     if not c.has_i18n():
-        return True, "未启用 i18n（T1 未触发或待办）"
+        return True, "未启用 i18n（中英双语 i18n 未触发或待办）"
     if c.entry is None:
         return True, "无入口文件"
     try:
@@ -1450,7 +1449,7 @@ def c20(c: Ctx):
                        % len(zh_values))
 
 
-# ---------------------------------------------------------------- C-21
+# ---------------------------------------------------------------- no-star-import-state
 def _star_copied_state(mod_dir: Path, read) -> tuple:
     """返回 (module_name, [被静态拷贝的状态名])；无风险时 module_name 为空。
 
@@ -1486,7 +1485,7 @@ def _star_copied_state(mod_dir: Path, read) -> tuple:
     return m.group(1), sorted(top & rebound)
 
 
-@check("C-21", "FAIL", "包 import * 不得复制可变状态（外部读会拿到过期值）")
+@check("no-star-import-state", "FAIL", "包 import * 不得复制可变状态（外部读会拿到过期值）")
 def c21(c: Ctx):
     """机械化"状态副本"这一形状——它已静默失效两次（i18n.LANG / update_helper.PENDING_CMD）。
 
@@ -1507,10 +1506,10 @@ def c21(c: Ctx):
                        if bad else "无 import * 状态复制")
 
 
-# ---------------------------------------------------------------- C-22..C-24
+# ---------------------------------------------------------------- bat-byte-hygiene..menu-state-in-signature
 _CONTAINERS = (ast.Dict, ast.List, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)
 
-# --- C-22：bat/cmd 字节卫生 -------------------------------------------------
+# --- bat-byte-hygiene：bat/cmd 字节卫生 -------------------------------------------------
 # 只扫**源**：构建产物（release/out/dist/_internal）与脚手架/缓存目录（.cache/.verify-scratch，
 # 两者都在 .gitignore 里）跳过——它们不是作者手写的、也不入库，报出来只会淹没真问题。
 # ⚠️ 但"生成的 bat 是 LF"这件事本身仍要记在案：恰恰是脚本写文件把 CRLF 写丢了的现场（见 J 坑）。
@@ -1561,7 +1560,7 @@ def _bat_hygiene(path: Path) -> list:
     return bad
 
 
-@check("C-22", "FAIL", "bat/cmd 字节卫生：CRLF + 无 TAB + 纯 ASCII（B3/J 坑）")
+@check("bat-byte-hygiene", "FAIL", "bat/cmd 字节卫生：CRLF + 无 TAB + 纯 ASCII（§命名与版本/J 坑）")
 def c22(c: Ctx):
     """把"bat 必须 CRLF + 纯 ASCII"从口头纪律升级成**可执行判据**（逐文件逐行报位置）。
 
@@ -1584,9 +1583,9 @@ def c22(c: Ctx):
     **真正的守卫（正确做法，替代启发式）**：新增的 bat 块要**从文件里原样抽出、拼成探针文件、两个方向各跑一次**
     ——① 真值路径 → 应当通过；② 不存在的路径/缺件注入 → 应当**报错且 `exit /b 1`**。
     helpers-dev 这次就是靠"反向也跑一遍"把坑抓出来的：**只加断言不验"能红"，等于没加**
-    （与 §D3/§J 那条"注入一个失败，必须先把'只挡住目标那一条路径'证明出来"同族）。
+    （与 §自检与测试/§实战坑 那条"注入一个失败，必须先把'只挡住目标那一条路径'证明出来"同族）。
 
-    ⚠️ **验证脚本必须带"对照格"（复核员自曝，lead 要求并入本条与 C-33 的说明）**：
+    ⚠️ **验证脚本必须带"对照格"（复核员自曝，lead 要求并入本条与 no-ping-as-sleep 的说明）**：
     他只跑"**VAR 为空 → 中止**"这一格时，结论是"这个惯用法必炸"；补上"**VAR 有值 → 不该炸**"这一格，
     才发现**第一次的失败是他自己搬运上下文造成的失真**（整段守卫区段依赖前后行，抽走上下文就换了语义）。
     ⇒ **操作形式：替身/抽取必须是最小对照，且必须有反向格证明它"不该炸（或不该红）"**——
@@ -1622,7 +1621,7 @@ def _rebound_state(py_path: Path, read) -> list:
     这正是两次静默失效的形状（`i18n.LANG`、`update_helper.PENDING_CMD`）：
     `global` 重绑 = 换了一个对象/值，而**导入方手里的引用不会跟着变**
     （`import *` 拷的是对象引用，标量更是直接拷值）⇒ 外部读到的是死副本。
-    **就地修改**（`d.update(...)` / `d["k"]=v`）不受影响——那两条路是 STANDARDS §D6 认可的：
+    **就地修改**（`d.update(...)` / `d["k"]=v`）不受影响——那两条路是 §状态唯一写入点 认可的：
     容器就地改，或经访问器暴露。容器**重绑**同样在禁列（与标量同理），故两类都报、分别标注。
     """
     try:
@@ -1644,13 +1643,13 @@ def _rebound_state(py_path: Path, read) -> list:
     return ["%s:%d(%s)" % (n, kinds[n][1], kinds[n][0]) for n in sorted(rebound & set(kinds))]
 
 
-@check("C-23", "WARN", "模块级状态不得被 global 重绑（外部读会拿到死副本，STANDARDS §D6）")
+@check("no-global-rebind", "WARN", "模块级状态不得被 global 重绑（外部读会拿到死副本，§状态唯一写入点）")
 def c23(c: Ctx):
-    """C-21 的**前一层**：C-21 查"已经坏了"（`import *` 真的拷了状态），本条查**脆形态**——
+    """no-star-import-state 的**前一层**：no-star-import-state 查"已经坏了"（`import *` 真的拷了状态），本条查**脆形态**——
     状态写成模块级名字、由函数 `global` 重绑。这样写今天可能没事（门面若用 `__getattr__`
     委派就挡住了），但任何人把 `import *` 加回来就静默复发。
 
-    正路只有两条（§D6）：**可变容器就地改**（`d.update()` / `d[k]=v`），或**经访问器暴露**。
+    正路只有两条（§状态唯一写入点）：**可变容器就地改**（`d.update()` / `d[k]=v`），或**经访问器暴露**。
     """
     mods = c.mod_root
     if not mods.is_dir():
@@ -1700,7 +1699,7 @@ def _menu_state_tokens(text: str, read) -> list:
     return sorted(used)
 
 
-@check("C-24", "WARN", "驱动托盘菜单的状态必须进入菜单签名（E2-09/§D6）")
+@check("menu-state-in-signature", "WARN", "驱动托盘菜单的状态必须进入菜单签名（§状态唯一写入点）")
 def c24(c: Ctx):
     """菜单只在**签名变化**时重画；签名漏掉某个状态 ⇒ 该状态变了菜单也不刷新。
 
@@ -1734,11 +1733,11 @@ def c24(c: Ctx):
                             else "签名覆盖菜单容器状态（受检文件 %d）" % checked)
 
 
-# ---------------------------------------------------------------- C-25..C-27
+# ---------------------------------------------------------------- gate-steps-runnable..module-wiring-referenced
 # 三条都来自 2026-09-19 当天暴露的缺陷，**现役 76 条款一条都拦不住**：
-#   C-25 门禁步骤"可执行 + 可被执行"   （reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
-#   C-26 外部程序"成功"必须含正向要求   （robocopy rc=0 = 没复制也没出错 ⇒ 空 STAGE 被判成功）
-#   C-27 采纳 = 拷贝 + 接线             （dsh/ocx 拷了 update_helper，README 承诺的调用零引用）
+#   gate-steps-runnable 门禁步骤"可执行 + 可被执行"   （reme build.bat:201 被 TAB 写坏 ⇒ 该步从未执行）
+#   start-existence-guard 外部程序"成功"必须含正向要求   （robocopy rc=0 = 没复制也没出错 ⇒ 空 STAGE 被判成功）
+#   module-wiring-referenced 采纳 = 拷贝 + 接线             （dsh/ocx 拷了 update_helper，README 承诺的调用零引用）
 _PATHISH = re.compile(r"[A-Za-z0-9_%~.\\/-]+\.(?:py|bat|cmd)\b")
 
 
@@ -1763,13 +1762,13 @@ def _bat_invocations(path: Path):
     return out
 
 
-@check("C-25", "FAIL", "门禁步骤必须既存在又能被执行（D1-05/J 坑）")
+@check("gate-steps-runnable", "FAIL", "门禁步骤必须既存在又能被执行（工程·业务自测/J 坑）")
 def c25(c: Ctx):
     """两步都要过：**(a) 被调用的路径在磁盘存在**；**(b) 该步不在死代码里**。
 
     反面教材（2026-09-19）：`reme/scripts/build.bat:201` 被写成
     `"%PY%" tests<TAB>est_update_bat.py` —— 转义把文件名撕开，**整行测试门禁从未执行过**；
-    又因 D1-01 排在它前面，即使不修也永远不暴露。**"写了"不等于"跑了"**。
+    又因 工程·拒重复构建 排在它前面，即使不修也永远不暴露。**"写了"不等于"跑了"**。
     """
     files = [p for p in _bat_files(c.dir)
              if p.name.lower() in ("build.bat", "release.bat", "run.bat", "clean.bat")]
@@ -1811,7 +1810,7 @@ def c25(c: Ctx):
 _START_WITH_PATH = re.compile(r'^\s*start\s+"[^"]*"\s+"(?P<path>[^"]+)"', re.I | re.M)
 
 
-@check("C-26", "FAIL", "start 前必须存在性守卫：外部程序的\"成功\"不能只靠排除失败码（J 坑）")
+@check("start-existence-guard", "FAIL", "start 前必须存在性守卫：外部程序的\"成功\"不能只靠排除失败码（J 坑）")
 def c26(c: Ctx):
     """`robocopy` 的 `rc=0` 意为**没有任何文件被复制、也没出错**——所以"只排除 >=8"会把
     **空/损坏的暂存包判成成功**，随后 `start` 指向不存在的 exe ⇒ Windows"找不到文件"
@@ -1849,7 +1848,7 @@ def c26(c: Ctx):
 _MUST_WIRE = re.compile(r"<!--\s*MUST-WIRE:\s*([A-Za-z_][A-Za-z0-9_]*)\s*-->")
 
 
-@check("C-27", "FAIL", "模块采纳 = 拷贝 + 接线：README 声明的必接符号须在代码里被引用（B4/D14）")
+@check("module-wiring-referenced", "FAIL", "模块采纳 = 拷贝 + 接线：README 声明的必接符号须在代码里被引用（§公共模板库）")
 def c27(c: Ctx):
     """**`sync_check` 的模块 `[ok]` 只证明"拷全了"，不证明"接上了"**。
 
@@ -1891,7 +1890,7 @@ def c27(c: Ctx):
     return (not bad), ("；".join(bad) if bad else "%d 个必接符号都已接线" % declared)
 
 
-# ---------------------------------------------------------------- C-28
+# ---------------------------------------------------------------- md-no-tab
 def check_md_tabs(root: Path):
     """`root` 下所有手写 `.md` 不得含 0x09 TAB。返回 `(ok, detail)`。
 
@@ -1913,7 +1912,7 @@ def check_md_tabs(root: Path):
     return (not bad), ("；".join(bad) if bad else "手写文档无 TAB")
 
 
-# ---------------------------------------------------------------- C-38
+# ---------------------------------------------------------------- startup-self-identify
 # "生产者自我标识"：把一条**无法机械检查的纪律**换成一条**可判的性质**。
 # 由来（2026-09-19，复核员定死 3 个无点 tmp 目录的生产者）：那些残留出自 `python -c` /
 # heredoc 探针——**从不落盘**，所以任何"扫源码"的原理都覆盖不到。最后能定死归属，靠的是
@@ -1933,7 +1932,7 @@ _SELF_ID_ONESHOT = ("config seeded", "config migrated")
 # 那样 `log("dsh process exited during startup: …")` 这种**错误提示**也会变成锚（实测踩到）。
 # 2026-09-20 修盲区（§4.1.60）：锚原来只认 `log(` / `print(`，而 **ocx 的本地日志包装叫
 # `_log(`** ⇒ `_` 属 `\w`、前面的 `(?:^|\W)` 不成立 ⇒ **`_log` 永不命中**，ocx 恒报
-# 「锚 0 处」。R1 §3 T6 曾把这条归因成"ocx 措辞不对（用了 starting 不是 startup）"——
+# 「锚 0 处」。曾把这条归因成"ocx 措辞不对（用了 starting 不是 startup）"——
 # **归因错了一半**：措辞改了之后锚仍不命中，真因是**判据只认一种包装名**。
 # 修法：接受可选下划线前缀（本家族现役两种形态 `log` / `_log`）；
 # **不用 `\w*log`**——那会把 `catalog(` 也当成日志调用。
@@ -2005,7 +2004,7 @@ def _self_identifying(root: Path):
     return bool(hits), "", hits, anchors
 
 
-@check("C-38", "WARN", "启动自证：`startup` 行之后必须能看到解析后的数据根 / 配置文件路径")
+@check("startup-self-identify", "WARN", "启动自证：`startup` 行之后必须能看到解析后的数据根 / 配置文件路径")
 def c38(c: Ctx):
     """**为什么是 WARN 而不是 FAIL**：缺它不会让用户看到任何异常，只会让**下一次残留归属
     无据可依**——而那正是本次三个 `tmp*` 目录耗掉一整轮取证的原因（它们出自 `python -c` /
@@ -2045,40 +2044,40 @@ def c38(c: Ctx):
                    "**解析结果**（不是常量、不是假设值）")
 
 
-@check("C-28", "WARN", "本仓 .md 不得含 0x09 TAB（只扫手写中文文档）")
+@check("md-no-tab", "WARN", "本仓 .md 不得含 0x09 TAB（只扫手写中文文档）")
 def c28(c: Ctx):
     """**只扫 `.md`，WARN 级**——误报成本低，但能覆盖一类真实事故。
 
     背景：写 CHANGELOG 时用 Python 字符串拼内容，`"\\t"` 被当成**转义**，于是文件里落进一个
-    **真 TAB**（2026-09-19 本人实例）。bat 有 C-22 管，`.py` 的 TAB 是缩进（合法）、`.json`
+    **真 TAB**（2026-09-19 本人实例）。bat 有 bat-byte-hygiene 管，`.py` 的 TAB 是缩进（合法）、`.json`
     里也可能是合法转义——所以**只挑 `.md`**：本仓的 `.md` 全是手写中文文档，TAB 没有任何
     正当用途。lead 裁定：不扩到所有文本文件，但这一条值得有。
 
-    **最刺眼的一次**（lead 原话留档）：C-28 的规则文本自己那条 CHANGELOG 里就落进了**两个真
+    **最刺眼的一次**（lead 原话留档）：md-no-tab 的规则文本自己那条 CHANGELOG 里就落进了**两个真
     TAB**——作者想写两字符的 `` `\\t` ``，写进去的是真 TAB，**且 `HEAD`（`188bbcc`）上就已存在**。
     **"描述这个坑的文档，本身踩了这个坑"**。已用显式字节值改回两字符（非转义写法），并回读确认。
     """
     return check_md_tabs(c.dir)
 
 
-@template_check("C-28", "WARN", "模板仓 .md 不得含 0x09 TAB（同一判据；模板只跑一次）")
+@template_check("md-no-tab", "WARN", "模板仓 .md 不得含 0x09 TAB（同一判据；模板只跑一次）")
 def c28_template(c: Ctx):
     """模板正本也扫一遍——修 §4.1.18 的盲区（**判据存在 ≠ 被检查对象在范围内**）。
 
     此前模板仓被 `main()` 的 `d.name not in {..., TEMPLATE_DIR.name}` **显式排除**，于是
-    **模板自己的 `.md` 从未被 C-28 扫过**，而模板正是四份副本之源。lead 裁定用"最省事形态"：
-    只让 C-28 额外扫模板仓、只报一次（不为此给模板开整轮——它没有 `src/` + `build.bat`，
+    **模板自己的 `.md` 从未被 md-no-tab 扫过**，而模板正是四份副本之源。lead 裁定用"最省事形态"：
+    只让 md-no-tab 额外扫模板仓、只报一次（不为此给模板开整轮——它没有 `src/` + `build.bat`，
     整轮会在它身上空转甚至误报）。
     """
     return check_md_tabs(c.dir)
 
 
-# ---------------------------------------------------------------- C-29
+# ---------------------------------------------------------------- log-accepts-varargs
 _LOG_DEF = re.compile(r"^[ \t]*def\s+(log|_log)\s*\(([^)]*)\)", re.M)
 _LOG_WIRED = re.compile(r"\blog\s*=\s*([A-Za-z_]\w*)")
 
 
-@check("C-29", "FAIL", "交给模板件的日志函数必须接受可变参数（print 形态）")
+@check("log-accepts-varargs", "FAIL", "交给模板件的日志函数必须接受可变参数（print 形态）")
 def c29(c: Ctx):
     """**"替身比真实实现更宽容"会盖住契约冲突**——本条是它的机械落地。
 
@@ -2096,7 +2095,7 @@ def c29(c: Ctx):
 
     **✅ 合规正例（写在最前，防后人误伤）**：**工具侧自建 `def log(*parts)` 包装是正确做法，
     不是要消灭的偏差**——dsh `src/main.py:120` 与 ocx `src/main.py:80`（`def _log(*parts)`）
-    就是这么写的，C-29 对它们判 `[ok]`（首跑只报 l-s2t 是对的）。判据说要消灭的是
+    就是这么写的，log-accepts-varargs 对它们判 `[ok]`（首跑只报 l-s2t 是对的）。判据说要消灭的是
     **"只收一个参数"**的包装，不是"自己写包装"这件事本身。
     `✶` 为什么要把这句写进判据说明：**判据的措辞会塑造后人的行为**——若这里只写"传给模板件的
     log 必须收可变参数"，读者很容易把它读成"凡自建包装皆偏差"，从而去"统一"掉 dsh/ocx 那种
@@ -2142,7 +2141,7 @@ def c29(c: Ctx):
         len(defs), ", ".join(sorted(defs)))
 
 
-# ---------------------------------------------------------------- C-30
+# ---------------------------------------------------------------- mkdtemp-owned-prefix
 _RMTREE_CALL = re.compile(r"(?:shutil\.)?rmtree\s*\(\s*([A-Za-z_]\w*)")
 _ASSIGN_LINE = re.compile(r"^\s*([A-Za-z_]\w*)\s*=")
 _DEF_HEAD = re.compile(r"^\s*def\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*:", re.M)
@@ -2302,7 +2301,7 @@ def _enclosing_map(tree):
 
 
 def enumerate_mkdtemp_prefixes(root: Path):
-    """从源码**枚举** mkdtemp 前缀（不猜命名，STANDARDS §D7 硬要求 8）+ 读登记表。
+    """从源码**枚举** mkdtemp 前缀（不猜命名，§观测工具纪律 硬要求 8）+ 读登记表。
 
     返回 `(prefixes, opaque, registry, problems)`：
       * `prefixes` 可静态归属的前缀（字面量实参 + 包装函数调用点传的全是字面量）；
@@ -2445,7 +2444,7 @@ def enumerate_mkdtemp_prefixes(root: Path):
     return sorted(prefixes), opaque, registry, problems, weak, folded
 
 
-@check("C-30", "FAIL", "mkdtemp 临时目录：前缀必须可静态归属，清理必须可验证（禁 ignore_errors 吞掉）")
+@check("mkdtemp-owned-prefix", "FAIL", "mkdtemp 临时目录：前缀必须可静态归属，清理必须可验证（禁 ignore_errors 吞掉）")
 def c30(c: Ctx):
     """**"删不掉"必须变成红，而不是被 `ignore_errors=True` 吞掉**（2026-09-19 实测）。
 
@@ -2462,7 +2461,7 @@ def c30(c: Ctx):
     正确形态：删前释放日志句柄（`logging.shutdown()` / 关 FileHandler）→ 删 → **回读确认不存在**
     → 不存在才算成功，失败即红。本条只否掉"吞掉失败"这一种写法，不规定必须用哪个助手。
 
-    **本条不猜命名**（STANDARDS §D7 硬要求 8）：mkdtemp 根目录与 mkdtemp 前缀都是**从源码
+    **本条不猜命名**（§观测工具纪律 硬要求 8）：mkdtemp 根目录与 mkdtemp 前缀都是**从源码
     枚举**出来的（mkdtemp 调用节点 + 包装函数的**调用点**实参），**不做** `prefix="xxx"` 的
     字符串匹配——前缀怎么改、新增几个，判据自动跟着变。
 
@@ -2472,7 +2471,7 @@ def c30(c: Ctx):
     这类站点必须在 `TMP_PREFIX_REGISTRY` 登记**等价前缀**，判据与运行期取证都读它。
 
     **验收口径**（lead 裁定）：不是"现在 %TEMP% 是干净的"，而是**跑完门禁后实测 = 0**。
-    ⚠️ 但"0"必须按时点读，不许当成永恒事实（R-EVID）：lead 在 **16:11** 那一次测量里，
+    ⚠️ 但"0"必须按时点读，不许当成永恒事实（取证实读）：lead 在 **16:11** 那一次测量里，
     dsh 的 3 个残留目录 mtime 正是 **16:11**（门禁运行的当口）→ 当时它们是**跑门禁时产生的**，
     不是历史存量；而 tpl-keeper 在**晚些时候**用同一批前缀（19 个）复扫 `%TEMP%` 得到
     **0 命中**——**两次测量各自成立，谁都不能替对方下结论**。"清一遍就好了"之所以不成立，
@@ -2493,8 +2492,8 @@ def c30(c: Ctx):
     # 生产代码形态；只看 tests/ 会让它整个溜过去。
     # ⚠️ 文本先**掩码**（注释/docstring → 空格，长度与换行不变）：本条要报 `相对路径:行号`，
     # 所以不能用会拼掉换行的 `_code_only_text`。不掩码的代价是实测过的假红——本文件
-    # `_rmtree_strict` 的 docstring **引用**了被禁写法（"本工具自己先得守 C-30"），
-    # 于是**仪器在自己的合规说明上自证违规**（与 C-33 读 docstring 同族同因）。
+    # `_rmtree_strict` 的 docstring **引用**了被禁写法（"本工具自己先得守 mkdtemp-owned-prefix"），
+    # 于是**仪器在自己的合规说明上自证违规**（与 no-ping-as-sleep 读 docstring 同族同因）。
     files = _py_files_under(c.dir)
     texts = [(p, _masked_code_text(c.read(p))) for p in files]
     producers = _mkdtemp_producers([t for _, t in texts])
@@ -2549,7 +2548,7 @@ def c30(c: Ctx):
 
 
 # ---------------- 运行期取证 / 验收：%TEMP% 残留（**只读，两条腿**） ----------------
-# 这是 C-30 的**运行期**一半：C-30 本体只做静态的"前缀可归属 + 清理可验证"，
+# 这是 mkdtemp-owned-prefix 的**运行期**一半：mkdtemp-owned-prefix 本体只做静态的"前缀可归属 + 清理可验证"，
 # "%TEMP% 里还剩几个"必须现场量。
 #
 # **为什么必须两条腿**（2026-09-19 实测，task #43）：光靠"从源码枚举前缀"有**结构性天花板**
@@ -2589,7 +2588,7 @@ _TEMP_REGRESSION_20260919 = {
 #     当时的误判（lead 转达复核员的取证后更正）。
 #   * 宽松口径（`*.log` **存在**而非非空）覆盖 **20/20**；若写成"`log/*.log` **非空**"则只覆盖
 #     **11/20**——漏掉的全是 log 为 0 字节的那一批（dsh 3 + ocx 5 + tmp2k2z1nt2）。**空文件/空目录
-#     同样是残留**，这正是 C-30 从第一版起就坚持的口径（"清理跑过了 ≠ 清理成功了"）。
+#     同样是残留**，这正是 mkdtemp-owned-prefix 从第一版起就坚持的口径（"清理跑过了 ≠ 清理成功了"）。
 _SHAPE_RULE = ("**任意深度**存在名为 `log` 的**目录**（里面的 `*.log` 是 0 字节、甚至一个文件都没有，"
                "同样算——空目录也是残留）。**不看名字、不要求 `config.json`、不设深度上限**")
 
@@ -2608,7 +2607,7 @@ _SHAPE_RULE = ("**任意深度**存在名为 `log` 的**目录**（里面的 `*.
 # （与"0 命中"和"没扫"不可区分是同一个病）。所以每条都必须写出**它的失效条件**。
 # **缺任一栏 = 仪器自身的表坏了** ⇒ 按 `[BROKEN]` 语义报（见 `_declared_problems`）。
 def _leak_key(p) -> str:
-    """跨根唯一 key = **规范化绝对路径**（任务 #64 / §4.1.55：裸名 ⇒ 多根下同名目录
+    """跨根唯一 key = **规范化绝对路径**（§4.1.55：裸名 ⇒ 多根下同名目录
     会被集合运算去重吃掉，还会让白名单"吃掉任何根下的同名目录"）。"""
     return os.path.normcase(str(Path(p).resolve()))
 
@@ -2650,7 +2649,7 @@ def _declared_problems():
 
 
 def _shape_rel(d: Path):
-    """腿 B 签名 = "**隔离数据根**"的不变量 = **有一个 `log` 目录**（B3：日志一律落
+    """腿 B 签名 = "**隔离数据根**"的不变量 = **有一个 `log` 目录**（§命名与版本：日志一律落
     `<数据根>/log/<工具名>.log`）。返回触发路径（相对 `d`）或 `None`。
 
     2026-09-19 两次放宽，两次都是**先实测、再改签名**：
@@ -2696,7 +2695,7 @@ def _prefix_of(d: Path, prefixes):
     return None
 
 
-# ---------------------------------------------------------------- R-10 扫描根（§4.1.55 / 任务 #64）
+# ---------------------------------------------------------------- 临时残留增量断言 扫描根（§4.1.55）
 # 加宽的两步：① **换 key：裸名 → 全路径**（`_leak_key`）——否则多根下同名目录会被集合运算
 #   去重吃掉，白名单也会"吃掉任何根下的同名目录"；② **扩根**：除 `%TEMP%` 外，把 l-s2t
 #   仓内三处落点纳入（它们既不在 `%TEMP%`、也被 `.gitignore` 的 `build/`+`release/` 遮住 ⇒
@@ -2956,7 +2955,7 @@ def temp_leak_main(names, save=None, baseline=None) -> int:
     return 0
 
 
-# ---------------------------------------------------------------- C-32
+# ---------------------------------------------------------------- no-delete-before-report
 # 窄版（复核员定稿、lead 裁定）：**读同一对象 → 删它 → 再 log 用那个值**，三条同时满足：
 #   D：`unlink/remove/rmtree/rmdir`，接收者记 `rcv`；
 #   A：函数内**任意一条**早于 D 的赋值，右值**含** `read_text/read_bytes` 且接收者与 `rcv`
@@ -3050,7 +3049,7 @@ def check_evidence_order(root: Path):
     return True, "没有「读证据→删证据→报告」的危险顺序"
 
 
-# ---------------------------------------------------------------- C-33
+# ---------------------------------------------------------------- no-ping-as-sleep
 # **禁止拿 `ping` 当等待节拍**。它不是"睡 1 秒"，而是"发 N 个 ICMP 等回包"——
 # 在**丢弃 loopback ICMP** 的机器上每个包要等满超时：`ping -n 2 127.0.0.1` 实测 **9.0s**
 # （两次 4.5s），于是名义 120s 的等待变成 ~18 分钟，而 `:giveup` 还打印 "after 120s"
@@ -3065,7 +3064,7 @@ def check_evidence_order(root: Path):
 # （**不是**删掉解释文字——那等于让判据在最该说清原因的文字上被绕开）：
 #   ① `_code_only_text` 挖掉 **AST docstring 节点**（豁免对象 = "关于代码的文本"）；
 #   ② 扫描面**按绝对路径排除仪器自身**（它的诊断文案与自证样本**必然**含被禁形态），
-#      排除项打印进 detail（否则"排除了"与"没扫"同形，同 C-30 的扫描面纪律）；
+#      排除项打印进 detail（否则"排除了"与"没扫"同形，同 mkdtemp-owned-prefix 的扫描面纪律）；
 #   ③ 自证集补上缺的那条腿 `ping_in_py_docstring_ok`——**原来 5 条腿恰好缺它**，所以假红
 #      一路绿灯。⇒ **豁免的每一条边界都必须有一条腿**，否则那条边界没人守着。
 _PING_TICK = re.compile(r"\bping(?:\.exe)?\b[^\n]*?\s-(?:n|w)\b", re.I)
@@ -3113,10 +3112,10 @@ def _masked_code_text(text: str) -> str:
     """把**注释与 docstring 就地掩成空格**：长度与换行**完全不变** ⇒ 偏移量与行号仍可靠。
 
     与 `_code_only_text` 的分工：那个拼成"逻辑行"给**跨行形态正则**用（行号会失真）；
-    这个留在原位置给**要报行号的判据**用（C-30 的登记键就是 `相对路径:行号`）。
-    **为什么必须有它（2026-09-19，同一条豁免边界、同一成因）**：C-30 下半曾在**原始文本**
+    这个留在原位置给**要报行号的判据**用（mkdtemp-owned-prefix 的登记键就是 `相对路径:行号`）。
+    **为什么必须有它（2026-09-19，同一条豁免边界、同一成因）**：mkdtemp-owned-prefix 下半曾在**原始文本**
     上找 `rmtree(..., ignore_errors=True)`，而 `_rmtree_strict` 的 docstring **引用**了那句
-    旧写法（"本工具自己先得守 C-30"）⇒ **仪器在自己的合规说明上自证违规**，和 C-33 读
+    旧写法（"本工具自己先得守 mkdtemp-owned-prefix"）⇒ **仪器在自己的合规说明上自证违规**，和 no-ping-as-sleep 读
     docstring 假红一模一样。⇒ **凡"在源码文本上找形态"的判据，都必须在掩码后的文本上找**。
     """
     import io
@@ -3157,7 +3156,7 @@ def _code_only_text(p: Path, text: str) -> str:
     "会被执行的代码文本"**；**docstring / 注释是"关于代码的文本"**——它与 bat 模板**同为
     STRING token，语义不同**。**这是豁免边界画错，不是实现 bug**。
     ⇒ 通用形态（与今天多条同族）：**判据的豁免范围一旦按"token 类型"划，就会把"语义不同的
-    同类型对象"一起放过、或一起误伤**（裸 `mkdtemp()` 按"prefix 有无"划、C-22 按"扩展名"划，
+    同类型对象"一起放过、或一起误伤**（裸 `mkdtemp()` 按"prefix 有无"划、bat-byte-hygiene 按"扩展名"划，
     都出过同类问题）。**按 token 类型划 = 按语法分类；而这里要分的是语义**。
     ⇒ 代价曾经是**假红**：本判据自己的 docstring 解释了"为什么要禁 `ping -n 2`"，于是
     **解释得越清楚越会被判红**。**改写注释来绕开是错的**——那等于让判据在最该说清原因的文字上
@@ -3195,7 +3194,7 @@ def check_ping_tick(root: Path):
     等把被禁形态当**数据**）**必然**包含被禁字符串——它们都是"关于代码的文本"。判据对自己
     无法做可靠证人：**它引用的正是它要禁的东西**。⇒ 自身文件按**绝对路径**排除（不按文件名，
     否则改个名字就能豁免），且**排除数量必须打印出来**——否则"排除了"与"没扫"同形
-    （同 C-30"每个根都要打印扫描目录数"）。
+    （同 mkdtemp-owned-prefix"每个根都要打印扫描目录数"）。
     """
     self_path = Path(__file__).resolve()
     hits = []
@@ -3225,7 +3224,7 @@ def check_ping_tick(root: Path):
     return True, "没有把 ping 当等待节拍。%s" % span
 
 
-# ---------------------------------------------------------------- C-39
+# ---------------------------------------------------------------- default-arg-snapshot-safe
 # **派生值必须取自"本次调用的实参"，不能取自"模块级当前值 / 定义时的快照"**（lead 2026-09-19 立）。
 # 一族两例，都是"用了另一个时刻/另一个来源的值去代替本次输入"：
 #   ① `AsrEngine.__init__(self, model_dir=MODEL_DIR)`——默认参数在**定义时**求值，
@@ -3237,7 +3236,7 @@ def check_ping_tick(root: Path):
 #   * 该名字在模块里**被重绑过**（模块级多次赋值 / 任何 `global` 重绑）⇒ **快照必然失真** ⇒ 红；
 #   * 默认值是**可变字面量**（`[]`/`{}`/`set()`）⇒ 跨调用共享同一对象 ⇒ 红（经典坑）；
 #   * 只赋值一次、且是不可变字面量、无 `global` 重绑 ⇒ **良性**（今天全家族 13 处全属此类）。
-#   ⚠️ 第三档**必须放行**，否则就是"看到默认参数就报"的噪音判据——那正是 C-33 那族错误的翻版。
+#   ⚠️ 第三档**必须放行**，否则就是"看到默认参数就报"的噪音判据——那正是 no-ping-as-sleep 那族错误的翻版。
 _DEFAULT_SNAPSHOT_OK_NOTE = ("良性：模块级常量只赋值一次、不可变、无 global 重绑 ⇒ "
                              "默认值 == 当前值，不会失真")
 
@@ -3316,25 +3315,25 @@ def check_default_snapshot(root: Path, sub: str = "src"):
                   % (sub, scanned, _DEFAULT_SNAPSHOT_OK_NOTE, benign))
 
 
-@check("C-39", "FAIL", "默认参数不得取「会被重绑的模块级名字」/ 可变字面量（定义时快照）")
+@check("default-arg-snapshot-safe", "FAIL", "默认参数不得取「会被重绑的模块级名字」/ 可变字面量（定义时快照）")
 def c39(c: Ctx):
     """见上方注释。与 §4.1.41 同条：**派生值必须取自本次调用的实参**。
 
-    两例：`AsrEngine(model_dir=MODEL_DIR)`（#46，导入期快照）、`budget_s` 取模块常量
+    两例：`AsrEngine(model_dir=MODEL_DIR)`（导入期快照）、`budget_s` 取模块常量
     （更新链文案与实参不符，1.4.4 修）。**第三档（良性常量）必须放行**——否则就是噪音判据。
     """
     return check_default_snapshot(c.dir)
 
 
-@template_check("C-39", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+@template_check("default-arg-snapshot-safe", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c39_template(c: Ctx):
     return check_default_snapshot(c.dir, "template")
 
 
-# ---------------------------------------------------------------- C-40
+# ---------------------------------------------------------------- autostart-registry-guard
 # **版本目录 ↔ 自启目标 必须一致**（ls2t-dev 提议，lead 补两处修正后定）。
 # 它把一条**靠人自觉的纪律**（"每个 owner 写明启动哪个 exe、版本号与源码 VERSION 是否一致"）
-# 换成**可判的性质**——与 C-38「生产者自我标识」同一手法：**纪律 → 可判性质**。
+# 换成**可判的性质**——与 startup-self-identify「生产者自我标识」同一手法：**纪律 → 可判性质**。
 # 三条都能从**磁盘 + 注册表**直接读，不需要任何人记忆。
 #
 # ⚠️ **不能写成"release/ 的版本目录集合 == {VERSION}"**（lead 的修正，实测两处假红）：
@@ -3360,16 +3359,16 @@ ORPHAN_VERSIONS = {
     "_stale_dsh-helper-1.8.2_20260920-120657": {
         "why": "未被引用的**改名保留镜像**（2026-09-20 发版前归档）。它曾是 dsh 的临时升号产物、"
                "后被 Run 键引用（部署版本 != 源码 VERSION 的那个状态）；2026-09-19 21:16 Run 键先改指 1.8.1，"
-               "2026-09-20 发版升到 **1.8.2** 时把该目录归档为本名（D11 rename-preserve，不删）。"
+               "2026-09-20 发版升到 **1.8.2** 时把该目录归档为本名（rename-preserve，不删）。"
                "当前态：存在、**未被引用**——Run[dsh-helper] 实测指向 "
-               "`release\dsh-helper-1.8.2\dsh-helper.exe`（== 当前源码 VERSION）。"
+               r"`release\dsh-helper-1.8.2\dsh-helper.exe`（== 当前源码 VERSION）。"
                "曾出现过：是。如何收敛：**未收敛**——它现在只是回滚路径；删除未获授权。",
         "reverify": "dsh 的 Run 键值或 `release/` 目录集合变化时；或用户授权清理该镜像时。",
     },
     "_stale_local-speak2text-1.4.0-20260919-204004": {
         "why": "未被引用的**改名保留镜像**（2026-09-19 20:40:04 一次重建时保留）。"
                "当前态：存在、**未被引用**——Run[LocalSpeak2Text] 实测指向 "
-               "`release\local-speak2text-1.4.1\local-speak2text.exe`（== 当前源码 VERSION 1.4.1）。"
+               r"`release\local-speak2text-1.4.1\local-speak2text.exe`（== 当前源码 VERSION 1.4.1）。"
                "内含旧 exe（6296010 B / mtime 2026-09-19 17:25）+ `_internal/` + README* + config.json"
                "（smoke.log 是 22:15 取证时新写的，非原目录内容）。曾出现过：是。"
                "如何收敛：**未收敛**——未被引用，但按红线不得删 `release/`，它是回滚路径之一。",
@@ -3379,7 +3378,7 @@ ORPHAN_VERSIONS = {
         "why": "未被引用的**改名保留镜像**（2026-09-19 20:39:05 ocx 重建时保留——为避免 "
                "`robocopy /E` 在目标目录留下陈旧 `_internal`）。当前态：存在、**未被引用**——"
                "Run[opencodex-helper] 实测指向 "
-               "`release\opencodex-helper-1.2.2\opencodex-helper.exe`（== 当前源码 VERSION 1.2.2）。"
+               r"`release\opencodex-helper-1.2.2\opencodex-helper.exe`（== 当前源码 VERSION 1.2.2）。"
                "曾出现过：是。如何收敛：**未收敛**——未被引用，删除未获授权。",
         "reverify": "ocx 的 Run 键值或 `release/` 目录集合变化时；或用户授权清理该镜像时。",
     },
@@ -3434,7 +3433,7 @@ def tool_version(root: Path):
 def _run_values():
     """HKCU\\...\\Run 的**全部键值**（`{键名: 值}`）；读不到（非 Windows / 无权限）返回 `{}`。
 
-    为什么取全表（CONFORMANCE §4.1.53）：Run 键名**没有单一契约**（§4.1.54）——模板 autostart 用
+    为什么取全表（§4.1.53）：Run 键名**没有单一契约**（§4.1.54）——模板 autostart 用
     `APP_NAME`（l-s2t 的键是 `LocalSpeak2Text`），reme 内联用 `APP_ID`（键是 `reme-helper`）。
     旧实现按 `APP_ID` 单查 ⇒ 对 `APP_ID != APP_NAME` 的工具**永远读不到** ⇒ 强断言静默不执行 = 假绿。
     """
@@ -3478,7 +3477,7 @@ def _is_under(child, parent):
 
 
 def select_run_entry(run_values, root=None, app_id=None, app_name=None, local_appdata=None):
-    """选**本工具**的 Run 项：**先按路径、再按键名**（不依赖键名，CONFORMANCE §4.1.53/§4.1.54）。
+    """选**本工具**的 Run 项：**先按路径、再按键名**（不依赖键名，§4.1.53/§4.1.54）。
 
     为什么不能只认键名：家族里 Run 键名**无单一契约**——模板 autostart 用 `APP_NAME`、reme 内联用
     `APP_ID` ⇒ 任选其一都会漏掉另一半。故两条腿：
@@ -3564,7 +3563,7 @@ def judge_version_targets(version, app_id, release_names, run_target, declared,
         #      把它算作"待登记孤儿"，登记量会**随发版次数线性增长**、漏登是必然的
         #      （本次发版一次就新增 4 条，正是这个缺口暴露）；
         #   ③ **改名保留的镜像** `_stale_*` / `*.pre-rebuild-*` —— **有意的动作**
-        #      （rename-preserve，D11），必须留痕 ⇒ **要求登记**。
+        #      （rename-preserve），必须留痕 ⇒ **要求登记**。
         if not (name.startswith("_stale_") or ".pre-rebuild-" in name):
             continue
         entry = declared.get(name)
@@ -3582,7 +3581,7 @@ def judge_version_targets(version, app_id, release_names, run_target, declared,
                   "release/ 目录 %d 个，无未登记孤儿" % len(release_names)), None
 
 
-@check("C-40", "FAIL", "版本目录 ↔ 自启目标必须一致；孤儿版本目录必须登记「是否仍被引用」")
+@check("autostart-registry-guard", "FAIL", "版本目录 ↔ 自启目标必须一致；孤儿版本目录必须登记「是否仍被引用」")
 def c40(c: Ctx):
     """见上方注释。读**磁盘 + 注册表**（无需任何人记忆）。
 
@@ -3622,7 +3621,7 @@ def c40(c: Ctx):
     return (ok, detail) if sev is None else (ok, detail, sev)
 
 
-# ---------------------------------------------------------------- C-41
+# ---------------------------------------------------------------- quit-fallback-keep-service
 # **退出确认的"链路不可用"分支，必须固定为"不停服务"**（lead 2026-09-19 定，源头是他批错过一处）。
 # 理由一句话：**那个勾选是用户在"有确认框"的语境下保存的；链路坏掉时用户根本没被问过**。
 # 若沿用，就变成 **"辅助机制坏掉 ⇒ 在无人确认的情况下停掉用户正在用的服务"**——正是本轮的母题。
@@ -3708,18 +3707,18 @@ def check_quit_fallback(root: Path, sub: str = "src"):
                   "（%s）" % (sub, funcs, branches, _QUIT_BRANCH_NOTE))
 
 
-@check("C-41", "FAIL", "退出确认的「链路不可用」分支必须固定为不停服务（不得沿用已存勾选）")
+@check("quit-fallback-keep-service", "FAIL", "退出确认的「链路不可用」分支必须固定为不停服务（不得沿用已存勾选）")
 def c41(c: Ctx):
     """见上方注释。**原生框那一支不算违规**（那时用户确实被问到了）。"""
     return check_quit_fallback(c.dir)
 
 
-@template_check("C-41", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+@template_check("quit-fallback-keep-service", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c41_template(c: Ctx):
     return check_quit_fallback(c.dir, "template")
 
 
-# ---------------------------------------------------------------- C-42
+# ---------------------------------------------------------------- no-dev-null-redirect
 # **重定向位置上的 `dev/null`**（lead 2026-09-19 定，收窄版；来自 ls2t-dev 挖到的一个很深的事故）。
 # **事故链**：他用 **bash heredoc** 打补丁，`nul` 在**到达 Python 之前**被改写成 `/dev/null`
 #   （同时 LF→CRLF）：
@@ -3728,7 +3727,7 @@ def c41_template(c: Ctx):
 #   睡眠没发生**（对照：正确写法 **0.68s**、stderr 空）。于是等待循环里 `tries` 以 `tasklist` 的
 #   极限速度狂涨、**120 拍几秒烧完**，`:giveup` 在旧进程没退时就放弃，
 #   **而日志仍打印 `120 polls x 1000ms (nominal budget 120s)`**。
-# **三层判据都看不见**：C-22（仍是 ASCII + CRLF）、C-33（找 `ping`）、`test_update_safety`
+# **三层判据都看不见**：bat-byte-hygiene（仍是 ASCII + CRLF）、no-ping-as-sleep（找 `ping`）、`test_update_safety`
 #   （根本走不到那条重定向）。**而他的自证是假绿**——他比对的是**同一个字面量**，
 #   被**同一条规则**一起改写、一起错。
 #
@@ -3743,7 +3742,7 @@ def _redirect_text(p: Path, text: str) -> str:
     """取"会被执行的那部分文本"：`.py` 掩掉注释/docstring（**保留其余字符串**——渲染 bat 的
     模板正是字符串，那才是要查的）；`.bat`/`.cmd` 逐行丢掉 `rem` / `::`。
 
-    ⚠️ 与 C-33 同一条豁免边界（§4.1.37）：**散文不算**。否则**本条判据自己的说明文字**
+    ⚠️ 与 no-ping-as-sleep 同一条豁免边界（§4.1.37）：**散文不算**。否则**本条判据自己的说明文字**
     （里面就写着那行错误写法）会把自己判红——那是今天已经犯过两次的错误。
     """
     if p.suffix.lower() == ".py":
@@ -3760,7 +3759,7 @@ def _redirect_text(p: Path, text: str) -> str:
 def check_devnull_redirect(root: Path):
     """`root` 下的 `.py`/`.bat`/`.cmd`：**重定向位置不得出现 `dev/null`**。
 
-    ⚠️ **扫描面按绝对路径排除仪器自身**（与 C-33 同一条，§4.1.37）：
+    ⚠️ **扫描面按绝对路径排除仪器自身**（与 no-ping-as-sleep 同一条，§4.1.37）：
     本判据的**正样本**里就必然写着那个被禁形态（否则它没有区分力）——
     不排除就是“**判据把自己的自证样本当成违规**”。这一次它真的发生了：
     实现当天就在 `conformance_check.py:4087` 报了两处（都是自己的样本）。
@@ -3788,7 +3787,7 @@ def check_devnull_redirect(root: Path):
         return False, ("%d 处在**重定向位置**出现 `dev/null`：%s。【为什么是硬违规】"
                        "Windows 上 `>` 后面跟 `/dev/null` 会让该命令**根本不执行**"
                        "（实测 `rc=0` 但 0.03s、stderr 报「系统找不到指定的路径」；正确写法 0.68s）"
-                       "——而外围判据全是绿的：字节卫生看不见、C-33 找的是 `ping`、"
+                       "——而外围判据全是绿的：字节卫生看不见、no-ping-as-sleep 找的是 `ping`、"
                        "运行期测试走不到那条重定向。【正确形态】Windows 上一律 `>nul 2>nul`。"
                        "【扫描面】%d 个 .py/.bat/.cmd%s" % (len(hits), "；".join(hits[:6]), scanned,
                         ("；排除仪器自身 " + ", ".join(excluded)) if excluded else ""))
@@ -3797,18 +3796,18 @@ def check_devnull_redirect(root: Path):
                   % (scanned, ("；排除仪器自身 " + ", ".join(excluded)) if excluded else ""))
 
 
-@check("C-42", "FAIL", "重定向位置不得出现 `dev/null`（Windows 上该命令根本不执行）")
+@check("no-dev-null-redirect", "FAIL", "重定向位置不得出现 `dev/null`（Windows 上该命令根本不执行）")
 def c42(c: Ctx):
     """见上方注释。**收窄到"重定向位置"**：注释里的 `H:/Tools/dev/…` 与 URL 不算。"""
     return check_devnull_redirect(c.dir)
 
 
-@template_check("C-42", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+@template_check("no-dev-null-redirect", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c42_template(c: Ctx):
     return check_devnull_redirect(c.dir)
 
 
-# ---------------------------------------------------------------- C-43
+# ---------------------------------------------------------------- no-tilde-substr-in-if
 # **`if` **条件**里的 `:~` 子串扩展**（lead 2026-09-19 定；边界由 ls2t-dev 钉准）。
 # **危险的只有一种形态**：**同一行条件里**带 `:~` 尾/子串扩展（`:~-1` / `:~0,-1`）——
 #   它在变量未定义时把字面量塞进引号，cmd 报语法错并**中止整个脚本**。
@@ -3864,18 +3863,18 @@ def check_if_substr_expansion(root: Path):
                   % scanned)
 
 
-@check("C-43", "FAIL", "`if` 条件里不得用 `:~` 子串扩展（未定义时会中止整个脚本）")
+@check("no-tilde-substr-in-if", "FAIL", "`if` 条件里不得用 `:~` 子串扩展（未定义时会中止整个脚本）")
 def c43(c: Ctx):
     """见上方注释。**宽版（凡嵌套 `if` 就报）会在我们自己的仓里立刻假阳性**，故按窄版写。"""
     return check_if_substr_expansion(c.dir)
 
 
-@template_check("C-43", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+@template_check("no-tilde-substr-in-if", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c43_template(c: Ctx):
     return check_if_substr_expansion(c.dir)
 
 
-# ---------------------------------------------------------------- C-44
+# ---------------------------------------------------------------- bat-abs-cmd-path
 # **bat 里的外部命令必须用绝对路径**（lead 2026-09-19 定；事故由 reme-dev 撞到）。
 # **机制**：`where find` -> **`<third-party>\Git\usr\bin\find.exe`**（排在 System32 前面）。
 #   等待循环用 `find /i "{exe}" 文件` 判"旧进程还在不在"，而 **GNU `find` 把 `smss.exe`
@@ -3902,7 +3901,7 @@ _IF_COND_KW = ("errorlevel", "exist", "defined", "cmdextversion")
 def _bat_cmd_tokens(seg):
     """段内**命令位置**的候选 token。
 
-    基础形态 = 段首 token（行首 / `|`/`&`/`(`/`^` 之后）——C-44 1.9.10 的原有语义。
+    基础形态 = 段首 token（行首 / `|`/`&`/`(`/`^` 之后）——bat-abs-cmd-path 1.9.10 的原有语义。
     补腿（§4.1.56）：段首是 `if` 时，`if [not] [/i] <条件> <命令>` 的命令 token 也是命令位置。
     **只对 `if` 段做条件推进，不做全空白切分** —— 后者会把 `echo find`、`call :x find`
     这类合法行判红（合成电池实测 6/9 误伤），违反 §4.1.33。
@@ -3971,30 +3970,30 @@ def check_bat_absolute_cmds(root: Path):
                   % scanned)
 
 
-@check("C-44", "FAIL", "bat 里的外部命令（闭集 8 个）必须用绝对路径，不得裸名")
+@check("bat-abs-cmd-path", "FAIL", "bat 里的外部命令（闭集 8 个）必须用绝对路径，不得裸名")
 def c44(c: Ctx):
-    """见上方注释。**C-33 管"ping 当节拍"、本条管"裸名 ping"——两者独立，不互相顶替。**"""
+    """见上方注释。**no-ping-as-sleep 管"ping 当节拍"、本条管"裸名 ping"——两者独立，不互相顶替。**"""
     return check_bat_absolute_cmds(c.dir)
 
 
-@template_check("C-44", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+@template_check("bat-abs-cmd-path", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c44_template(c: Ctx):
     return check_bat_absolute_cmds(c.dir / "template")
 
 
-@check("C-33", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
+@check("no-ping-as-sleep", "FAIL", "禁拿 `ping` 当等待节拍（依赖网络配置，实测差 9 倍）")
 def c33(c: Ctx):
     """见 `check_ping_tick` 上方注释。工具侧扫全仓 `.py`/`.bat`/`.cmd`。"""
     return check_ping_tick(c.dir)
 
 
-@template_check("C-33", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
+@template_check("no-ping-as-sleep", "FAIL", "模板派发件里的同一形态（模板正本只跑一次）")
 def c33_template(c: Ctx):
     """模板侧只扫 `modules/**`——那是会被拷进工具的正本代码（含渲染 bat 的 `.py` 模板）。"""
     return check_ping_tick(c.dir / "template")
 
 
-# ---------------------------------------------------------------- C-36
+# ---------------------------------------------------------------- normalize-eol-insensitive
 # 归一化算子的**性质断言**（lead 提议，2026-09-19）。为什么用性质、不用冻结哈希：
 # 冻结某个文件的哈希，会在那个文件正常演进时误报；而**"行尾不敏感"是算子的定义性质**，
 # 与样本文件无关。另外必须有**判别控制**——否则"恒返回常数"的实现也能通过。
@@ -4028,7 +4027,7 @@ def eol_insensitive_ok(fn, text):
     return ok, detail
 
 
-@template_check("C-36", "FAIL", "归一化算子必须行尾不敏感（性质断言 + 判别控制）")
+@template_check("normalize-eol-insensitive", "FAIL", "归一化算子必须行尾不敏感（性质断言 + 判别控制）")
 def c36_template(c: Ctx):
     """模板侧性质判据：**断言性质，不描述算子**——这样收方不必读懂散文，改坏了会先响。
 
@@ -4052,14 +4051,14 @@ def c36_template(c: Ctx):
                 % (len(samples), samples[0].relative_to(c.dir).as_posix(), detail))
 
 
-# ---------------------------------------------------------------- C-2 / C-37
-# C-2 = **活实例对自己的 exe 持一个"拒绝删除"句柄**（lead 2026-09-19 批准，helpers-dev 实测）。
+# ---------------------------------------------------------------- exe-delete-guard
+# exe-delete-guard = **活实例对自己的 exe 持一个"拒绝删除"句柄**（lead 2026-09-19 批准，helpers-dev 实测）。
 # 它把"别删正在运行的实例目录"从**纪律**升级成**内核强制**：持句柄时 `unlink` /
 # `rmtree(父目录)` / `rename(父目录)` 全部失败（winerror 32 / 32 / 5），失败方向是
 # **大声失败**而不是静默掏空目录——后者正是 2026-09-19 那次事故的形态。
 # 判据分两半，缺一不可：
 #   **静态半**：模板 `paths.py` 必须提供原语，且 README 必须有 MUST-WIRE 声明
-#              （否则四家拷走了也**没人调用**——那正是 C-27 存在的理由）；
+#              （否则四家拷走了也**没人调用**——那正是 module-wiring-referenced 存在的理由）；
 #   **性质半**：**实测**原语真的挡得住（不是"注释里说它能挡"）。用临时文件，不碰真 exe。
 def c2_property(hold_no_delete):
     """性质断言（返回 `(ok, detail)`）：持句柄时 `unlink` 与 `rmtree(父目录)` **必须失败**。
@@ -4095,11 +4094,11 @@ def c2_property(hold_no_delete):
         ok = released_ok and all("winerror" in b for b in blocked)
         return ok, "持句柄时 %s；%s" % ("，".join(blocked), after)
     finally:
-        if not _rmtree_strict(d):        # C-30：删完回读，判据自己不许留残留
+        if not _rmtree_strict(d):        # mkdtemp-owned-prefix：删完回读，判据自己不许留残留
             return False, "临时目录未清掉（判据自己泄漏）：%s" % d
 
 
-@template_check("C-37", "FAIL", "C-2 拒绝删除句柄：原语在位 + 删除必须被内核挡住（性质实测）")
+@template_check("exe-delete-guard", "FAIL", "拒绝删除句柄：原语在位 + 删除必须被内核挡住（性质实测）")
 def c37_template(c: Ctx):
     """静态半（原语 + MUST-WIRE）+ 性质半（真的挡得住）——两半都过才算过。
 
@@ -4135,11 +4134,11 @@ def c37_template(c: Ctx):
         dev_ok = paths.hold_exe_delete_guard(log=lambda _m: None) is False
         if not dev_ok:
             return False, ctx + " | dev 态（未冻结）本应**跳过并放行**，实测却没有"
-        ctx += " | dev 态跳过并放行（D3.2 失败方向）"
+        ctx += " | dev 态跳过并放行（§自检与测试·失败方向 失败方向）"
     return ok, ctx
 
 
-# ---------------------------------------------------------------- C-31
+# ---------------------------------------------------------------- template-original-eol
 # 派发件 = 会被"整文件夹"拷进四个工具的模块内容（`modules/<模块>/` 下的 .py/.md）。
 # 模板专属件不在其列：`build_release/`（模板自己的构建工具）与 `baseline/`（历史件）。
 _DISPATCH_SKIP_DIRS = {"__pycache__", "build_release", "baseline"}
@@ -4168,13 +4167,13 @@ def _first_lone_lf(blob: bytes) -> int:
 
 
 def check_dispatched_eol(root: Path):
-    """派发件（`.py`/`.md`）必须全程 LF 且无孤立 CR（2.0.3 反转，与 C-45 同基线）。返回 `(ok, detail)`。
+    """派发件（`.py`/`.md`）必须全程 LF 且无孤立 CR（2.0.3 反转，与 dispatch-eol 同基线）。返回 `(ok, detail)`。
 
-    为什么要有这条：模板是**拷贝式分发**（B4）——**正本的行尾就是四份副本的行尾**。
-    F-R1 根治（2026-09-28）后家族基线 = LF（五仓 .gitattributes `* text=auto eol=lf`）；
+    为什么要有这条：模板是**拷贝式分发**（§公共模板库）——**正本的行尾就是四份副本的行尾**。
+    根治（2026-09-28）后家族基线 = LF（五仓 .gitattributes `* text=auto eol=lf`）；
     正本若被某个编辑器整文件写成 CRLF：`py_compile` 照旧绿、`sync_check` 照旧 `[ok]`
-    （两边同为 CRLF，归一化哈希一致）、C-22 只管 `.bat`/`.cmd` 的 **CRLF 例外**——
-    除本条外没有任何一层会报。孤立 CR（F-1 形态）同理单列。
+    （两边同为 CRLF，归一化哈希一致）、bat-byte-hygiene 只管 `.bat`/`.cmd` 的 **CRLF 例外**——
+    除本条外没有任何一层会报。孤立 CR同理单列。
     """
     files = _dispatched_files(root)
     if not files:
@@ -4185,25 +4184,25 @@ def check_dispatched_eol(root: Path):
         crlf = blob.count(b"\r\n")
         lone_cr = blob.count(b"\r") - crlf
         if crlf:
-            bad.append("%s 行尾含 CRLF（共 %d 处；F-R1 后家族基线为 LF）"
+            bad.append("%s 行尾含 CRLF（共 %d 处；家族基线为 LF）"
                        % (p.relative_to(root).as_posix(), crlf))
         elif lone_cr:
-            bad.append("%s 含孤立 CR 0x0D（共 %d 处；F-1 形态）"
+            bad.append("%s 含孤立 CR 0x0D（共 %d 处）"
                        % (p.relative_to(root).as_posix(), lone_cr))
     if bad:
         return False, ("%d/%d 个派发件行尾异常（须全程 LF、无孤立 CR）：%s。【正确形态】"
                        "按字节统一 LF——正本的行尾会被原样拷进四个工具，而编辑器悄悄改的"
-                       "行尾不报错、不触发任何其他判据（C-22 只管 .bat/.cmd 的 CRLF 例外）"
+                       "行尾不报错、不触发任何其他判据（bat-byte-hygiene 只管 .bat/.cmd 的 CRLF 例外）"
                        % (len(bad), len(files), "；".join(bad)))
     return True, "%d 个派发件（.py/.md）全程 LF 且无孤立 CR" % len(files)
 
 
-@template_check("C-31", "WARN", "模板派发件（.py/.md）必须全程 LF 且无孤立 CR（F-R1 基线；C-22 只管 bat/cmd 例外）")
+@template_check("template-original-eol", "WARN", "模板派发件（.py/.md）必须全程 LF 且无孤立 CR")
 def c31(c: Ctx):
     return check_dispatched_eol(c.dir)
 
 
-# ---------------------------------------------------------------- C-45
+# ---------------------------------------------------------------- dispatch-eol
 # **工具侧副本的行尾也必须是 CRLF**（lead 2026-09-19 升为本波必办）。
 # **为什么必须补这条**：`sync_check` 按 `read_text()` 比内容 ⇒ **CRLF/LF 被归一化**，
 #   于是"模板侧把 4 份派发件从 LF 改成 CRLF"**在 `sync_check` 眼里是零效果、照旧 `[ok]`**
@@ -4220,9 +4219,9 @@ _TOOL_COPY_SKIP = {"__pycache__"}
 def check_tool_copy_eol(root: Path, sub: str = "src"):
     """工具侧副本（`<sub>/template/**` 的 `.py`/`.md`）必须全程 LF（2.0.3 反转 + 孤立 CR 扩腿）。
 
-    2026-09-28 F-R1 根治后家族基线 = LF（五仓 .gitattributes `* text=auto eol=lf`；
+    2026-09-28 根治后家族基线 = LF（五仓 .gitattributes `* text=auto eol=lf`；
     bat/cmd 保 CRLF 是 .gitattributes 例外，不在本扫描面的 .py/.md 里）。
-    孤立 CR（`\\r` 不伴随 `\\n`）单独报警——F-1 实锤形态：`%CD%\\resources` 的
+    孤立 CR（`\\r` 不伴随 `\\n`）单独报警——实锤形态：`%CD%\\resources` 的
     `\\r` 被写工具折成 0x0D 单字节后，cmd 剥 CR、源路径静默变 `%CD%esources`，
     下次构建贴图资产不进包（l-s2t f795177 / reme 5e67c22 两仓实修）。
     """
@@ -4240,10 +4239,10 @@ def check_tool_copy_eol(root: Path, sub: str = "src"):
         crlf = blob.count(b"\r\n")
         lone_cr = blob.count(b"\r") - crlf
         if crlf:
-            bad.append("%s 行尾含 CRLF（共 %d 处；F-R1 后家族基线为 LF）"
+            bad.append("%s 行尾含 CRLF（共 %d 处；家族基线为 LF）"
                        % (p.relative_to(root).as_posix(), crlf))
         elif lone_cr:
-            bad.append("%s 含孤立 CR 0x0D（共 %d 处；F-1 形态：cmd 剥 CR 后路径类字面量"
+            bad.append("%s 含孤立 CR 0x0D（共 %d 处：cmd 剥 CR 后路径类字面量"
                        "静默损坏，构建丢资产）"
                        % (p.relative_to(root).as_posix(), lone_cr))
     if bad:
@@ -4256,16 +4255,16 @@ def check_tool_copy_eol(root: Path, sub: str = "src"):
     return True, "%d 个工具侧副本（%s/template/** 的 .py/.md）全程 LF 且无孤立 CR" % (len(files), sub)
 
 
-@check("C-45", "WARN", "工具侧副本（src/template/** 的 .py/.md）必须全程 LF 且无孤立 CR（F-R1 基线；sync_check 看不见行尾）")
+@check("dispatch-eol", "WARN", "工具侧副本（src/template/** 的 .py/.md）必须全程 LF 且无孤立 CR")
 def c45(c: Ctx):
     """见上方注释。**按字节判**：`sync_check` 的归一化会吃掉行尾，故这条必须独立存在。"""
     return check_tool_copy_eol(c.dir)
 
 
-# ---------------------------------------------------------------- C-34
+# ---------------------------------------------------------------- registry-ver-eq-header
 # **§1 登记表「版本」列 == 文件头 `TEMPLATE-VER`**（lead 2026-09-19 批准，本波并入）。
 # **为什么**：§1 的列头写着"对外接口（稳定承诺）"，而版本列**从来没有任何东西打过它**
-#   ——C-04 只查四工具的 B2 表、模板通道只跑 C-28/31/32/33（§4.1.18 同族：判据存在 ≠
+#   ——registry-version-match 只查四工具的登记表、模板通道只跑 md-no-tab/template-original-eol/no-delete-before-report/no-ping-as-sleep（§4.1.18 同族：判据存在 ≠
 #   被检查对象在范围内）。实测：9 行里 **3 行落后**（`paths` 1.1.3→1.1.4、
 #   `update_helper` 1.4.3→1.4.4、`tray_kit` 2.2.0→2.2.1）。**读表的人会按错误的语义
 #   理解接口**——不是排版问题。
@@ -4311,13 +4310,13 @@ def check_registry_versions(root: Path):
     return True, "§1 登记表 %d 行的版本列与文件头 `TEMPLATE-VER` 一致" % checked
 
 
-@template_check("C-34", "WARN", "§1 登记表版本列 == 文件头 TEMPLATE-VER（手抄副本必然滞后）")
+@template_check("registry-ver-eq-header", "WARN", "§1 登记表版本列 == 文件头 TEMPLATE-VER（手抄副本必然滞后）")
 def c34(c: Ctx):
     """见上方注释。**只查 §1 主表**；扩到别的表 = 下轮项（lead 许可的最简形态）。"""
     return check_registry_versions(c.dir)
 
 
-# ---------------------------------------------------------------- C-35
+# ---------------------------------------------------------------- isolation-two-legs
 # **实例隔离的两条腿：文件级 + harness 级**（ls2t-dev 提规格 + 判别力实测，lead 批准）。
 # **leg_a（文件级）**：**凡 import src 的测试文件必须自钉数据根**——判
 #   `import main|modules|pipeline` 与 env 赋值 / `scratch_dir(` 的**行号先后**。
@@ -4400,13 +4399,13 @@ def check_instance_isolation(root: Path):
     return True, ("leg_a %d 个测试文件自钉、leg_b %s" % (a_ok, b_note))
 
 
-@check("C-35", "WARN", "实例隔离两条腿：测试文件自钉数据根 + build.bat 整体外套一次")
+@check("isolation-two-legs", "WARN", "实例隔离两条腿：测试文件自钉数据根 + build.bat 整体外套一次")
 def c35(c: Ctx):
     """见上方注释。**leg_b 的覆盖面会从 1 家扩到 4 家**（时点写在 detail 里）。"""
     return check_instance_isolation(c.dir)
 
 
-@check("C-32", "FAIL", "禁「读证据 → 删证据 → 报告」的危险顺序（调用边界一失败就先删了证据）")
+@check("no-delete-before-report", "FAIL", "禁「读证据 → 删证据 → 报告」的危险顺序（调用边界一失败就先删了证据）")
 def c32(c: Ctx):
     """**不可逆动作不得排在"调用边界可能失败的语句"之前**（复核员精确化 + lead 裁定）。
 
@@ -4415,8 +4414,8 @@ def c32(c: Ctx):
     `unlink → log`（模板 + 4 份副本）会被误报 5 处。**假阳性比漏报更伤信任**（纪律 ①）。
 
     为什么**仍要立**：arity/签名不符、属性不存在、名字未定义这类错误在**进入被调方之前**
-    就抛出，被调方内部的 try/except 保护不了它——C-29 的契约冲突下 l-s2t **真的炸了**
-    （`TypeError` + marker 已被删 + 提示消失）。修完 C-29 后这类危险退化成潜伏态，
+    就抛出，被调方内部的 try/except 保护不了它——log-accepts-varargs 的契约冲突下 l-s2t **真的炸了**
+    （`TypeError` + marker 已被删 + 提示消失）。修完 log-accepts-varargs 后这类危险退化成潜伏态，
     但下次契约冲突还会以同样方式炸。
 
     **窄版判据**（复核员定稿）：D（删除，记接收者）+ A（函数内**任意**更早的赋值，右值含
@@ -4428,7 +4427,7 @@ def c32(c: Ctx):
     return check_evidence_order(c.dir)
 
 
-@template_check("C-32", "FAIL", "模板派发件（modules/**）里的同一形态（模板正本只跑一次）")
+@template_check("no-delete-before-report", "FAIL", "模板派发件（modules/**）里的同一形态（模板正本只跑一次）")
 def c32_template(c: Ctx):
     """模板侧只扫 `modules/**`——那才是会被拷进工具的正本代码。
 
@@ -4441,7 +4440,7 @@ def c32_template(c: Ctx):
 def _rmtree_strict(path, tries=10):
     """删 + 回读确认；删不掉就重试，仍删不掉**抛错**（绝不 `ignore_errors` 吞掉）。
 
-    本工具是 C-30 的作者，**自己先得守 C-30**：selftest 的临时目录以前用
+    本工具是 mkdtemp-owned-prefix 的作者，**自己先得守 mkdtemp-owned-prefix**：selftest 的临时目录以前用
     `rmtree(base, ignore_errors=True)` 收尾——那正是本条判红的那种写法（"清理跑过了"
     被当成"清理成功了"）。同一个 `%TEMP%` 前缀泄漏形态，工具自己也会犯。
     """
@@ -4460,7 +4459,7 @@ def _rmtree_strict(path, tries=10):
 
 
 def selftest() -> int:
-    """C-21..C-33 反向自证：合成样本，正例须点名，反例须放行。"""
+    """no-star-import-state..no-ping-as-sleep 反向自证：合成样本，正例须点名，反例须放行。"""
     import shutil
     import tempfile
     print(identity_line())   # 自证输出也自证身份：贴出来的 selftest 结果不能是无主的
@@ -4483,10 +4482,10 @@ def selftest() -> int:
             ok, detail = c21(Ctx(name, tool_dir))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-21 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-star-import-state %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
 
-        # C-23：标量/容器被 global 重绑 → 报；就地改容器 → 放行
+        # no-global-rebind：标量/容器被 global 重绑 → 报；就地改容器 → 放行
         c23_cases = (
             ("pos_scalar", "STATE = None\n\n\ndef f():\n    global STATE\n    STATE = 1\n", False),
             ("pos_container_rebind", "STATE = {}\n\n\ndef f():\n    global STATE\n    STATE = {\"a\": 1}\n", False),
@@ -4500,10 +4499,10 @@ def selftest() -> int:
             ok, detail = c23(Ctx(name, base / ("c23_" + name)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-23 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-global-rebind %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
 
-        # C-24：菜单读容器却不在签名里 → 报；进了签名 → 放行；无菜单 → 放行
+        # menu-state-in-signature：菜单读容器却不在签名里 → 报；进了签名 → 放行；无菜单 → 放行
         menu_pos = ("import pystray\nCFG = {}\n\n\ndef _menu_signature():\n    return (1,)\n\n\n"
                     "def build():\n    return pystray.MenuItem('x', None, enabled=lambda i: CFG.get('a'))\n")
         menu_neg = menu_pos.replace("return (1,)", "return (CFG.get('a'),)")
@@ -4516,10 +4515,10 @@ def selftest() -> int:
             ok, detail = c24(Ctx(name, base / ("c24_" + name)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-24 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  menu-state-in-signature %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
 
-        # C-10：判据要能区分"覆盖了"与"绕过了"——四种形态各一个样本
+        # smoke-no-bypass-startup：判据要能区分"覆盖了"与"绕过了"——四种形态各一个样本
         c10_head = "import sys\nif '--smoke' in sys.argv:\n    pass\n\n\n"
         c10_cases = (
             ("pos_probe_guarded",
@@ -4567,10 +4566,10 @@ def selftest() -> int:
             # 必须是 **WARN**——判据说不出"绕过了"，只能说"不认识这个形态"。
             good = (ok == want) and (want_sev is None or sev == want_sev)
             failed += 0 if good else 1
-            print("[selftest] %s  C-10 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+            print("[selftest] %s  smoke-no-bypass-startup %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:80]))
 
-        # C-22：字节卫生——三种损坏各一条样本（都会让**某一行**静默失效），合规的必须放行
+        # bat-byte-hygiene：字节卫生——三种损坏各一条样本（都会让**某一行**静默失效），合规的必须放行
         c22_cases = (
             ("pos_tab", b"@echo off\r\necho a\tb\r\n", False),
             ("pos_lf_only", b"@echo off\necho ok\n", False),
@@ -4585,10 +4584,10 @@ def selftest() -> int:
             ok, detail = c22(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-22 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  bat-byte-hygiene %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail))
 
-        # C-25：路径不存在 → 报；顶层 exit 之后的调用（死代码）→ 报；合规 → 放行
+        # gate-steps-runnable：路径不存在 → 报；顶层 exit 之后的调用（死代码）→ 报；合规 → 放行
         def _mk_tool(name, bat, extra=()):
             d = base / name
             (d / "tests").mkdir(parents=True, exist_ok=True)
@@ -4608,10 +4607,10 @@ def selftest() -> int:
             ok, detail = c25(Ctx(name, _mk_tool("c25_" + name, blob, extra)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-25 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  gate-steps-runnable %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
-        # C-26：无守卫 start → 报；同行 if exist → 放行；前置 if not exist → 放行
+        # start-existence-guard：无守卫 start → 报；同行 if exist → 放行；前置 if not exist → 放行
         c26_cases = (
             ("pos_unguarded", b'@echo off\r\nstart "" "C:\\t\\a.exe"\r\n', False),
             ("neg_inline_guard", b'@echo off\r\nif exist "C:\\t\\a.exe" start "" "C:\\t\\a.exe"\r\n', True),
@@ -4622,10 +4621,10 @@ def selftest() -> int:
             ok, detail = c26(Ctx(name, _mk_tool("c26_" + name, blob)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-26 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  start-existence-guard %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
-        # C-27：README 的 MUST-WIRE 符号在工具代码里查引用
+        # module-wiring-referenced：README 的 MUST-WIRE 符号在工具代码里查引用
         for name, main_src, want in (("pos_unwired", "x = 1\n", False),
                                      ("neg_wired", "def f():\n    sweep_stale()\n", True)):
             d = base / ("c27_" + name) / "src" / "template" / "demo"
@@ -4635,10 +4634,10 @@ def selftest() -> int:
             ok, detail = c27(Ctx(name, base / ("c27_" + name)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-27 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  module-wiring-referenced %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
-        # C-28：.md 里的真 TAB 必须被点名（这是本人踩过的形态）。
+        # md-no-tab：.md 里的真 TAB 必须被点名（这是本人踩过的形态）。
         # ⚠️ 用**显式字节值**构造，不写 b"...TAB..."——写下这段样本时，正是 `TAB` 被当转义
         # 解释、把真 TAB 落进了源文件（本 J 坑同一天第三次出现，且出现在"检测 TAB"的检查里）。
         _tab, _crlf = bytes([9]), bytes([13, 10])
@@ -4648,7 +4647,7 @@ def selftest() -> int:
         ok, detail = c28(Ctx("c28_pos", d))
         good = ok is False
         failed += 0 if good else 1
-        print("[selftest] %s  C-28 pos_md_tab: ok=%s want=False | %s"
+        print("[selftest] %s  md-no-tab pos_md_tab: ok=%s want=False | %s"
               % ("PASS" if good else "FAIL", ok, detail[:70]))
         d = base / "c28_neg"
         d.mkdir(parents=True)
@@ -4656,10 +4655,10 @@ def selftest() -> int:
         ok, detail = c28(Ctx("c28_neg", d))
         good = ok is True
         failed += 0 if good else 1
-        print("[selftest] %s  C-28 neg_clean_md: ok=%s want=True | %s"
+        print("[selftest] %s  md-no-tab neg_clean_md: ok=%s want=True | %s"
               % ("PASS" if good else "FAIL", ok, detail[:70]))
 
-        # C-11：认形状（tasklist / PowerShell 两种），认不出只 WARN。
+        # run-detect-match-exe：认形状（tasklist / PowerShell 两种），认不出只 WARN。
         # 用显式字节值构造样本（CRLF 转义在多个 heredoc 里被解释成真字节——本日第 4 次）。
 
         _crlf = bytes([13, 10])
@@ -4669,7 +4668,7 @@ def selftest() -> int:
         ok, detail, sev = c11(Ctx("c11_none", _e))
         good = (ok is False and sev == "WARN")
         failed += 0 if good else 1
-        print("[selftest] %s  C-11 neg_no_detection: ok=%s sev=%s | %s"
+        print("[selftest] %s  run-detect-match-exe neg_no_detection: ok=%s sev=%s | %s"
               % ("PASS" if good else "FAIL", ok, sev, detail[:60]))
         _p = base / "c11_ps"
         _p.mkdir(parents=True)
@@ -4680,17 +4679,17 @@ def selftest() -> int:
         ok, detail = c11(Ctx("c11_ps", _p))
         good = ok is True
         failed += 0 if good else 1
-        print("[selftest] %s  C-11 pos_ps_getprocess: ok=%s | %s"
+        print("[selftest] %s  run-detect-match-exe pos_ps_getprocess: ok=%s | %s"
               % ("PASS" if good else "FAIL", ok, detail[:70]))
 
-        # C-11 补齐三条（2026-09-19 lead 点名）：此前**只有** PowerShell 形态与"认不出"两条样本，
+        # run-detect-match-exe 补齐三条（2026-09-19 lead 点名）：此前**只有** PowerShell 形态与"认不出"两条样本，
         # `tasklist | findstr` 这条**正中靶心**的分支反而没有任何样本兜着——判据改了没人知道。
         _c11 = (
             # ① tasklist 形态的**合规**样本（l-s2t build.bat:86 的真实写法）
             ("pos_tasklist_findstr", b"tasklist /fo csv 2>nul | findstr /i /c:\"%APPNAME%.exe\" >nul",
              True, None),
             # ② **确证违规**：匹配串写成**带版本号**的字面量——只有旧版 exe 会被命中，
-            #    当前（无版本号）实例在跑也拦不住构建（D1-02 的真实形态）⇒ FAIL
+            #    当前（无版本号）实例在跑也拦不住构建（工程·运行检测串 的真实形态）⇒ FAIL
             ("neg_substring_only", b"tasklist | findstr /i /c:\"%APPNAME%-1.0.exe\"", False, "FAIL"),
             # ③ 看到 tasklist|findstr 但取不出 `/c:"字面量"` ⇒ **形态不认识**，不是违规 ⇒ WARN
             ("neg_no_c_literal", b"tasklist /fo csv | findstr /i \"%APPNAME%\"", False, "WARN"),
@@ -4710,12 +4709,12 @@ def selftest() -> int:
             sev = res[2] if len(res) == 3 else "FAIL"
             good = (ok == want) and (want_sev is None or sev == want_sev)
             failed += 0 if good else 1
-            print("[selftest] %s  C-11 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+            print("[selftest] %s  run-detect-match-exe %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:80]))
 
-        # C-29：交给模板件的 log 必须是 print 形态。
+        # log-accepts-varargs：交给模板件的 log 必须是 print 形态。
         # 命名按"该不该报"写清楚：本文件的样本命名在两代检查里刚好相反
-        # （C-25/26 的 pos = 该报、C-11 的 pos = 合规），所以这里不用 pos/neg，
+        # （gate-steps-runnable/26 的 pos = 该报、run-detect-match-exe 的 pos = 合规），所以这里不用 pos/neg，
         # 直接用 `_ok` / `_flagged` / `_unused` 三个词，读的人不必猜。
         c29_cases = (
             ("varargs_log_ok",
@@ -4755,11 +4754,11 @@ def selftest() -> int:
             ok, detail = c29(Ctx(name, base / ("c29_" + name)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-29 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  log-accepts-varargs %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-30 上半：mkdtemp 前缀必须可静态归属，推不出的必须在 TMP_PREFIX_REGISTRY 登记。
-        # 命名按该不该报写清楚（与 C-29 同一约定），不靠 pos/neg 猜。
+        # mkdtemp-owned-prefix 上半：mkdtemp 前缀必须可静态归属，推不出的必须在 TMP_PREFIX_REGISTRY 登记。
+        # 命名按该不该报写清楚（与 log-accepts-varargs 同一约定），不靠 pos/neg 猜。
         # `param_prefix_literal_calls_ok` 钉的是 **dsh/ocx/l-s2t 三个工具的真实形态**
         # （`tests/_cleanup.py: scratch_dir(prefix)` 内部 mkdtemp，前缀全在调用点上是字面量）：
         # 少了它，判据的下一版很容易改成"形参=不可枚举"，**一次把三家全判红**。
@@ -4839,7 +4838,7 @@ def selftest() -> int:
             sev = res[2] if len(res) == 3 else "FAIL"
             good = (ok == want) and (want_sev is None or sev == want_sev)
             failed += 0 if good else 1
-            print("[selftest] %s  C-30/prefix %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+            print("[selftest] %s  mkdtemp-owned-prefix/prefix %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, detail[:100]))
 
         # 白名单**两栏必填**的自证（2026-09-19，lead 定；复核员先提醒"它是关掉覆盖的开关"）。
@@ -4863,12 +4862,12 @@ def selftest() -> int:
             if want_empty:
                 good = good and not TMP_DECLARED_PATHS.get("bad-missing-reverify")
             failed += 0 if good else 1
-            print("[selftest] %s  C-30/declared %s: problems=%d want_%s | %s"
+            print("[selftest] %s  mkdtemp-owned-prefix/declared %s: problems=%d want_%s | %s"
                   % ("PASS" if good else "FAIL", label, len(got),
                      "0" if want_empty else ">0",
                      (got[0][1][:90] if got else "（无）")))
 
-        # C-30 下半：只有"mkdtemp 根目录被 ignore_errors 吞掉"才报；子目录/固定路径要放行。
+        # mkdtemp-owned-prefix 下半：只有"mkdtemp 根目录被 ignore_errors 吞掉"才报；子目录/固定路径要放行。
         _cleanup_ok = ("import shutil, logging, tempfile\n"
                        "TMP = tempfile.mkdtemp(prefix='t-')\n"
                        "logging.shutdown()\n"
@@ -4889,7 +4888,7 @@ def selftest() -> int:
                            "sub = TMP / 'sub'\n"
                            "shutil.rmtree(sub, ignore_errors=True)\n"
                            "shutil.rmtree(TMP)\n")
-        # 2026-09-19 补：**散文不算**（豁免边界必须有腿守着，同 C-33）。同一条被禁写法写在
+        # 2026-09-19 补：**散文不算**（豁免边界必须有腿守着，同 no-ping-as-sleep）。同一条被禁写法写在
         # docstring / 注释里，只是"关于代码的文本"⇒ 必须 ok；反向格：同样的字符串是**真调用**
         # ⇒ 必须红（证明绿来自"豁免了散文"，不是"豁免了这句话"）。
         _cleanup_prose = ("import shutil, tempfile\n"
@@ -4915,10 +4914,10 @@ def selftest() -> int:
             ok, detail = c30(Ctx(name, base / ("c30_" + name)))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-30/cleanup %s: ok=%s want=%s | %s"
+            print("[selftest] %s  mkdtemp-owned-prefix/cleanup %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-30/腿 B：形态派生签名（不看名字）。样本**故意用回归集里的真实名字**
+        # mkdtemp-owned-prefix/腿 B：形态派生签名（不看名字）。样本**故意用回归集里的真实名字**
         # （`icon-probe-*` 在四个工具源码里搜不到）——它必须被找到，才证明"不看名字"成立。
         # 每个样本都对应一次**真实的**误判历史，注释里写清"旧签名为什么会漏/会误"。
         fake_tmp = base / "c30_shape_tmp"
@@ -4958,11 +4957,11 @@ def selftest() -> int:
                       "two-subs", "config-at-top", "nested-no-config"}
         good = got_shape == want_shape
         failed += 0 if good else 1
-        print("[selftest] %s  C-30/shape %s: got=%s want=%s"
+        print("[selftest] %s  mkdtemp-owned-prefix/shape %s: got=%s want=%s"
               % ("PASS" if good else "FAIL", "name_agnostic_shape", sorted(got_shape),
                  sorted(want_shape)))
 
-        # R-10 加宽自证（§4.1.55 / 任务 #64）：**两处同名目录不得被去重吃掉**。
+        # 临时残留增量断言 加宽自证（§4.1.55）：**两处同名目录不得被去重吃掉**。
         # 判别力格 = 两个根各含同名 `dup` ⇒ 并集必须 2 条（裸名 key 会并成 1 条）；
         # 反向格   = 白名单**按全路径**只豁免其中一条 ⇒ 另一条仍在命中集。
         _dedup_base = base / "r10_dedup"
@@ -4984,11 +4983,11 @@ def selftest() -> int:
         _decl_good = (len(_k2) == 1 and _k2[0] == _leak_key(_r2 / "dup"))
         good = _dedup_good and _decl_good
         failed += 0 if good else 1
-        print("[selftest] %s  R-10/dedup %s: 并集=%d（裸名会=1） 全路径豁免后=%d want=1 | keys=%s"
+        print("[selftest] %s  temp-residue/dedup %s: 并集=%d（裸名会=1） 全路径豁免后=%d want=1 | keys=%s"
               % ("PASS" if good else "FAIL", "same_name_two_roots_not_deduped",
                  len(_keys), len(_k2), [Path(k).name for k in _keys]))
 
-        # C-32：读证据 → 删证据 → 报告。样本必须用**真实现场的形状**——首版就是被
+        # no-delete-before-report：读证据 → 删证据 → 报告。样本必须用**真实现场的形状**——首版就是被
         # `marker.read_text(...).strip()` 的链式包装 + `except: return` 挡住而**零命中**，
         # 是真实树首跑（模板 update_helper 竟然 [ok]）把这个漏报打出来的。
         c32_cases = (
@@ -5021,10 +5020,10 @@ def selftest() -> int:
             ok, detail = check_evidence_order(base / ("c32_" + name))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-32 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-delete-before-report %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-33：禁拿 ping 当节拍。**注释/rem 行不算**（要抓的是会被执行的节拍），
+        # no-ping-as-sleep：禁拿 ping 当节拍。**注释/rem 行不算**（要抓的是会被执行的节拍），
         # 而渲染 bat 的 .py 模板里那句真节拍是**字符串**，必须抓住。
         c33_cases = (
             ("ping_tick_in_py_flagged",
@@ -5057,10 +5056,10 @@ def selftest() -> int:
             ok, detail = check_ping_tick(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-33 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-ping-as-sleep %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-33 自证腿（2026-09-19 补）：**扫描面必须排除仪器自身，且必须把排除项说出来**。
+        # no-ping-as-sleep 自证腿（2026-09-19 补）：**扫描面必须排除仪器自身，且必须把排除项说出来**。
         # 这条腿扫的是**真目录**（本文件所在目录），不是合成样本——因为要证的正是"仪器对
         # 自己不做证人"这条性质。判别力：去掉 check_ping_tick 里的排除分支，本腿立刻红。
         # 同时钉住"排除 ≠ 静默"：detail 里必须出现被排除的文件名，否则"排除了"与"没扫"同形。
@@ -5068,11 +5067,11 @@ def selftest() -> int:
         ok, detail = check_ping_tick(_own_root)
         good = ok and ("conformance_check.py" in detail)
         failed += 0 if good else 1
-        print("[selftest] %s  C-33 own_instrument_excluded_and_announced: ok=%s want=True "
+        print("[selftest] %s  no-ping-as-sleep own_instrument_excluded_and_announced: ok=%s want=True "
               "(且 detail 必须点名被排除的文件) | %s"
               % ("PASS" if good else "FAIL", ok, detail[:160]))
 
-        # C-38（2026-09-19 改形态后补）：**锚在 `startup` 行之后**，且**一次性行不计入**。
+        # startup-self-identify（2026-09-19 改形态后补）：**锚在 `startup` 行之后**，且**一次性行不计入**。
         # 五条腿 = 1 正 + 4 反，每条都对着新形态的一条限定（设计纪律 ⑨：豁免的每一条边界
         # 都必须有一条腿，且必须带反向格）。
         _sid_wrap = ("def main():\n"
@@ -5108,13 +5107,13 @@ def selftest() -> int:
             got = (ok is True) if want else (ok is False)
             good = got and ok is not None
             failed += 0 if good else 1
-            print("[selftest] %s  C-38 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  startup-self-identify %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want,
                      why or ("命中 %d 处" % len(_hits))))
 
-        # C-39（2026-09-19，lead 立）：**派生值必须取自本次调用的实参**。
+        # default-arg-snapshot-safe（2026-09-19，lead 立）：**派生值必须取自本次调用的实参**。
         # 四格两红两绿——只报"会被重绑"与"可变字面量"，**良性常量必须放行**
-        # （否则就是"看到默认参数就报"的噪音判据，正是 C-33 那族错误的翻版）。
+        # （否则就是"看到默认参数就报"的噪音判据，正是 no-ping-as-sleep 那族错误的翻版）。
         c39_cases = (
             ("rebound_module_name_flagged",
              "MODEL_DIR = 'old'\n"
@@ -5141,10 +5140,10 @@ def selftest() -> int:
             ok, detail = check_default_snapshot(base / ("c39_" + name))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-39 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  default-arg-snapshot-safe %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-40（2026-09-19，ls2t-dev 提议 + lead 两处修正）：**纯函数**判"版本目录 ↔ 自启目标"。
+        # autostart-registry-guard（2026-09-19，ls2t-dev 提议 + lead 两处修正）：**纯函数**判"版本目录 ↔ 自启目标"。
         # 六格 = 1 个**真实反例**（dsh 当时的状态）+ 5 格对照；**机器前缀已换成占位**（`H:\x\`，与同组其它样本一致），**判别结构逐字保留**。
         # 用纯函数是为了**能拿确定输入自证**：注册表与磁盘是活状态，不能当固定样本。
         _la = r"C:\Users\x\AppData\Local"
@@ -5197,10 +5196,10 @@ def selftest() -> int:
             ok, _detail, sev = judge_version_targets(*args, path_exists=lambda p: "nope" not in p)
             good = (ok == want) and (want_sev is None or sev == want_sev)
             failed += 0 if good else 1
-            print("[selftest] %s  C-40 %s: ok=%s want=%s sev=%s want_sev=%s | %s"
+            print("[selftest] %s  autostart-registry-guard %s: ok=%s want=%s sev=%s want_sev=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, sev, want_sev, _detail[:90]))
 
-        # C-40 选键口径（§4.1.53/§4.1.54 假绿修法；§4.1.37 判别力自证）：
+        # autostart-registry-guard 选键口径（§4.1.53/§4.1.54 假绿修法；§4.1.37 判别力自证）：
         # 必须**两条正样本**——① 模板 autostart 形态（键 = APP_NAME，l-s2t 真值）；
         # ② reme 内联形态（键 = APP_ID，且 APP_NAME 是中文展示名、不在 Run 表里）。
         # 旧谓词（按 APP_ID 单查）必须在①上**漏**（红），新"路径优先"两条都**抓**。
@@ -5212,7 +5211,7 @@ def selftest() -> int:
                                               app_name="LocalSpeak2Text")
         good = (_old_miss is None) and (_k1 == "LocalSpeak2Text") and (_how1 == "path")
         failed += 0 if good else 1
-        print("[selftest] %s  C-40 run-key APP_NAME-form: old_miss=%s new=(%s,%s)"
+        print("[selftest] %s  autostart-registry-guard run-key APP_NAME-form: old_miss=%s new=(%s,%s)"
               " want (None,('LocalSpeak2Text','path'))"
               % ("PASS" if good else "FAIL", _old_miss, _k1, _how1))
         # ② reme 内联：键 = APP_ID，APP_NAME 是中文展示名（不在 Run 表里）⇒ 仍必须命中
@@ -5222,7 +5221,7 @@ def selftest() -> int:
                                               app_id="reme-helper", app_name="ReMe 助手")
         good = (_k2 == "reme-helper" and _how2 == "path")
         failed += 0 if good else 1
-        print("[selftest] %s  C-40 run-key APP_ID-form: hit=%s how=%s want (reme-helper,path)"
+        print("[selftest] %s  autostart-registry-guard run-key APP_ID-form: hit=%s how=%s want (reme-helper,path)"
               % ("PASS" if good else "FAIL", _k2, _how2))
         # 反向格：外来项（如 `OpenCodexTray-…vbs`，值指向别处）**不得**被算成本工具的自启项
         _rv_foreign = {"OpenCodexTray-abc":
@@ -5231,13 +5230,13 @@ def selftest() -> int:
                                               app_id="opencodex-helper", app_name="opencodex-helper")
         good = (_k3 is None and _how3 == "none")
         failed += 0 if good else 1
-        print("[selftest] %s  C-40 foreign Run item not matched: hit=%s how=%s want (None,none)"
+        print("[selftest] %s  autostart-registry-guard foreign Run item not matched: hit=%s how=%s want (None,none)"
               % ("PASS" if good else "FAIL", _k3, _how3))
-        # 控制格：两候选皆无 ⇒ None（"没命中"与"命中但值坏"必须可区分，§D8 第 6 条）
+        # 控制格：两候选皆无 ⇒ None（"没命中"与"命中但值坏"必须可区分，§证据锚 第 6 条）
         _k4, _v4, _how4, _ = select_run_entry({}, root=r"C:\x\a", app_id="a", app_name="B")
         good = (_k4 is None and _how4 == "none")
         failed += 0 if good else 1
-        print("[selftest] %s  C-40 run-key none-present: hit=%s want None"
+        print("[selftest] %s  autostart-registry-guard run-key none-present: hit=%s want None"
               % ("PASS" if good else "FAIL", _k4))
         # 附带盲区可见化：大小写变体键（§4.1.51）路径腿也能抓到，并把"多个/非候选"记进 notes
         _rv_var = {"dsh-helper": '"C:\\x\\dsh-helper\\release\\dsh-helper-1.8.1\\dsh-helper.exe"',
@@ -5246,10 +5245,10 @@ def selftest() -> int:
                                                app_id="dsh-helper", app_name="dsh-helper")
         good = (_how5 == "path") and any(("多个" in n) or ("不是" in n) for n in _n5)
         failed += 0 if good else 1
-        print("[selftest] %s  C-40 case/duplicate Run keys noted: hit=%s notes=%s"
+        print("[selftest] %s  autostart-registry-guard case/duplicate Run keys noted: hit=%s notes=%s"
               % ("PASS" if good else "FAIL", _k5, _n5))
 
-        # C-41（2026-09-19，lead 立）：**降级分支不得沿用已存勾选**。
+        # quit-fallback-keep-service（2026-09-19，lead 立）：**降级分支不得沿用已存勾选**。
         # 四格两红两绿，另加一格"**合法的原生框那一支**"必须放行（否则就成了"凡读配置就报"）。
         c41_cases = (
             ("fallback_literal_false_ok",
@@ -5293,10 +5292,10 @@ def selftest() -> int:
             ok, detail = check_quit_fallback(base / ("c41_" + name))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-41 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  quit-fallback-keep-service %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-42（2026-09-19，lead 定·收窄版）：**重定向位置不得出现 `dev/null`**。
+        # no-dev-null-redirect（2026-09-19，lead 定·收窄版）：**重定向位置不得出现 `dev/null`**。
         # 五格：lead 点名的三个样本（红 / 绿 / 绿）+ 一个 .bat 形态 + 一个"名字像但不同"的反向格。
         c42_cases = (
             ("redirect_devnull_flagged",
@@ -5321,10 +5320,10 @@ def selftest() -> int:
             ok, detail = check_devnull_redirect(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-42 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-dev-null-redirect %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-43（2026-09-19，lead 定 / 边界由 ls2t-dev 钉准）：**`if` 条件里的 `:~`**。
+        # no-tilde-substr-in-if（2026-09-19，lead 定 / 边界由 ls2t-dev 钉准）：**`if` 条件里的 `:~`**。
         # 四格：真危险形态（红）+ **我们仓里那行现成的假阳性**（绿，逐字搬入）+ 动作一侧（绿）
         # + 普通 `%VAR%` 展开（绿）。
         c43_cases = (
@@ -5354,10 +5353,10 @@ def selftest() -> int:
             ok, detail = check_if_substr_expansion(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-43 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-tilde-substr-in-if %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-44（2026-09-19，lead 定）：**bat 里闭集命令必须绝对路径**。
+        # bat-abs-cmd-path（2026-09-19，lead 定）：**bat 里闭集命令必须绝对路径**。
         # 原五格：裸名（红）/ 绝对路径（绿）/ rem 里提到（绿）/ for /f ('cmd') 形态（红）
         # / 非闭集命令（绿）。
         # 1.9.23 增两格（§4.1.56 段首盲区）：
@@ -5390,12 +5389,12 @@ def selftest() -> int:
             ok, detail = check_bat_absolute_cmds(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-44 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  bat-abs-cmd-path %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-45（2026-09-19 立；2026-09-29 2.0.3 **反转+扩腿**：F-R1 后基线=LF，
-        # 且孤立 CR（F-1 形态）单列红格）。
-        # 四格：LF 副本（绿）/ CRLF 副本（红）/ 孤立 CR（红，F-1）/ 无目录（不适用=绿）。
+        # dispatch-eol（2026-09-19 立；2026-09-29 2.0.3 **反转+扩腿**：后基线=LF，
+        # 且孤立 CR单列红格）。
+        # 四格：LF 副本（绿）/ CRLF 副本（红）/ 孤立 CR（红）/ 无目录（不适用=绿）。
         bsn = bytes([10]); bscr = bytes([13, 10])          # 仪器侧 bytes 构造（转义绞杀禁令）
         c45_cases = (
             ("lf_copy_ok", "template/mod1/a.py", b"x = 1" + bsn + b"y = 2" + bsn, True),
@@ -5415,11 +5414,11 @@ def selftest() -> int:
             ok, detail = check_tool_copy_eol(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-45 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  dispatch-eol %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-47（2026-09-19，verifier 复核发现）：**被禁头形态 `TEMPLATE-MODULE`**。
-        # 红格 = 判别力自证：旧 C-19 的 `and` 链把 MODULE 列为合法 ⇒ 回归抓不到；
+        # no-template-module-header（2026-09-19，verifier 复核发现）：**被禁头形态 `TEMPLATE-MODULE`**。
+        # 红格 = 判别力自证：旧 template-header-complete 的 `and` 链把 MODULE 列为合法 ⇒ 回归抓不到；
         # 两条反向格 = 别误伤合法形态（`TEMPLATE-FROM` / `TEMPLATE-LOCAL-OVERRIDE`）。
         c47_cases = (
             ("pos_banned_module_head", "TEMPLATE-MODULE", False),
@@ -5434,10 +5433,10 @@ def selftest() -> int:
             ok, detail = c47(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-47 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-template-module-header %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-06（2026-09-19，verifier 发现空真）：**只有 rem/echo 提到 ⇒ 必须红**。
+        # both-readmes-in-release（2026-09-19，verifier 发现空真）：**只有 rem/echo 提到 ⇒ 必须红**。
         # 红格 = 判别力自证（旧实现在这一格**假绿**，reme 真身就是这形态）；
         # 反向格 = 有真拷贝行 ⇒ 必须放行（别把 dsh/ocx/l-s2t 误伤）。
         c06_cases = (
@@ -5455,10 +5454,10 @@ def selftest() -> int:
             ok, detail = c06(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-06 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  both-readmes-in-release %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-48（R1 §3 T3 的守卫）：自建 Tk 框没有本地化通道 ⇒ 必须红。
+        # no-chinese-ui-literal：自建 Tk 框没有本地化通道 ⇒ 必须红。
         # 红格 = 判别力自证（= reme 修前的真身：Toplevel + 裸 APP_NAME、无 translate_tree）；
         # 反向格 = 同一个框补上两条通道 ⇒ 必须放行。
         _cn = "\u786e\u5b9a\u9000\u51fa\uff1f"
@@ -5484,10 +5483,10 @@ def selftest() -> int:
             ok, detail = c48(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-48 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  no-chinese-ui-literal %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-49（#45 的机械形态）：破坏性守卫的探测失败被折叠成 False ⇒ 必须红。
+        # probe-fail-open：破坏性守卫的探测失败被折叠成 False ⇒ 必须红。
         # 红格 = 判别力自证（= ocx 修前的真身：except 吞掉 + 末尾 return False + kill 守卫）；
         # 反向格 1 = 失败侧 return True（放行）⇒ 不报；反向格 2 = 动作只记日志 ⇒ 不报。
         c49_cases = (
@@ -5517,10 +5516,10 @@ def selftest() -> int:
             ok, detail = c49(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-49 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  probe-fail-open %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-27 豁免腿（§4.1.37）：**已申报 NOT-WIRED 的模块不查**。
+        # module-wiring-referenced 豁免腿（§4.1.37）：**已申报 NOT-WIRED 的模块不查**。
         # 红格 = 有声明但零引用 ⇒ 必报；反向格 = 同一份 + `NOT-WIRED.md` ⇒ 不报。
         # （模板 README 的 MUST-WIRE 来自真身，故这里只造工具侧 + synth 模板名对不上，
         #  改用「工具侧 README 也读」那条路径：把声明写在工具侧 README 上。）
@@ -5537,10 +5536,10 @@ def selftest() -> int:
             ok, detail = c27(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-27 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  module-wiring-referenced %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-50（G4.2 条款 5）：退出路径的「未勾选」分支不得清理。
+        # unticked-no-destructive：退出路径的「未勾选」分支不得清理。
         # 红格 = 判别力自证（= ocx 1.2.1 修前的真身）；两条反向格：
         # 「勾选分支里 kill」是**合法**的（条款 5 允许）、「else 只记日志」必须放行。
         c50_cases = (
@@ -5562,10 +5561,10 @@ def selftest() -> int:
             ok, detail = c50(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-50 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  unticked-no-destructive %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
-        # C-51（§4.1.43/C-41 同族）：无 UI 退出入口不得沿用持久化勾选。
+        # headless-quit-explicit-stops（§4.1.43/quit-fallback-keep-service 同族）：无 UI 退出入口不得沿用持久化勾选。
         # 红格 = 判别力自证（= reme 修前的真身：不传 kwargs）；反向格 = 显式全 False。
         # 第 3 格是**豁免腿**（§4.1.37）：同一段"有罪代码"放进 `src/modules/**`
         # （机制件路径）⇒ **必须不报**。模板 `tray_kit.quit_watch_loop` 只回调、
@@ -5586,13 +5585,13 @@ def selftest() -> int:
             ok, detail = c51(Ctx(name, d))
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-51 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  headless-quit-explicit-stops %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:90]))
 
-        # C-52（补 C-20 的豁免盲区）：T1 触发却没启用 i18n ⇒ 必须红。
+        # bilingual-i18n-default（补 no-uncharted-chinese 的豁免盲区）：中英双语 i18n 触发却没启用 i18n ⇒ 必须红。
         # 红格 = 判别力自证（有远端 + 无 i18n）；未触发（无远端）也必须报
         # （开关语义已移除的自证格）。
-        # **W3 后段收窄（2026-09-27）**：pairs.json 重形态 grandfather 终结 ⇒
+        # **后段收窄（2026-09-27）**：pairs.json 重形态 grandfather 终结 ⇒
         # 原 neg_pairs_form_ok 反向格删除，换 pos_pairs_no_dir_is_gap 守卫格——
         # 只有目录（没有 pairs.json 也算合法）的时代结束了；这一格若哪天回退，
         # 说明有人把重形态豁免又加回来了。
@@ -5602,7 +5601,7 @@ def selftest() -> int:
             # 传 has_remote=False 也**必须报** —— 它证明"是否开源"不再是豁免条件。
             # 这一格若哪天回退成 False，说明有人把开关又加回来了。
             ("pos_no_remote_still_gap", (False, False), True),
-            # ⚠ **重形态豁免已移除的守卫格**（W3 后段收窄）：pairs.json 不再是合法形态，
+            # ⚠ **重形态豁免已移除的守卫格**：pairs.json 不再是合法形态，
             # 无目录必须报（reme 已迁轻形态 locales）。
             ("pos_pairs_no_dir_is_gap", (True, False), True),
             ("neg_has_dir_ok", (True, True), False),
@@ -5612,10 +5611,10 @@ def selftest() -> int:
             got = i18n_gap(*args)
             good = got == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-52 %s: got=%s want=%s | args=%s"
+            print("[selftest] %s  bilingual-i18n-default %s: got=%s want=%s | args=%s"
                   % ("PASS" if good else "FAIL", name, got, want, args))
 
-        # C-34（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
+        # registry-ver-eq-header（2026-09-19，lead 批准）：**§1 登记表版本列 vs 文件头**。
         # 两格：表格版本与文件头不符（红）/ 一致（绿）。
         c34_cases = (
             ("registry_version_mismatch_flagged", "1.2.3", False),
@@ -5633,10 +5632,10 @@ def selftest() -> int:
             ok, detail = check_registry_versions(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-34 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  registry-ver-eq-header %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-35（2026-09-19，ls2t-dev 规格 + lead 批准）：**实例隔离两条腿**。
+        # isolation-two-legs（2026-09-19，ls2t-dev 规格 + lead 批准）：**实例隔离两条腿**。
         # 三格 = 并集语义的三条边：无 leg_b 且未自钉（红）/ 无 leg_b 但自钉了（绿）/
         # **有 leg_b 且未自钉（绿——这一格就是"关掉 harness 腿 ⇒ 11 红、打开 ⇒ 全绿"的判别力来源）**。
         c35_cases = (
@@ -5657,10 +5656,10 @@ def selftest() -> int:
             ok, detail = check_instance_isolation(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-35 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  isolation-two-legs %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-36：归一化算子的性质断言。样本 2 条——
+        # normalize-eol-insensitive：归一化算子的性质断言。样本 2 条——
         #   ① 真算子（sync_check.sha256_text）→ 必须 ok；
         #   ② **变异算子**（把 `splitlines()` 换成 `split("\n")`）→ 必须**不 ok**。
         # 第 ② 条就是"判别力"的自证：少了它，一个恒返回常数的实现也能让 ① 通过。
@@ -5681,11 +5680,11 @@ def selftest() -> int:
             ok, detail = eol_insensitive_ok(fn, _c36_text)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-36 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  normalize-eol-insensitive %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:110]))
 
-        # C-31：派发件行尾（2.0.3 反转：基线=LF）。正 / 负样本各一，另加"范围"样本与
-        # 孤立 CR 红格（F-1 形态）——仪器侧 bytes 字面量已经过 od 抽查（不含转义绞杀面）。
+        # template-original-eol：派发件行尾（2.0.3 反转：基线=LF）。正 / 负样本各一，另加"范围"样本与
+        # 孤立 CR 红格——仪器侧 bytes 字面量已经过 od 抽查（不含转义绞杀面）。
         c31_cases = (
             ("lf_dispatched_ok",
              {"template/demo/a.py": b"x = 1\ny = 2\n",
@@ -5708,10 +5707,10 @@ def selftest() -> int:
             ok, detail = check_dispatched_eol(d)
             good = ok == want
             failed += 0 if good else 1
-            print("[selftest] %s  C-31 %s: ok=%s want=%s | %s"
+            print("[selftest] %s  template-original-eol %s: ok=%s want=%s | %s"
                   % ("PASS" if good else "FAIL", name, ok, want, detail[:100]))
 
-        # C-37（C-2）：性质判据的**判别力**自证——一个"共享位写错"的原语必须**不通过**。
+        # exe-delete-guard：性质判据的**判别力**自证——一个"共享位写错"的原语必须**不通过**。
         # 真原语用 `FILE_SHARE_READ|WRITE`（不给 DELETE）；下面这条**故意**带上
         # `FILE_SHARE_DELETE`（= 允许别人删），于是 unlink 会成功 ⇒ 性质断言必须失败。
         # 这正是"能实测的就别推断"：共享位写错在源码上完全看不出来。
@@ -5725,13 +5724,13 @@ def selftest() -> int:
         _c37_real = c2_property(_permissive_hold)
         good = _c37_real[0] is False
         failed += 0 if good else 1
-        print("[selftest] %s  C-37 判别力 %s: ok=%s（want False）| %s"
+        print("[selftest] %s  exe-delete-guard 判别力 %s: ok=%s（want False）| %s"
               % ("PASS" if good else "FAIL", "permissive_share_is_caught",
                  _c37_real[0], _c37_real[1][:110]))
 
 
 
-        # C-46：新鲜度的**分母**必须含 out-of-src datas——纯函数四格。
+        # build-freshness：新鲜度的**分母**必须含 out-of-src datas——纯函数四格。
         # 关键不是"能判新鲜"，而是"**补上的那一项能改变结论**"：
         # 同一 exe 在 src-only 视图下判新鲜、在含 out-of-src 的构建输入集下判过期。
         _c46_exe = 1000.0
@@ -5746,15 +5745,15 @@ def selftest() -> int:
             ok, newest, _mt, n = judge_freshness(_c46_exe, items)
             good = (ok == want)
             failed += 0 if good else 1
-            print("[selftest] %s  C-46 %s: ok=%s want=%s | n=%d max=%s"
+            print("[selftest] %s  build-freshness %s: ok=%s want=%s | n=%d max=%s"
                   % ("PASS" if good else "FAIL", name, ok, want, n, newest))
         _c46_empty = judge_freshness(_c46_exe, [])
         good = _c46_empty[0] is None
         failed += 0 if good else 1
-        print("[selftest] %s  C-46 empty_denominator_is_undecidable: ok=%s want=None"
+        print("[selftest] %s  build-freshness empty_denominator_is_undecidable: ok=%s want=None"
               % ("PASS" if good else "FAIL", _c46_empty[0]))
 
-        # C-46 豁免腿（§4.1.37：**豁免的每条边界都要有自证腿 + 反向格**）：
+        # build-freshness 豁免腿（§4.1.37：**豁免的每条边界都要有自证腿 + 反向格**）：
         # `src/modules/**/*.md` **不计入分母**（是给人读的派发件，不是构建输入）；
         # 但同目录的 `*.py` **必须仍计入**（反向格 —— 证明豁免只针对文档，
         # 不是把 `src/modules/` 整目录跳过）。
@@ -5768,7 +5767,7 @@ def selftest() -> int:
                 and "src/template/m/m.py" in _c46_names
                 and "src/main.py" in _c46_names)
         failed += 0 if good else 1
-        print("[selftest] %s  C-46 module_doc_exempt_but_code_included: names=%s"
+        print("[selftest] %s  build-freshness module_doc_exempt_but_code_included: names=%s"
               % ("PASS" if good else "FAIL", sorted(_c46_names)))
 
         # [BROKEN]：**检查自身出错**必须独立成一档——不计 FAIL、不被 WARN 咽掉、并进退出码。
@@ -5789,7 +5788,7 @@ def selftest() -> int:
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         rc = 1 if failed else 0
     finally:
-        # C-30 的作者自己也得守 C-30，且**必须消费返回值**（"我加了重试 ≠ 失败可见"）：
+        # mkdtemp-owned-prefix 的作者自己也得守 mkdtemp-owned-prefix，且**必须消费返回值**（"我加了重试 ≠ 失败可见"）：
         # 删不掉就让退出码变红，而不是只在屏幕上飘一行 [FAIL]。
         if not _rmtree_strict(base):
             rc = 1
@@ -5797,13 +5796,13 @@ def selftest() -> int:
 
 
 
-# ---------------------------------------------------------------- C-46
-# **重建新鲜度：分母必须是"构建输入集"，不能只有 `src/**`**（任务 #62，2026-09-19）。
+# ---------------------------------------------------------------- build-freshness
+# **重建新鲜度：分母必须是"构建输入集"，不能只有 `src/**`**（2026-09-19）。
 # 口径（交接 §1.4）：`exe mtime > max(构建输入 mtime)`，排除 `__pycache__/` 与 `*.pyc`。
 # **分母 = `src/**` ∪ `--add-data "SRC;DEST"` 的 SRC 清单**（= PyInstaller datas 的并集）。
 # 为什么不能只有 src：四家都有 out-of-src 打包输入（`*.ico` / `resources/` / `locales/` /
 #   `bin\plink.exe` / `doc/`）——只扫 src 时，"只有 datas 变了"的重建会被判成**新鲜**，
-#   而真实产物是旧的（判据的分母小于事实的定义域，与 `#58` 的 R-10 扫描面同族）。
+#   而真实产物是旧的（判据的分母小于事实的定义域，与 `#58` 的 临时残留增量断言 扫描面同族）。
 # 等级 WARN：它不是规范违规，而是"这批产物能不能作数"的信号；红 ⇒ 该产物不可作为回执。
 # **必须报告取到最大值的那条路径**：只给一个布尔是"无法复核的结论"（receipt_check 的教训）。
 _ADD_DATA_RE = re.compile(r'--add-data\s+"([^";]+);', re.I)
@@ -5870,7 +5869,7 @@ def judge_freshness(exe_mtime, items):
     """**纯函数**（便于自证）：每个输入都早于 exe ⇒ 新鲜。
 
     返回 `(ok, newest_path, newest_mtime, n)`；`items` 为空 ⇒ `ok=None`（**不可判**，
-    与"新鲜"必须可区分——§D8 第 6 条"0 命中与没东西可命中"）。
+    与"新鲜"必须可区分——§证据锚 第 6 条"0 命中与没东西可命中"）。
     """
     if not items:
         return None, None, None, 0
@@ -5878,9 +5877,9 @@ def judge_freshness(exe_mtime, items):
     return exe_mtime > newest[1], newest[0], newest[1], len(items)
 
 
-@check("C-46", "WARN", "重建新鲜度：exe 必须比**全部构建输入**（src/** ∪ --add-data 源）新")
+@check("build-freshness", "WARN", "重建新鲜度：exe 必须比**全部构建输入**（src/** ∪ --add-data 源）新")
 def c46(c: Ctx):
-    """见上方注释。**分母补全**是任务 #62 的落地；缺 exe / 无输入 ⇒ 记"不可判"，不报绿。
+    """见上方注释。**分母补全**是 的落地；缺 exe / 无输入 ⇒ 记"不可判"，不报绿。
 
     **本条不覆盖**（§4.1.33：判据必须自报边界）：`_internal/` 内容是否正确、生成物
     （`*.ico` / config 由脚本生成）的生成顺序、构建是否完整——那些由 build 门禁输出行回答
@@ -5908,7 +5907,7 @@ def c46(c: Ctx):
                 % (n, len(datas), stamp(exe.stat().st_mtime), newest, stamp(mt),
                    "全部输入早于 exe ⇒ 新鲜"
                    if ok else "**过期**：有构建输入比 exe 新 ⇒ 该产物不是这批输入的构建结果"
-                   "（⚠ 本轮明确**不重建** ⇒ 该 WARN 是**预期读数**，如实留着、别为消它去构建；见 CONFORMANCE §5.1 C-46）"))
+                   "（⚠ 本轮明确**不重建** ⇒ 该 WARN 是**预期读数**，如实留着、别为消它去构建；见 §5.1 build-freshness）"))
 # ---------------------------------------------------------------- 主流程
 def _run_checks(c: Ctx, checks, only=None):
     rows = []
@@ -5918,7 +5917,7 @@ def _run_checks(c: Ctx, checks, only=None):
         try:
             res = fn(c)
             # 允许检查**按分支**返回级别：`(ok, detail, "WARN")`——"判不了"不该按 FAIL 算
-            # （设计纪律 ①：判不了的宁可 WARN；C-11 的"认不出形态"就是这一档）。
+            # （设计纪律 ①：判不了的宁可 WARN；run-detect-match-exe 的"认不出形态"就是这一档）。
             if isinstance(res, tuple) and len(res) == 3:
                 ok, detail, severity = res
             else:
@@ -5928,7 +5927,7 @@ def _run_checks(c: Ctx, checks, only=None):
             # 两者在汇总里只差一个词（"检查异常" vs 一条违规），但处置方向**相反**：
             # 一个要改被检对象，一个要改判据自己。历史实例：`check_md_tabs` 头上留着
             # `@check` 装饰器（它是收 `Path` 的助手），于是四个工具各报一条"检查异常"，
-            # 看起来像工具坏了——整整一轮的排查方向是错的（见 STANDARDS §J）。
+            # 看起来像工具坏了——整整一轮的排查方向是错的（见 §实战坑）。
             # 所以它必须**独立成档、进计数、进退出码**，否则会被当 WARN 咽掉。
             rows.append((cid, "BROKEN", title, False, "检查异常（仪器故障，非检出违规）: %r" % (exc,)))
             continue
@@ -5968,7 +5967,7 @@ def main() -> int:
     ap.add_argument("--strict", action="store_true", help="WARN 也计入退出码")
     ap.add_argument("--only", nargs="*", default=None, help="只跑指定检查 ID")
     ap.add_argument("--selftest", action="store_true",
-                    help="用合成样本反向自证 C-21..C-30（各检查的正反例）后退出")
+                    help="用合成样本反向自证 no-star-import-state..mkdtemp-owned-prefix（各检查的正反例）后退出")
     ap.add_argument("--temp-leak", action="store_true",
                     help="只读列出 %%TEMP%% 里命中家族 mkdtemp 前缀的目录（取证，永远 exit 0）")
     ap.add_argument("--temp-leak-save", default=None,
@@ -5998,6 +5997,14 @@ def main() -> int:
 
     fails = warns = broken = 0
     only = set(args.only) if args.only else None
+    if only:
+        # --only 拼错必须大声失败：静默空跑 0 判据 = 假绿（纪律 ④/⑥ 同族——
+        # "没选中"与"不存在这条判据"在输出上不可区分，就等于给人一个绿灯）。
+        known = {cid for cid, _, _, _ in CHECKS} | {cid for cid, _, _, _ in TEMPLATE_CHECKS}
+        unknown = sorted(only - known)
+        if unknown:
+            ap.error("--only 含未知判据 ID: %s（合法 ID 见 --selftest 输出首列或 合规对照表.md §5.1）"
+                     % ", ".join(unknown))
 
     # 模板正本跑一次（不按工具跑 N 次——它检查的东西与具体工具无关，重复输出只会淹信号）。
     trows = _run_checks(Ctx(TEMPLATE_DIR.name, TEMPLATE_DIR), TEMPLATE_CHECKS, only)

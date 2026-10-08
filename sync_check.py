@@ -1,11 +1,11 @@
 # TEMPLATE-MODULE: sync_check | TEMPLATE-VER: 2.0.2
-# 2.0.2（W5 前段）：E 组补两条 1.5.0 marker 腿（F14-①②）：giveup 段写 FAILED marker /
+# 2.0.2：E 组补两条 1.5.0 marker 腿（-①②）：giveup 段写 FAILED marker /
 #   install_dead 段写 marker 且 KEPT 按实况。段切片用**行级标签锚**（^:label$）——
-#   裸 split 会被 bat 注释里的字面 ':giveup is unreachable' 劫持（W5 实测：正确模板恒红）。
-# 2.0.1（W1 收尾步）：四仓已全部迁到 src/template/ 并换新头——**拆除 2.0.0 的全部过渡垫片**
+#   裸 split 会被 bat 注释里的字面 ':giveup is unreachable' 劫持。
+# 2.0.1：四仓已全部迁到 src/template/ 并换新头——**拆除 2.0.0 的全部过渡垫片**
 #   （_norm_rel 归一、src/modules 布局兜底、头部 modules/ 前缀容忍），布局与头部只认 template/。
-# 2.0.0（W1 改名，执行文档-20260927，D8）：模板仓 modules/ → template/；双布局过渡（垫片已在 2.0.1 拆除）。
-# 1.9.0（#57，与 ls2t-dev 往复产出）：**三处静默出口分成三档可观测量** + NOT-WIRED 升格为申报口。
+# 2.0.0：模板仓 modules/ → template/；双布局过渡（垫片已在 2.0.1 拆除）。
+# 1.9.0（与 ls2t-dev 往复产出）：**三处静默出口分成三档可观测量** + NOT-WIRED 升格为申报口。
 #   原先 `scan_tool` 有三处 `continue` 都表示"当作这个文件没有出处"，而"没有出处"正是
 #   **工具自有文件**的正确观测量 ⇒ "头被覆盖/模块名写错/目标不存在"这类**缺陷输入**与
 #   合法输入落在**同一个**可观测量上 —— 那不是漏判，是**无判据**（喂进已知缺陷输入，
@@ -24,7 +24,7 @@
 #                      使用的申报件，"申报了"与"没人注意"是同一个可观测量）
 #   退出码口径不变：仍只有 drift/missing（+ 新增 BAD-HDR / NO-HDR-COPY）阻断。
 # 1.8.4：E 组补 **`budget_s` 必须与实参 `limit` 同源**——`update_helper.py` 的 docstring 早就写明“判据落点在 sync_check --selftest 的 update_helper 组”，而这里**此前没有这条腿** ⇒ **承诺的判据不存在，等于没判据**。三条腿：limit=2 ⇒ `budget 2s`；limit=120 ⇒ `budget 120s`（两个输入两个输出）；**反向格 = 真变异**（把源码改回取模块常量，重新加载后 limit=2 **必须不再**出 `budget 2s`）。
-# T10 · 模板漂移检查（防漂移四件套之二，执行文档 D1）。
+# 模板漂移检查（防漂移四件套之二）。
 #
 # 1.8.2：E 组补第二条可达路径——**回铺源为空**（SNAPSHOT 没内容）+ 替换失败：真跑一场
 #   （故障注入把 STAGE→TARGET 换成 goto install_failed），断言 0.4s 退出 / 落 :install_dead
@@ -34,11 +34,11 @@
 #   真跑断言从"暂存已删"翻成"暂存还在"，并加静态要点"stage_invalid 走 cleanup_keep"。
 # 1.8.0：`--selftest` E 组新增**真跑反例**（`_apply_bat_runtime_cases`）：把生成的 apply.bat
 #   放进 %TEMP% 沙箱、以**空暂存包**执行，断言"秒级退出（模态框会挂死）/ 写 update.failed
-#   marker / **安装目录没被动过**（/purge 没跑）/ 暂存被收尾删除 / 脚本自删"。
+#   marker / **安装目录没被动过**（purge 没跑）/ 暂存被收尾删除 / 脚本自删"。
 #   为什么必须真跑：文本断言只能证明"守卫写在那儿"，证明不了"那条路真的被拦住"——而
 #   失效形态恰恰是**带 GUI 子系统的模态框**（DETACHED_PROCESS 挡不住），表现为永久挂起。
 #   安全性：沙箱内目标目录**没有 exe**，即使误走 start 分支也不会拉起任何进程。
-# 1.7.0：`--selftest` 新增 **F 组：tray_kit 探针语义**（`mutex_name_is_valid`，2.1.0/D3.3）。
+# 1.7.0：`--selftest` 新增 **F 组：tray_kit 探针语义**（`mutex_name_is_valid`，2.1.0/§自检与测试·探针形态）。
 #   探针要被 `--smoke` 用来覆盖"名字合法"，必须同时满足：非法名判 False、**名字被占用仍判
 #   True**（否则用户实例在跑时冒烟假红）、**探测后不留句柄**（否则探针自己占锁）、内核不可用
 #   时放行。四条各对应一次真实踩坑，故逐条钉住而不是只测"返回 bool"。仅 sync_check 自身变更，
@@ -55,14 +55,14 @@
 #
 # 1.4.0：扫描范围从 `*.py` 扩到**模块文件夹内全部比对件（.py + .md）**——"整文件夹采纳"
 #   按定义是 **README + __init__.py + 代码** 三件套，而模块 README 此前从未被比对
-#   （CONFORMANCE §4.1.10 第 4 盲区）。模板专属目录 baseline/ build_release/ 排除
+#   （§4.1.10 第 4 盲区）。模板专属目录 baseline/ build_release/ 排除
 #   （它们不是 src/modules/ 的拷贝源），__pycache__ 等生成目录排除（避免 .pyc 刷屏）。
 #   仅 sync_check 自身变更，**不产生任何级联**。
 #
 # 原理：**双通道扫描**——
 #   ① 头部通道：工具文件带 `# TEMPLATE-FROM: <模板库目录>/<相对路径>` 头时，按该路径比对；
 #   ② 布局通道（1.3.0 新增）：工具 `src/modules/<模块>/` 下**同名文件**只要模板存在，
-#      就纳入比对，**不要求工具侧有头**（CONFORMANCE §4.1.9 盲区 1/3）。
+#      就纳入比对，**不要求工具侧有头**。
 # 两通道都做**归一化哈希**：双方剔除 `# TEMPLATE-*` 元信息行后哈希相等即为一致
 # （副本头标明出处、正本头标明模块身份，这些行差异不计入）。
 #
@@ -73,7 +73,7 @@
 #   [param] appconfig.py —— 参数文件，按设计豁免比对
 #   [lag]   蓝本工具（blueprints.txt 名单）的副本落后于模板 VER —— 黄灯。
 #           1.3.0 起蓝本不再整体 skip（旧行为是盲区：模板前进而蓝本原地不动无人
-#           发现，CONFORMANCE §4.1.6 教训），打印 副本VER -> 模板VER；跟不跟由人
+#           发现，§4.1.6 教训），打印 副本VER -> 模板VER；跟不跟由人
 #           决定（写 REVIEW）。蓝本件若 VER 相同而内容仍有差异 = 真实分叉，仍红灯。
 #   [NOHDR] 工具侧无 TEMPLATE 头，但落在 `src/modules/<模块>/` 且与模板不一致
 #           —— 黄灯，提示补头（§4.1.9 盲区 1）。补头后由头部通道接管。
@@ -140,7 +140,7 @@ LEGACY_ALIAS = {
     "log_kit.py": "template/log_kit/log_kit.py",
 }
 
-# 模板仓目录名（W1 改名后为 template/）
+# 模板仓目录名
 TPL_DIR_NAME = "template"
 
 
@@ -172,7 +172,7 @@ def identity_line() -> str:
     """checker 自身身份：`# sync_check <VER> sha256:<raw> norm:<norm>`（运行时自算）。
 
     写死的哈希会自己过期——那正是它要解决的问题；两种口径都给（`.py` 比对用 norm、
-    `.md` 用逐字节，见 ALIGNMENT §0），只印一种迟早被人拿另一种去对。
+    `.md` 用逐字节），只印一种迟早被人拿另一种去对。
     """
     import hashlib
     import re as _re
@@ -189,7 +189,7 @@ def identity_line() -> str:
 def _rmtree_strict(path, tries: int = 10, delay: float = 0.2) -> bool:
     """删目录并**回读确认**；删不掉 → 打印 `[FAIL]` 并返回 False（绝不静默吞）。
 
-    为什么模板仓的工具也要守 C-30：`ignore_errors=True` 会把"删不掉"（Windows 上句柄
+    为什么模板仓的工具也要守 mkdtemp-owned-prefix：`ignore_errors=True` 会把"删不掉"（Windows 上句柄
     未释放是常态）翻译成"看起来删掉了"，每跑一次泄漏一个 `%TEMP%` 目录而门禁全绿。
     调用方**必须消费返回值**（"我加了重试 ≠ 失败可见"）。
     """
@@ -215,7 +215,7 @@ def sha256_bytes(path: Path) -> str:
 
     剔行归一化是为**代码副本**设计的（去掉出处声明行再比）。markdown 标题也以 `#`
     开头，若沿用剔行，`# TEMPLATE-FROM:` 会被静默吞掉 —— "带头的 README"与"不带头的
-    README"会比对成相等（CONFORMANCE §4.1.10a）。故 .md 必须逐字节比。
+    README"会比对成相等（§4.1.10a）。故 .md 必须逐字节比。
     """
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -313,7 +313,7 @@ def scan_tool(tool_dir: Path):
     而不是循环问法"这条兜底能不能只在输入正确时生效"（对"兜底自身供给目标"的装置是循环的）。
 
     **只收 .py**：头部机制是为**代码副本**设计的（剔掉出处行再比哈希）。模块 README
-    按口径不带任何 TEMPLATE 头、与正本逐字节一致（CONFORMANCE §4.1.10a），因此 .md
+    按口径不带任何 TEMPLATE 头、与正本逐字节一致（§4.1.10a），因此 .md
     一律走布局通道，绝不在这里被头解析。
     """
     found, anomalies = [], []
@@ -367,7 +367,7 @@ def template_norm_index() -> dict:
 def declared_not_wired(mod_dir: Path) -> str:
     """模块级"有意未接入"申报口：模块目录下的 `NOT-WIRED.md`（存在即有申报）。
 
-    **为什么要有这个出口**（#57）：`NOT-WIRED.md` 是**已在野外使用的申报件**
+    **为什么要有这个出口**：`NOT-WIRED.md` 是**已在野外使用的申报件**
     （reme `src/modules/service_link/` 就有一份），而 sync_check 原先完全不认它——
     于是"申报了"与"没人注意"在输出上是**同一个可观测量**（都表现为缺口）。
     升格后：缺失项记 `[decl]`（带申报件名）而不进 missing-module/file 计数。
@@ -376,14 +376,14 @@ def declared_not_wired(mod_dir: Path) -> str:
 
 
 def tool_references_module(tool_dir: Path, mod: str) -> bool:
-    """C-53 陈旧申报判定（W8-C）：工具 `src/` 顶层 .py 是否实际引用了模块名。
+    """stale-not-wired 陈旧申报判定：工具 `src/` 顶层 .py 是否实际引用了模块名。
 
-    申报口的原生形态只在**缺失**时可见（#57：[decl] 挂在 missing 分支）——
-    模块一旦接线，NOT-WIRED.md 就成了**永不再被复核的陈述**。实测：W4 的 reme
+    申报口的原生形态只在**缺失**时可见（[decl] 挂在 missing 分支）——
+    模块一旦接线，NOT-WIRED.md 就成了**永不再被复核的陈述**。实测：的 reme
     autostart NOT-WIRED（i18n-unify 复核抓获，接线后申报仍躺了三个 Wave）。
     判定口径取最保守的**文本引用**（import/from/属性访问/注释提及皆算）：
     陈旧申报是黄灯，宁可多看一眼，不在机械层过滤。
-    **已知误报形态（W8-C F-R7 实证）**：版本名册类注释（如「service_link 0.2.0
+    **已知误报形态**：版本名册类注释（如「service_link 0.2.0
     已是模板正本拷贝」）会命中本口径——处置=人工核消费方后将结论写回
     NOT-WIRED.md（自证），黄灯长亮即有档可查，不是噪音。
     """
@@ -426,7 +426,7 @@ def template_modules() -> dict:
     """模板 `modules/<模块>/` → [该模块的全部比对件]（.py + .md，1.4.0 起）。
 
     "整文件夹采纳" = **README + `__init__.py` + 代码**；只扫 .py 会让模块 README
-    完全隐身（CONFORMANCE §4.1.10 第 4 盲区）。模板专属目录（baseline/build_release）
+    完全隐身（§4.1.10 第 4 盲区）。模板专属目录（baseline/build_release）
     不是拷贝源，排除；__pycache__ 等生成目录排除。
     """
     out = {}
@@ -453,7 +453,7 @@ def compare(tool_file: Path, rel: str, is_blueprint: bool, is_declared: bool,
     if not template_file.exists():
         return "miss", "", tool_ver, "?"
     if tool_file.suffix.lower() == ".md":
-        # 非代码件：逐字节比，不做"头/VER"判定（口径见 CONFORMANCE §4.1.10a）。
+        # 非代码件：逐字节比，不做"头/VER"判定（口径见 §4.1.10a）。
         # 但**模块级** OVERRIDE 例外：整个模块是有意分叉时（如 reme 重形态 i18n），
         # 其 README 不可能与正本一致，应记 [decl] 而非 [DIFF]——差异已申报，不是漂移。
         if sha256_bytes(tool_file) == sha256_bytes(template_file):
@@ -628,7 +628,7 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
                                   and keep_i > dead_i) else len(cmds)] if dead_i is not None else []
     # 1.5.0 两段级断言的切片：**行级标签锚**（`^:label$`），不能用裸 split——bat 注释里
     # 出现过字面 `:giveup is unreachable`（解释 :wait 循环的 rem 块），裸 split 会把切段
-    # 锚到注释上，段内容完全错位（W5 前段实测：F14-1 腿对正确模板恒红）。
+    # 锚到注释上，段内容完全错位。
     import re as _re
 
     def _seg(start_label, end_label):
@@ -642,7 +642,7 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
     dead_seg = _seg(":install_dead", ":giveup")
     return [
         # 节拍必须是**不依赖网络配置**的睡眠：`ping` 在丢 loopback ICMP 的机器上一拍 9.0s
-        # （实测），名义 120s 变 ~18 分钟。见 C-33 / CONFORMANCE §4.1.20。
+        # （实测），名义 120s 变 ~18 分钟。见 no-ping-as-sleep / §4.1.20。
         ("等待循环 :wait", ":wait" in text and has("Start-Sleep -Milliseconds")),
         ("tasklist 行不含管道", bool(tl) and all("|" not in ln for ln in tl)),
         ("tasklist 写文件", any(">" in ln for ln in tl)),
@@ -669,11 +669,11 @@ def _apply_bat_keypoints(text, exe, target, stage, snapshot, backup, work, faile
         ("回铺后 start 前也验 exe（否则回铺源为空时又是一条死路）",
          before(idx(":install_failed"), deadguard_i)),
         ("失败 marker", has('> "%FAILED%" echo')),
-        # 1.5.0（W5 前段，F14-①②）：两条失败路径的 marker 可见性——日志随暂存被清扫，
+        # 1.5.0：两条失败路径的 marker 可见性——日志随暂存被清扫，
         # marker（用户数据区）是应用退出后唯一幸存的报告通道；pop_failed_update_note 读它。
-        ("超时放弃写失败 marker（1.5.0 F14-1：giveup 段）",
+        ("超时放弃写失败 marker（1.5.0 -1：giveup 段）",
          '> "%FAILED%" echo update aborted' in giveup_seg),
-        ("install_dead 写 marker 且 KEPT 按实况（1.5.0 F14-2：不指向不存在的路径）",
+        ("install_dead 写 marker 且 KEPT 按实况（1.5.0 -2：不指向不存在的路径）",
          '> "%FAILED%" echo update failed' in dead_seg and 'if not defined KEPT' in dead_seg),
         ("cleanup 删暂存", has('if exist "%WORK%" rmdir /s /q "%WORK%"')),
         ("脚本自删", has('del "%~f0"')),
@@ -931,12 +931,12 @@ def _apply_bat_mutation_cases():
 
 
 def _tray_kit_probe_cases():
-    """F 组：`tray_kit.mutex_name_is_valid` 探针语义（2.1.0，D3.3）。返回 [(label, ok, detail)]。
+    """F 组：`tray_kit.mutex_name_is_valid` 探针语义（2.1.0，§自检与测试·探针形态）。返回 [(label, ok, detail)]。
 
     探针要被 `--smoke` 用来覆盖"互斥体名合法"这条，它必须满足四个性质——**每条都对应一次
     真实的踩坑**，所以逐条钉住，而不是只测"返回值是 bool"：
       ① 合法名 → True；
-      ② 非法名（`Local\\` 之后再出现反斜杠，SINGLE-01 的根因）→ False；
+      ② 非法名（`Local\\` 之后再出现反斜杠，单实例·互斥体名合法 的根因）→ False；
       ③ 名字**已被占用** → 仍 True（`ERROR_ALREADY_EXISTS` 也算内核接受；否则用户实例在跑时
          冒烟会假红——这正是不能拿 `single_instance_free` 当探针的原因）；
       ④ 探测完**不留句柄**（否则探针自己把锁占了，用户接下来的托盘会被判"已有实例"）；
@@ -956,7 +956,7 @@ def _tray_kit_probe_cases():
         name = r"Local\my-helper-single-instance"
         bad = r"Local\my-helper\SingleInstance"
         out.append(("F 合法名 → True", mod.mutex_name_is_valid("my-helper", name) is True, name))
-        out.append(("F 非法名 → False（SINGLE-01 根因）",
+        out.append(("F 非法名 → False（单实例·互斥体名合法 根因）",
                     mod.mutex_name_is_valid("my-helper", bad) is False, bad))
         # 2.2.0：形状判据单一化——同一条规则同时约束守卫/探针/空闲探测（不写两份规则）
         shapes = [(None, False), ("", False), ("helper", False), (r"Global\helper", False),
@@ -966,7 +966,7 @@ def _tray_kit_probe_cases():
                     "mutex_name_ok 覆盖 %d 例" % len(shapes)))
         logs = []
         guard_ok = mod.acquire_single_instance("my-helper", bad, log=logs.append) is True
-        out.append(("F 守卫遇非法名放行且记日志（D3.2）", guard_ok and bool(logs),
+        out.append(("F 守卫遇非法名放行且记日志（§自检与测试·失败方向）", guard_ok and bool(logs),
                     logs[0][:60] if logs else "无日志"))
         # ③ 自己先占住同名的另一个句柄，探针仍须判 True
         k32 = _ctypes.WinDLL("kernel32", use_last_error=True)
@@ -1065,7 +1065,7 @@ def _apply_bat_runtime_cases():
                     not hung and elapsed < 30, "%.1fs%s" % (elapsed, " 超时!" if hung else "")))
         out.append(("E-runtime 空暂存包：写了 update.failed marker",
                     marker.is_file(), "存在" if marker.is_file() else "缺失"))
-        out.append(("E-runtime 空暂存包：安装目录没被动过（/purge 没跑）",
+        out.append(("E-runtime 空暂存包：安装目录没被动过（purge 没跑）",
                     (install / "sentinel.txt").is_file(),
                     "sentinel %s" % ("在" if (install / "sentinel.txt").is_file() else "被清掉了")))
         out.append(("E-runtime 空暂存包：**保留现场**（走 :cleanup_keep，暂存还在）",
@@ -1226,8 +1226,8 @@ def _header_silence_cases(base: Path):
                   before == "" and after == "NOT-WIRED.md",
                   f"before={before!r} after={after!r}"))
 
-    # 腿⑤ C-53 陈旧申报（W8-C）：申报在场 + src 引用 ⇒ True；申报在场 + 无引用 ⇒ False。
-    # 红格形态即 W4 reme autostart 实锤（NOT-WIRED 躺三个 Wave 无人复核）。
+    # 腿⑤ stale-not-wired 陈旧申报：申报在场 + src 引用 ⇒ True；申报在场 + 无引用 ⇒ False。
+    # 红格形态即 reme autostart 实锤（NOT-WIRED 躺三个 Wave 无人复核）。
     d8 = base / "leg5"
     (d8 / "src" / "template" / "service_link").mkdir(parents=True)
     (d8 / "src" / "template" / "service_link" / "NOT-WIRED.md").write_text(
@@ -1236,7 +1236,7 @@ def _header_silence_cases(base: Path):
     (d8 / "src" / "main.py").write_text(
         "from template import service_link\n", encoding="utf-8")
     wired = tool_references_module(d8, "service_link")
-    cases.append(("腿⑤ C-53 陈旧申报：无引用 ⇒ False / src 引用 ⇒ True（#57 盲区腿）",
+    cases.append(("腿⑤ stale-not-wired 陈旧申报：无引用 ⇒ False / src 引用 ⇒ True（申报盲区腿）",
                   clean and wired, f"clean={clean} wired={wired}"))
     return cases
 
@@ -1253,7 +1253,7 @@ def selftest() -> int:
 
     为什么固化成开关而不是跑一次：一次性命令会随会话消失，判据下次被改坏时无人察觉
     ——"已知样本反向验证"必须是可重跑的资产。D 组原先是一个根目录独立脚本，无调用方
-    （=死代码），折进来后自动获得"改坏即 exit 1"的保障（CONFORMANCE §4.1.13 同款教训）。
+    （=死代码），折进来后自动获得"改坏即 exit 1"的保障。
     """
     tpl = TEMPLATE_DIR / TPL_DIR_NAME / "paths" / "README.md"
     if not tpl.exists():
@@ -1324,7 +1324,7 @@ def selftest() -> int:
         print(f"[selftest] {'ALL PASS' if not failed else '%d FAILED' % failed}")
         rc = 1 if failed else 0
     finally:
-        # C-30 的作者自己也得守 C-30：删完**回读确认**，删不掉就让退出码变红
+        # mkdtemp-owned-prefix 的作者自己也得守 mkdtemp-owned-prefix：删完**回读确认**，删不掉就让退出码变红
         # （旧写法 `rmtree(base, ignore_errors=True)` 把"删不掉"变成"看起来删掉了"）。
         if not _rmtree_strict(base):
             rc = 1
@@ -1471,9 +1471,9 @@ def main() -> int:
                             and OVERRIDE_RE.search(read_text(f)[:4096])):
                         mod_declared = f.name
                         break
-            # 模块级"有意未接入"申报口（#57）：见 declared_not_wired()
+            # 模块级"有意未接入"申报口：见 declared_not_wired()
             not_wired_md = declared_not_wired(mod_dir)
-            # C-53 陈旧申报（W8-C）：申报在场但工具代码已引用该模块 ⇒ 黄灯。
+            # stale-not-wired 陈旧申报：申报在场但工具代码已引用该模块 ⇒ 黄灯。
             if not_wired_md and tool_references_module(tool_dir, mod):
                 stale_nw.append((name, mod, not_wired_md))
                 print(f"[STALE-NW] {name}: src/{TPL_DIR_NAME}/{mod}/{not_wired_md} 申报"
@@ -1493,7 +1493,7 @@ def main() -> int:
                     if not_wired_md:
                         # 已申报（模块目录下有 NOT-WIRED.md）：不是"漏拷"，是"有意未接入"。
                         # [decl] 与 [MISSING-*] 必须是**两个不同的可观测量**，否则
-                        # "已批准"与"没人注意"永远分不开（#57）。
+                        # "已批准"与"没人注意"永远分不开。
                         print(f"[decl ] {name}: 缺 {TEMPLATE_DIR.name}/{tpl_rel}"
                               f"（已申报 via {not_wired_md}）")
                         continue

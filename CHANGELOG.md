@@ -2,16 +2,15 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
-## [tunnel_kit 0.1.2] - 2026-09-29 (W8-C, N3)
+## [tunnel_kit 0.1.2] - 2026-09-29
 
-- **alive() 的 probe 回调异常改 fail-open**（蓝本 #45 对齐）：探测跑不成 ≠ 不健康——
+- **alive() 的 probe 回调异常改 fail-open**（蓝本 对齐）：探测跑不成 ≠ 不健康——
   OWNED/ADOPTED 态保持现态、不触发重连（NONE 态仍 False，无链路可保）。0.1.1 前为
   fail-closed，仪器故障会被当链路死亡触发无谓重连；消费方 ocx 本地 probe_target
   一直是对的（fail-open），模板自此与蓝本一致。
-- README 同步：probe 异常方向节 + F-R4「退避翻倍休眠名单」更新（ocx 已于 W8-C N1
-  实现完整序列，休眠名单只剩 reme——N2 降级留痕）。
+- README 同步：probe 异常方向节 + 「退避翻倍休眠名单」更新。
 
-## [service_link 0.2.0 + tray_kit 2.3.0] - 2026-09-28 (W7-1)
+## [service_link 0.2.0 + tray_kit 2.3.0] - 2026-09-28
 
 - **service_link 0.2.0：启动编排三件 + 就绪钩子**（代码 651bd49 先行落库，本条目补登）：
   - `STATE_STARTING`：`start()` 先入 STARTING 再 launch，launch 抛异常回滚 NONE
@@ -23,21 +22,21 @@ Template library own versioning (TEMPLATE-VER), independent of any tool.
   - `on_ready(callback)`：就绪回调，异常不外抛；
   - README：abort_event 装配规约（**必须**接主程序 STOP_EVENT）+ 开头状态机图/接口表
     同步 0.2.0（消除追加段与正文新旧并存）。
-- **tray_kit 2.3.0：menu_is_open 下沉**（Decision 9）——MenuSignature 的配套探测器
+- **tray_kit 2.3.0：menu_is_open 下沉**——MenuSignature 的配套探测器
   （GUI_INMENUMODE 遍历本进程线程 + 前台窗口 #32768 兜底）此前四工具各内联约 40 行
   近乎逐行重复，正本化进模板；四仓改为 `menu_is_open=tray_kit.menu_is_open`。
 
-## [update_helper 1.5.0] - 2026-09-27 (W5 前段, D4 方案 B)
+## [update_helper 1.5.0] - 2026-09-27 (方案 B)
 
-- **吸收 reme 两条失败可见性语义**（F14-①②，语义源=reme 已验证更新链 7242-7282）：
+- **吸收 reme 两条失败可见性语义**（-①②，语义源=reme 已验证更新链 7242-7282）：
   - `:giveup` 超时**写 FAILED marker**——此前只写日志：bat 在应用退出后运行，日志随
     暂存被清扫，marker（用户数据区）是用户得知"更新没发生"的唯一通道；
   - `:install_dead` **写 marker + KEPT 按实况报告**——只列真实存在的 SNAPSHOT/BACKUP，
     旧措辞恒指向可能已轮转不存在的 snapshot 路径。
 - sync_check 2.0.2：E 组两条 marker 腿（段级断言，行级标签锚防注释劫持）。
-- 冻结锚点：本版为 W5 后段四仓重拷的宣告锚。
+- 冻结锚点：本版为 后段四仓重拷的宣告锚。
 
-## 2026-09-27 (W1 rename, execution document 执行文档-20260927-四工具模板统一, Decision 8)
+## 2026-09-27 (rename)
 
 - **`modules/` → `template/`** (git mv, 34 files renamed). Template-side canonical dir is now
   `template/<模块>/`. This entry itself implies no tool-side re-copy — module file contents are
@@ -45,31 +44,31 @@ Template library own versioning (TEMPLATE-VER), independent of any tool.
   wording changed.
 - **sync_check 1.9.0 → 2.0.0**: template side reads `template/` exclusively; tool side layout
   channel prefers `src/template/` and falls back to `src/modules/` (transition compat,
-  removed in the W1 closing step); legacy `TEMPLATE-FROM: .../modules/...` headers are
+  removed in the closing step); legacy `TEMPLATE-FROM: .../modules/...` headers are
   normalized via `_norm_rel()` before comparison; NO-HDR namespace covers both roots.
 - **conformance_check 1.9.29 → 2.0.0**: `Ctx._find` auto-expands `src/modules/` candidates
   with `src/template/` (preferred); new `Ctx.mod_root` property; module-namespace exclusion
-  filters drop both `modules` and `template`; C-34 row regex accepts both prefixes and
-  resolves `modules/` rows against `template/`; C-35 import regex adds `template`; template
-  paths.py import name updated; S-02/autostart key reads are dual-path.
+  filters drop both `modules` and `template`; registry-ver-eq-header row regex accepts both prefixes and
+  resolves `modules/` rows against `template/`; isolation-two-legs import regex adds `template`; template
+  paths.py import name updated; 快照·自启键/autostart key reads are dual-path.
 - **合规对照表.md §1 registry**: 12 rows re-pointed `modules/…` → `template/…`
-  (same commit as the C-34 regex change — fail-open criteria must never desync).
+  (same commit as the registry-ver-eq-header regex change — fail-open criteria must never desync).
 - Tool repos keep `src/modules/` + old headers for now — transition compat keeps all gates
-  green; each tool repo migrates to `src/template/` + new headers in its own W1 commit.
+  green; each tool repo migrates to `src/template/` + new headers in its own commit.
 
-### W1 closing step (same day, after all four tool repos migrated)
+### closing step (same day, after all four tool repos migrated)
 
 - **Transition shims removed** (all repos now on `src/template/` + new-style headers):
   sync_check 2.0.0 → **2.0.1** (drop `_norm_rel`, `src/modules` layout fallback, legacy
   `modules/` header-prefix tolerance; LEGACY_ALIAS values re-pointed to `template/`;
   selftest synthetic samples moved to the new layout) and conformance_check 2.0.0 →
   **2.0.1** (drop `_find` expansion, `mod_root` fallback, dual-name exclusion filters,
-  C-34 dual prefix/normalization, appconfig dual paths, C-45 base fallback; C-35 regex
+  registry-ver-eq-header dual prefix/normalization, appconfig dual paths, dispatch-eol base fallback; isolation-two-legs regex
   back to `main|template|pipeline`).
 - **Module cross-imports single-formed** (`from template.X import ...`) in update_helper
   1.4.6 / autostart 1.1.4 / paths 1.1.5 / log_kit 1.0.4 / icons 2.0.1 — the dual-form
   (`try modules.X / except template.X`) existed only intra-wave and was never released,
-  so versions stay at their W1 values; tool repos re-copied these files (one commit each).
+  so versions stay at their values; tool repos re-copied these files (one commit each).
 - Gates: sync_check --selftest ALL PASS; family-wide 0 undeclared drift / 0 blueprint lag;
   conformance 0 FAIL × 4 tools.
 
@@ -82,31 +81,31 @@ are affected, and one of them was affected *in a way that is invisible unless de
 - **Desensitizing batch (`dacfd71`, `a87e6c0`)** — every absolute path, machine name, internal IP
   and username in the repo's documents was replaced with a placeholding form
   (`<scratch>/`, `<runner>`, `<user>`, `192.168.x.x`, `D:\Example\...`).
-  ⚠ **Correction (same day): the first residual scan read **0**, and that reading was worthless** — the replacement table's patterns were written as raw strings with **doubled** backslashes, so the whole `H:\Tools\` / `C:\Users\` family was **never touched**, and the self-check **reused the same broken pattern** ⇒ it measured *what I had written*, not *what was still in the files* (the `§L L3⑤` shape: read-back equivalent to not reading — and this time with **no impossible-value alarm**). **A second, independent scan found 47 real occurrences** across 8 files; all are fixed, and the self-check is now a runnable criterion rather than a prose requirement.
+  ⚠ **Correction (same day): the first residual scan read **0**, and that reading was worthless** — the replacement table's patterns were written as raw strings with **doubled** backslashes, so the whole `H:\Tools\` / `C:\Users\` family was **never touched**, and the self-check **reused the same broken pattern** ⇒ it measured *what I had written*, not *what was still in the files* (the `§过程纪律 L3⑤` shape: read-back equivalent to not reading — and this time with **no impossible-value alarm**). **A second, independent scan found 47 real occurrences** across 8 files; all are fixed, and the self-check is now a runnable criterion rather than a prose requirement.
   `CONFORMANCE §9` also **stopped depending on the process drafts** that are about to be deleted
   (`P` numbers are now declared valid *only inside that table*; the anchors are labelled *historical
   provenance*), and a runnable de-sensitization self-check was added next to the existing one.
   ⚠ **One change in this batch is not cosmetic**: the literal count `76 条` was replaced by `逐条`
   (2 places). That is a **factual rewrite — the number was REMOVED, not corrected.** Anyone who
   later asks "was 76 right, or is it 90?" must know that the question was **abandoned**, not answered.
-- **Style batch (`b27b16a`)** — a one-line overview table was added to `§K` and to `§L`, and 17
+- **Style batch (`b27b16a`)** — a one-line overview table was added to `§判据工程` and to `§过程纪律`, and 17
   decorative end-of-sentence arrows were removed.
   ⚠ **Scope disclosure**: the removal regex was global, so **9 of the 17 removals landed in
-  pre-existing `§A`–`§J` prose** (lines 283/285/360/728/748/820/826/830/967). Per *"作废 ≠ 有错"*,
-  the T10/T11 conclusions are **not damaged** — but they were rendered **no longer applicable to
+  pre-existing `§能力分级总表`–`§实战坑` prose** (lines 283/285/360/728/748/820/826/830/967). Per *"作废 ≠ 有错"*,
+  the 自动升级/性能日志 conclusions are **not damaged** — but they were rendered **no longer applicable to
   the current `HEAD`**. That is the delta this paragraph exists to declare.
 - **Defect batch (`5ce6188`)** — a defect class that **all three byte dimensions
   (`CRLF` / bare `LF` / in-line bare `CR`) report as clean**, because the injected byte is a
   *legitimate-looking line ending*: an inline code span **split by a real CR/LF**. Symptoms and fixes:
-  - `STANDARDS §L3`: an intended *literal escape* `\r\n` had landed as a real CRLF.
+  - `STANDARDS §写入合取`: an intended *literal escape* `\r\n` had landed as a real CRLF.
   - `CONFORMANCE §4.1.58`: one surplus backtick shifted every following pairing, **swallowing the
     table prose of `§4.1.59`–`§4.1.65` into a code span**. Machine criterion: document-wide
     cross-line spans **31 → 10**.
-  - `CONFORMANCE C-45`: the escapes in `数 \r 与 \n` had landed as real bytes ⇒ **the row was cut
-    into three fragments** and rows `C-34` / `C-35` had been inserted *into the middle of it*,
+  - `CONFORMANCE dispatch-eol`: the escapes in `数 \r 与 \n` had landed as real bytes ⇒ **the row was cut
+    into three fragments** and rows `registry-ver-eq-header` / `isolation-two-legs` had been inserted *into the middle of it*,
     rendering **two junk rows**. Rejoined (line count 1068 → 1066).
   - `CONFORMANCE §9`: three dangling self-references left by an earlier rewrite of mine.
-  - **Not repaired, on purpose**: the remaining 10 cross-line spans cascade from `CONFORMANCE C-44`,
+  - **Not repaired, on purpose**: the remaining 10 cross-line spans cascade from `CONFORMANCE bat-abs-cmd-path`,
     whose backtick count is odd at `d712d09` **and at every earlier revision** — a **pre-existing**
     defect, not one of this round's, and reconstructing the author's intent would be guessing.
     `CHANGELOG` L1004/L1035 are worse: the span content is *only a line break*, i.e. the demonstration
@@ -156,9 +155,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
 - **Self-test: 7 new cases** (4 reverse units + 3 controls, including the NOT-WIRED before/after pair);
   ALL PASS.
 
-## 2026-09-19 (C-45: the tool-side copies' line endings were invisible to every judge)
+## 2026-09-19 (dispatch-eol: the tool-side copies' line endings were invisible to every judge)
 
-- **C-45 (WARN, tool channel): a tool's copies under `src/modules/**` (`.py`/`.md`) must be all-CRLF,
+- **dispatch-eol (WARN, tool channel): a tool's copies under `src/modules/**` (`.py`/`.md`) must be all-CRLF,
   judged on bytes.** Why it has to exist separately: `sync_check` compares via `read_text()`, so
   **line endings are normalized away** — meaning "the CRLF wave converted those 4 dispatched files"
   reads as **zero effect, still `[ok]`**. **"The CRLF wave is done" and "nothing changed and
@@ -180,9 +179,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   `2f649df731bf44ed` (3098 B, CRLF=63, loneLF=0); `service_link.py` reme `a9323454aba9ef92`
   (5908 B, CRLF=123, loneLF=0). **All four are already byte-CRLF.**
 
-## 2026-09-19 (C-44: bare-name external commands in bats; PATH hands you a different program)
+## 2026-09-19 (bat-abs-cmd-path: bare-name external commands in bats; PATH hands you a different program)
 
-- **C-44 (FAIL, tool + template channel).** In `.bat`/`.cmd`, a **closed set of 8 commands**
+- **bat-abs-cmd-path (FAIL, tool + template channel).** In `.bat`/`.cmd`, a **closed set of 8 commands**
   (`find` / `findstr` / `ping` / `tasklist` / `robocopy` / `where` / `reg` / `timeout`) must be called
   by **absolute path**, never by bare name. The mechanism (reme-dev hit it): on this machine
   **`where find` resolves to Git's `usr/bin/find.exe`**, ahead of System32 — the wait loop used
@@ -206,7 +205,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
     green; the `for /f ('findstr ...')` form => red; a non-closed-set command => green.
 - **The template's `update_helper` needs nothing here, and that is measured rather than assumed**: its
   rendered `apply.bat` already calls the System32 paths for `tasklist.exe`, `find.exe`, `Robocopy.exe`
-  and WindowsPowerShell, with **zero bare-name hits**, and no `ping` remains. **C-33 and C-44 are
+  and WindowsPowerShell, with **zero bare-name hits**, and no `ping` remains. **no-ping-as-sleep and bat-abs-cmd-path are
   independent** (one governs *ping-as-a-tick*, the other *bare-name resolution*); neither substitutes
   for the other, and each scans and reports on its own.
 - **Discipline (12)**: **the resolution of any external name a criterion or program depends on changes
@@ -227,14 +226,14 @@ are affected, and one of them was affected *in a way that is invisible unless de
   `acquire_single_instance` are both **kernel-object guards with process lifetime, both failing
   open** — keeping them together makes that family legible at a glance. The implementation still
   lives in `paths.py` 1.1.4 for now (`hold_no_delete` / `hold_exe_delete_guard`, already measured by
-  C-37); moving it into `tray_kit` is a dispatch event (§4.1.39).
+  exe-delete-guard); moving it into `tray_kit` is a dispatch event (§4.1.39).
 - **Third instance of "evidence swallowed by an earlier return"**, recorded in §4.1.29:
   helpers-dev's first `delete_protection_selftest` put the happy path's `return` inside `try`, so
   **`finally` ran and the function returned immediately, skipping the cleanup below it** — i.e. a
   **green run leaked one `c2-selftest-*` directory into `%TEMP%` every time**. The corrected version
   computes `result` first, does the cleanup, and returns once; it also **puts cleanup failure into
   `problems`** (in the original, a failed cleanup sat in `finally` where the already-computed return
-  value swallowed it). Same family as C-32 and as `marker.unlink` running before `log`.
+  value swallowed it). Same family as no-delete-before-report and as `marker.unlink` running before `log`.
 - **Retry boundary, recorded with it**: `_rmtree_verified`'s `delay` exists to absorb **transient
   locks** from Defender/indexers (there is precedent in `tests/_cleanup.py`), and **`tries × delay`
   exhausted means failure — it is not "retry until it succeeds"**; otherwise "retry" silently
@@ -243,9 +242,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   **what is relaxed is the refusal condition, not cleanliness**, and the handle must be held **by the
   running instance** (early, to process exit, failing open).
 
-## 2026-09-19 (C-43: `:~` in an `if` condition aborts the whole script; narrow boundary)
+## 2026-09-19 (no-tilde-substr-in-if: `:~` in an `if` condition aborts the whole script; narrow boundary)
 
-- **C-43 (FAIL, tool + template channel), boundary pinned by ls2t-dev and adopted.** Only **one
+- **no-tilde-substr-in-if (FAIL, tool + template channel), boundary pinned by ls2t-dev and adopted.** Only **one
   shape** is dangerous: a `:~` trailing/substring expansion (`:~-1` / `:~0,-1`) **inside a same-line
   `if` condition**. `%` expansion happens **before** the `if` is evaluated, so with the variable
   undefined the expansion drops a literal into the quotes, cmd reports
@@ -271,14 +270,14 @@ are affected, and one of them was affected *in a way that is invisible unless de
   `Syntax of the command is incorrect.` — cmd writes in the **OEM code page**, so a UTF-8 decode
   fails to match and **both cases read 0** (a false green). ⇒ **Do not build a criterion on text
   that may be misdecoded** (same family as §4.1.37 and discipline ⑪).
-- **D1-04 gets its first positive instance**: ls2t-dev's **17:25 full build reached `[DONE]` with no
+- **工程·关键键断言 gets its first positive instance**: ls2t-dev's **17:25 full build reached `[DONE]` with no
   instance running at all** (measured process count = 0 before the 1.4.0 directory was removed).
   Recorded next to the dsh/ocx negative instances — **a requirement with only counter-examples can't
   be told apart from an impossible one**; with a positive instance it becomes a proven operation.
 
-## 2026-09-19 (C-42: `dev/null` in redirect position; and why the self-check was green anyway)
+## 2026-09-19 (no-dev-null-redirect: `dev/null` in redirect position; and why the self-check was green anyway)
 
-- **C-42 (FAIL, tool + template channel), narrowed on the lead's instruction.** In `.py`/`.bat`/`.cmd`
+- **no-dev-null-redirect (FAIL, tool + template channel), narrowed on the lead's instruction.** In `.py`/`.bat`/`.cmd`
   the **redirect position must not contain `dev/null`** — matched as `>` (including `2>`, `>>`) plus
   optional whitespace plus `dev/null`. **Not** written as "`dev/` must not appear anywhere": that
   would false-positive on comments holding paths (`<repo>/...`) and on URLs. Narrowed to the
@@ -289,16 +288,16 @@ are affected, and one of them was affected *in a way that is invisible unless de
   **before Python ever saw it** (and flipped LF to CRLF), so the `powershell` sleep never ran —
   `tries` raced up at `tasklist` speed, 120 ticks burned in seconds, `:giveup` fired while the old
   process was still alive, **and the log still printed `120 polls x 1000ms (nominal budget 120s)`**.
-  **All three existing judges were blind to it**: C-22 (still ASCII+CRLF), C-33 (looks for `ping`),
+  **All three existing judges were blind to it**: bat-byte-hygiene (still ASCII+CRLF), no-ping-as-sleep (looks for `ping`),
   `test_update_safety` (never reaches that redirect). **And his self-check was green** — he compared
   the **same literal**, rewritten by the same rule, so the comparison had to pass.
-- **Text surface follows C-33's boundary (§4.1.37)**: `.py` masks comments/docstrings but **keeps
+- **Text surface follows no-ping-as-sleep's boundary (§4.1.37)**: `.py` masks comments/docstrings but **keeps
   other strings** (the rendered-bat template is a string — that is what must be scanned);
   `.bat`/`.cmd` drops `rem`/`::` lines. Otherwise **this criterion's own explanation would indict
   itself**.
 - **The criterion caught a real false red on its first run — in itself.** The template channel
   reported `conformance_check.py:4087` twice: the positive sample I had just written
-  (`BAT = "x >/dev/null 2>nul"`). Same lesson as C-33, second instance in one day: **a criterion's
+  (`BAT = "x >/dev/null 2>nul"`). Same lesson as no-ping-as-sleep, second instance in one day: **a criterion's
   own fixtures necessarily contain the banned shape** ⇒ the scan surface now **excludes the
   instrument by absolute path and prints the exclusion** ("stale exclusion" and "never scanned" must
   not look alike).
@@ -326,8 +325,8 @@ are affected, and one of them was affected *in a way that is invisible unless de
 - **helpers-dev's framing, adopted verbatim by the lead, is now written into C2's registration
   (§4.1.29).** `build.bat` carries two guards, and their relationship is the point:
   * **(1)** `if exist "%RELEASE_DIR%"` -> error *"already exists. Delete it or bump VERSION"*
-    (G1: one directory per version, reproducible);
-  * **(2)** the D1-02 running-instance gate (refuses only when the live instance runs **from the
+    (: one directory per version, reproducible);
+  * **(2)** the 工程·运行检测串 running-instance gate (refuses only when the live instance runs **from the
     target directory**).
   **What (1) actually achieves**: **rebuilding the same version is impossible; the only path is to
   delete the directory by hand** — and "manually `rm -rf` a release directory a live instance is
@@ -341,7 +340,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
   otherwise the script clears and rebuilds by itself).
 - **Reserved semantics, written in as the one risky part of this relaxation** (helpers-dev's
   addition, adopted verbatim): **what is relaxed is the *refusal condition*, not *cleanliness*.**
-  G1's "one version one directory, reproducible" must rest on **"always rebuild from scratch and
+  's "one version one directory, reproducible" must rest on **"always rebuild from scratch and
   reuse no file from the old directory"**, **not** on "existence -> refuse".
 - **Precondition, all of it required**: C2's handle must be held **by the running instance** (taken
   early, held to process exit, fails open); otherwise this relaxation turns *safe failure* back into
@@ -351,9 +350,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
 - Doc-only: nothing under `modules/**` changed, so no dispatched hash moved and no re-copy is due.
   The `build.bat` edits themselves belong to the next dispatch wave (each tool's own file).
 
-## 2026-09-19 (C-41: the "link unavailable" fallback must not reuse the saved checkbox)
+## 2026-09-19 (quit-fallback-keep-service: the "link unavailable" fallback must not reuse the saved checkbox)
 
-- **C-41 (FAIL, tool channel + template channel).** The lead corrected two tools on the source
+- **quit-fallback-keep-service (FAIL, tool channel + template channel).** The lead corrected two tools on the source
   question, so the rule is now a criterion: **the "confirm dialog unavailable" branch must be fixed
   to "do not stop the service"; it must not reuse the user's persisted checkbox.** The reason, in one
   line: **the checkbox was saved in a context where a dialog existed; when the link is broken the
@@ -388,11 +387,11 @@ are affected, and one of them was affected *in a way that is invisible unless de
   has a clear object — the assertion is void, not the identity** — and nobody will read "the hash is
   void" as "that hash was computed wrong".
 
-## 2026-09-19 (C-40: version directory vs autostart target; plus three escape corruptions repaired)
+## 2026-09-19 (autostart-registry-guard: version directory vs autostart target; plus three escape corruptions repaired)
 
-- **C-40 (FAIL), proposed by ls2t-dev, corrected twice by the lead.** It turns a discipline
+- **autostart-registry-guard (FAIL), proposed by ls2t-dev, corrected twice by the lead.** It turns a discipline
   ("every owner should state which exe starts, and whether the version matches the source") into a
-  **decidable property** — same move as C-38: **discipline -> property**. All three facts are read
+  **decidable property** — same move as startup-self-identify: **discipline -> property**. All three facts are read
   from **disk + registry**, so nobody has to remember anything.
   * **The lead's correction matters**: "the set of `release/` dirs == {VERSION}" is **false-red by
     construction** — `reme-helper/release/` = 1.2.4 + 1.2.5 and `dsh-helper/release/` = 1.8.1 + 1.8.2,
@@ -424,12 +423,12 @@ are affected, and one of them was affected *in a way that is invisible unless de
   `%LOCALAPPDATA%\<APP_ID>\app` had become `<APP_ID><0x07>pp` — in **two** places. Repairing the
   control byte alone was **not enough**: those escapes **ate the following letter** (`\b` -> BEL
   consumed the `b`), so the fix had to restore `\build.bat` and `\app`, not just the backslash.
-  This is the **same family as the two found earlier today** (§J ⑤/⑥) and it is the third time the
+  This is the **same family as the two found earlier today** (§实战坑 ⑤/⑥) and it is the third time the
   shell/JSON layer has mangled backslashes in my pipeline — hence the rule already recorded: write
   these documents **byte-wise, with `chr(92)` for backslashes**, never through an escaping layer.
   Scan for leftover control characters is now part of the check (`0` remaining).
 
-## 2026-09-19 (the declaration format gets a standing line; C-39 closes the snapshot family)
+## 2026-09-19 (the declaration format gets a standing line; default-arg-snapshot-safe closes the snapshot family)
 
 - **The declaration template now carries the `dirty=yes` explanation permanently** (CONFORMANCE
   §5.5, four fixed lines + a standing note). The lead's point: that sentence **is needed every
@@ -445,9 +444,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   `0179f3bfda82` — so printing only one of them makes "the header/version moved" invisible, or
   misaligns with the `.py` comparison. (The historical example the lead quoted for this **does not
   hold**, and §5.6 says so.)
-- **C-39 (FAIL, tool channel + template channel): a derived value must come from *this call's
+- **default-arg-snapshot-safe (FAIL, tool channel + template channel): a derived value must come from *this call's
   arguments*, not from a module-level current value or a definition-time snapshot.** Two instances
-  of one family: `AsrEngine(model_dir=MODEL_DIR)` (§#46 — the user changed the config and nothing
+  of one family: `AsrEngine(model_dir=MODEL_DIR)` (§— the user changed the config and nothing
   happened) and `budget_s` taking the module constant (`2 polls x 1000ms (nominal budget 120s)` —
   **a combination that cannot happen**; fixed in 1.4.4). Same family as "the numbers in the log must
   be numbers someone measured": that clause governs *unmeasured* numbers, this one governs *numbers
@@ -456,7 +455,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
     name ⇒ red; the default is a **mutable literal** ⇒ red; assigned once, immutable, never rebound
     ⇒ **passes** (all 13 such sites in the family are this kind, and their count is printed as the
     denominator). The third band **must** pass — otherwise it is a "flag every default argument"
-    noise criterion, which is exactly the family of errors C-33 taught us.
+    noise criterion, which is exactly the family of errors no-ping-as-sleep taught us.
   * Four self-test legs, two red and two green, including the reverse cell
     `immutable_constant_benign_ok`.
   * **What it does not cover**: a module constant written into an output string while the function
@@ -465,20 +464,20 @@ are affected, and one of them was affected *in a way that is invisible unless de
     group E**, which **did not exist** despite `update_helper.py`'s docstring naming it as the place
     the criterion lives (§4.1.18's family: *a promised criterion that does not exist is no
     criterion*). Three legs added, including a real source mutation as the reverse cell.
-- Family reading afterwards: **0 FAIL / 4 WARN / 0 BROKEN** — reme's C-27 is gone (reme-dev wired
-  `hold_exe_delete_guard`), so the four C-38 WARNs are the whole board.
+- Family reading afterwards: **0 FAIL / 4 WARN / 0 BROKEN** — reme's module-wiring-referenced is gone (reme-dev wired
+  `hold_exe_delete_guard`), so the four startup-self-identify WARNs are the whole board.
 
 ## 2026-09-19 (the criterion's fingerprint ended up in the product prose)
 
 - **A real instance of "reword the product text so the criterion stops biting", located to a commit.**
   `modules/update_helper/update_helper.py`'s module docstring used to say, naturally:
   *"wait ticks no longer use `ping`: `ping -n 2 127.0.0.1` looks like 'sleep 1 second'…"* — that sits
-  in a **docstring** (a string), while `_code_only_text` filtered only `#` and `rem`, so **C-33 read
+  in a **docstring** (a string), while `_code_only_text` filtered only `#` and `rem`, so **no-ping-as-sleep read
   prose about code as code**. The chosen fix was **not** to the criterion: the sentence was rewritten
   to *"…no longer use `ping` (that is 'send ICMP and wait for replies', not sleeping): `-n 2` +
   loopback address"* — **splitting `ping` from `-n`** with a parenthetical and a separately quoted
-  `-n 2`. Located in commit **`2afebbc`** (#40a, the dispatchable batch; diff lines 72/77) —
-  **not** the batch that fixed C-33, which touched only `conformance_check.py` and three docs.
+  `-n 2`. Located in commit **`2afebbc`** (diff lines 72/77) —
+  **not** the batch that fixed no-ping-as-sleep, which touched only `conformance_check.py` and three docs.
 - **Why this is worse than the defect itself** (the lead's argument, and it is the decisive one):
   ① **the criterion's fingerprint is now in the product text** — the next reader cannot tell why the
   sentence is written that way; ② editing the text costs **four recopies every time**, while editing
@@ -497,7 +496,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
 
 ## 2026-09-19 (before calling a fix "criteria-only": does it touch `modules/**`?)
 
-- **New rule, from a case where nobody predicted it.** When the lead learned that C-33's reds were
+- **New rule, from a case where nobody predicted it.** When the lead learned that no-ping-as-sleep's reds were
   false reds, he thought "the criterion must change" — **not "changing it might touch a dispatched
   file"**. Changing anything under `modules/**` is a **re-copy event**: the four copies drift
   instantly, **already-declared dispatchable hashes are invalidated**, and every recipient re-copies
@@ -505,13 +504,13 @@ are affected, and one of them was affected *in a way that is invisible unless de
   machinery: ① **the increment declaration must list the `git diff --name-only` paths and state
   whether any of them is dispatched** (a commit id alone is not enough — this is exactly the cell
   that catches the accident); ② **if a criterion fix really would have to change `modules/**`, the
-  default disposition is to redesign the criterion** (that is what C-33's fix did: **not one line
+  default disposition is to redesign the criterion** (that is what no-ping-as-sleep's fix did: **not one line
   under `modules/` needed to change**); if that is truly impossible, it must go through the dispatch
   flow (change → freeze → declare → re-copy) and **never ride an already-announced batch**.
 - Same family as §4.1.36: **a fix that looks local widens its blast radius into places it cannot
   see** — there the blind spot moved out of the scan surface, here the drift moves into four copies.
 
-## 2026-09-19 (whitelists become switches with two mandatory fields; C-33 measured at zero)
+## 2026-09-19 (whitelists become switches with two mandatory fields; no-ping-as-sleep measured at zero)
 
 - **Every whitelist / registry entry now needs two mandatory fields: `why` (why it is not a leak —
   who declared it, at which line) and `reverify` (what must trigger a re-check).** The reviewer
@@ -534,7 +533,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
     validator is not just biting everything), a missing `reverify` must be caught, and the old
     bare-string form must be caught. Registry samples were updated to the three-field shape, with
     two new negative legs (`registry_bare_string_form_flagged`, `registry_missing_reverify_flagged`).
-- **C-33 measured at zero red across the whole tree** (template channel + all four tools, and even
+- **no-ping-as-sleep measured at zero red across the whole tree** (template channel + all four tools, and even
   the artificial `--roots my-diy-tool-template` invocation). Recorded in §4.1.20's evidence column
   together with both readings of the earlier batch — **the lead's "6 FAIL" and my measurement of
   "2 FAIL / 2 WARN by default, 5 self-hits under `--roots`"** — because readings must carry the
@@ -542,9 +541,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   six real violations existed. **They were false reds: a mis-drawn exemption boundary, not tool
   defects.** None of them was a real finding.
 
-## 2026-09-19 (C-38 changes shape: anchor at the startup line, one-shot lines do not count)
+## 2026-09-19 (startup-self-identify changes shape: anchor at the startup line, one-shot lines do not count)
 
-- **The first draft of C-38 would have gone green in the wrong place.** "The first N lines of the
+- **The first draft of startup-self-identify would have gone green in the wrong place.** "The first N lines of the
   log must contain the data root" is **false-green by construction**: the reviewer measured the real
   logs — reme 6757 lines with 2 data-root lines (**first at #770**, 09-13), dsh 92 lines with 1
   (**#0**, 09-18), ocx 145 with 1 (**#0**), **l-s2t 284 with 0**. dsh/ocx's "compliance" came from a
@@ -569,7 +568,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
 - **Scheduled, not merged into this wave:** the actual "log the data root + config path on every
   start" line touches **four `main.py` startup blocks** and needs **one fixed format** (otherwise it
   grows five variants like the cmd guard did). The lead's reasons to defer: it is a **new gap**
-  (all four red today), inserting a cross-repo format requirement now pushes the rebuild and #24
+  (all four red today), inserting a cross-repo format requirement now pushes the rebuild and 
   further out, and its value is **retrospective** while the channel it replaces (session transcript)
   is already available and ruled on. ⇒ **This wave changes only the criterion and the docs**; the log
   line lands next wave, once, in one format. **Paste-ready sample and shape requirements: CONFORMANCE
@@ -580,50 +579,50 @@ are affected, and one of them was affected *in a way that is invisible unless de
   directory**. Filed as supporting evidence in §4.1.34: "a referenced orphan version is a state that
   must be handled" — this proves such references are not hypothetical, they already happened.
 
-## 2026-09-19 (criteria read prose: C-33 false red fixed, C-30's second instance fixed)
+## 2026-09-19 (criteria read prose: no-ping-as-sleep false red fixed, mkdtemp-owned-prefix's second instance fixed)
 
 - **`check_ping_tick` flagged its own docstring.** The explanation of *why* `ping -n 2` is banned
   contained the banned idiom, so the criterion read **prose about code** as **code**. Minimal
   reproduction (reviewer's): `#` comment green, `rem` line green, **docstring red**. Its five
   self-test legs were missing exactly the docstring one, so the false red stayed unnoticed until a
   real tree tripped it.
-- **C-30 had a second instance of the same defect, measured here.** Its cleanup half searched the
+- **mkdtemp-owned-prefix had a second instance of the same defect, measured here.** Its cleanup half searched the
   **raw** text for `rmtree(..., ignore_errors=True)`, and both `conformance_check.py`'s
   `_rmtree_strict` and `sync_check.py`'s `finally` **quote that banned old form in a docstring /
-  comment** ("the author of C-30 has to obey C-30 itself") — i.e. **the instrument indicted itself
+  comment** ("the author of mkdtemp-owned-prefix has to obey mkdtemp-owned-prefix itself") — i.e. **the instrument indicted itself
   on its own compliance note**. Two false reds under `--roots my-diy-tool-template`.
 - **Fix, in four parts (template-only file; no dispatched file touched):** `_strip_docstrings()`
   blanks **bare string-expression statements** in the AST (language docstrings *plus* explanatory
   strings that are not first in a body; assignment/argument/concatenated strings are untouched —
   those are the rendered-bat templates and the criterion's own positive samples);
   `_masked_code_text()` masks comments **in place, preserving length and newlines**, for criteria
-  that report `path:line` (C-30's registry key); C-30's cleanup half now scans the masked text;
+  that report `path:line` (mkdtemp-owned-prefix's registry key); mkdtemp-owned-prefix's cleanup half now scans the masked text;
   and the scan surface **excludes the instrument's own file by absolute path** and **prints the
-  exclusion** (silent exclusion is indistinguishable from not scanning — same rule as C-30's
+  exclusion** (silent exclusion is indistinguishable from not scanning — same rule as mkdtemp-owned-prefix's
   per-root directory count).
 - **The boundary, in the lead's words:** the "don't touch strings" exemption applies to
   **"code text that will be executed"**; docstrings/comments are **"text about code"** — both are
   STRING tokens, with different meaning. **This was a mis-drawn exemption boundary, not an
-  implementation bug.** Same family as bare `mkdtemp()`'s "has a prefix or not" and C-22's "by file
+  implementation bug.** Same family as bare `mkdtemp()`'s "has a prefix or not" and bat-byte-hygiene's "by file
   extension": **dividing exemptions by token type groups semantically different objects together**,
   so each such line needs a reverse cell.
-- **New self-test legs (a missing leg is why the false red stayed green):** C-33 gains
+- **New self-test legs (a missing leg is why the false red stayed green):** no-ping-as-sleep gains
   `ping_in_py_docstring_ok`, the reverse cell `ping_in_py_string_still_flagged` (the same sentence
   as a real string constant **must still go red**, proving the green comes from exempting the
-  docstring, not the sentence), and `own_instrument_excluded_and_announced`; C-30 gains
+  docstring, not the sentence), and `own_instrument_excluded_and_announced`; mkdtemp-owned-prefix gains
   `prose_mention_in_docstring_ok` with the reverse cell `prose_mention_reverse_cell_flagged`.
   ⇒ **design discipline ⑨: every exemption boundary needs a self-test leg, and it needs a reverse
   cell.**
-- **Measured after the fix:** C-33 green on the template (21 files) and on all four tools
-  (22/24/43/25/32 files); C-30 green on the template. l-s2t's real `ping` tick was already fixed
+- **Measured after the fix:** no-ping-as-sleep green on the template (21 files) and on all four tools
+  (22/24/43/25/32 files); mkdtemp-owned-prefix green on the template. l-s2t's real `ping` tick was already fixed
   by ls2t-dev — `src/updater.py:233` renders `powershell … Start-Sleep`, and `:48`/`:225` are a
   comment and a `rem` line, correctly exempt.
-- **Family reading after the batch: 1 FAIL / 2 WARN / 0 BROKEN** (reme C-27 `hold_exe_delete_guard`
-  not yet wired; dsh and l-s2t C-38). **l-s2t's C-27 is gone** — ls2t-dev wired it in the meantime.
+- **Family reading after the batch: 1 FAIL / 2 WARN / 0 BROKEN** (reme module-wiring-referenced `hold_exe_delete_guard`
+  not yet wired; dsh and l-s2t startup-self-identify). **l-s2t's module-wiring-referenced is gone** — ls2t-dev wired it in the meantime.
 
 ## 2026-09-19 (control-cell rule for verifiers; the cmd-idiom chapter is not inherited)
 
-- **A criterion/verification script must carry a "control cell".** Folded into **C-22's docstring** and
+- **A criterion/verification script must carry a "control cell".** Folded into **bat-byte-hygiene's docstring** and
   **CONFORMANCE §4.1.33** (both texts identical). The reviewer's own account: running only the
   *"VAR empty → abort"* cell produced the conclusion "this idiom always breaks"; adding the
   *"VAR has a value → must NOT break"* cell revealed that **the first failure was his own transplant
@@ -632,7 +631,7 @@ are affected, and one of them was affected *in a way that is invisible unless de
   must have a reverse cell proving it "should not blow up (or should not go red)"** — minimal-variable
   method **plus** a control cell, or **the verification script itself will lie**. Same rule as
   "negative samples must cut both ways: a sample that is always red has no discriminating power".
-- **STANDARDS §J gains a header note: the chapter collects *idioms themselves*, and does not assume they
+- **STANDARDS §实战坑 gains a header note: the chapter collects *idioms themselves*, and does not assume they
   come from the template.** Evidence: `if defined X if "%X:~-1%"=="\" …` aborts the whole bat on the
   *"no instance running"* path — and **the template contains no such line**. Each repo hand-wrote its own
   guard. ⇒ The lesson outgrows the defect: **copy-based "one-of-five" comparison can only govern the part
@@ -640,9 +639,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   That is a structural blind spot of the mechanism (same family as §4.1.18), and it is why per-repo
   verification has to be a probe run, not a diff.
 
-## 2026-09-19 (C-2 lands as a mechanism; C-37 asserts it by measurement; two escape corruptions found)
+## 2026-09-19 (exe-delete-guard lands as a mechanism; the criterion asserts it by measurement; two escape corruptions found)
 
-- **C-2: "don't delete the running instance" stops being a discipline and becomes kernel-enforced.**
+- **exe-delete-guard: "don't delete the running instance" stops being a discipline and becomes kernel-enforced.**
   `modules/paths/paths.py` **1.1.4** gains `hold_no_delete(path)` and `hold_exe_delete_guard(log=print)`:
   a handle opened **without `FILE_SHARE_DELETE`**. Measured by helpers-dev and reproduced here:
   `unlink` and `rmtree(<release dir>)` = **winerror 32**, `rename(<parent>)` = **winerror 5**, and the
@@ -652,9 +651,9 @@ are affected, and one of them was affected *in a way that is invisible unless de
   (D3.2); **skipped in dev mode** (a handle on `python.exe` protects nothing).
   ⚠️ Boundary written into the clause: **an in-use marker inside the directory is detection only, never
   protection** — the marker sits *inside* the directory a blind delete removes, so it goes with it.
-- **C-37 asserts the primitive by measurement, not by prose.** A new template-channel FAIL check:
+- **exe-delete-guard asserts the primitive by measurement, not by prose.** A new template-channel FAIL check:
   static half (the functions exist **and** the README declares `<!-- MUST-WIRE: hold_exe_delete_guard -->`
-  — without it the four tools copy the code and never call it, which is exactly what C-27 exists for)
+  — without it the four tools copy the code and never call it, which is exactly what module-wiring-referenced exists for)
   plus a **property half** run on a temp file: while the handle is held, `unlink` and `rmtree(parent)`
   **must fail**; after release, `unlink` **must succeed** (the discriminating control — without it an
   implementation that can never open anything would pass). Selftest adds a **power sample**: a primitive
@@ -666,20 +665,20 @@ are affected, and one of them was affected *in a way that is invisible unless de
   `合规对照表.md` held `%TEMP%<0x0d>eme-helper-builddata` (should be `%TEMP%\reme-helper-builddata`).
   Both repaired **byte-wise**. The second exposed a gap in the check I had just written: it counted
   `CRLF` and lone `LF` and **never counted a lone CR** — so "mixed line endings" could hide in plain
-  sight while the numbers said clean. §D7-10's EOL rule now demands all three counts.
+  sight while the numbers said clean. §观测工具纪律-10's EOL rule now demands all three counts.
   (Both were found only because a *comparable* claim existed — `ALIGNMENT §0`'s "0 occurrences of exotic
   whitespace" — which is the whole point of writing zero-claims down.)
-- Also: **C-29 gains two "don't judge" samples** — `log=` given a *path* (`log_path`, `HELPER_UPDATE_LOG`)
+- Also: **log-accepts-varargs gains two "don't judge" samples** — `log=` given a *path* (`log_path`, `HELPER_UPDATE_LOG`)
   must be `[ok]`; those are l-s2t/reme's real shapes and flagging them is a false red. And two missing
-  index rows were added to `CONFORMANCE §5.1` (**C-36 had never been registered there** — an index
+  index rows were added to `CONFORMANCE §5.1` (**normalize-eol-insensitive had never been registered there** — an index
   blind spot, this time mine).
 
-## 2026-09-19 (C-30 leg B widened a second time; [BROKEN] tier; two of my own readings corrected)
+## 2026-09-19 (mkdtemp-owned-prefix leg B widened a second time; [BROKEN] tier; two of my own readings corrected)
 
 Three corrections, all from the lead relaying the reviewer's measurements — and **two of them are
 against me**.
 
-- **C-30 leg B, second widening (1.9.2).** The previous signature still demanded `config.json`
+- **mkdtemp-owned-prefix leg B, second widening (1.9.2).** The previous signature still demanded `config.json`
   within depth ≤1 and looked for `*.log` **files**. The reviewer's real residue
   `tmp.6FcrxXYxmM\d\local-speak2text` (depth 3, **only `log/`**, no `config.json`) defeats both.
   The new rule was chosen **by measurement, not by argument**, on one scan (95 top dirs /
@@ -687,7 +686,7 @@ against me**.
   **other programs' logs** (WebView cache `EBWebView/…/000003.log`, `vmware-<user>`,
   `virtual_camera`, `kzip_sogou`, `ai/rp/task_outputs/…/output.log`) ⇒ **too wide, manufactures
   false reds**, rejected; V2 "a directory named `log` at any depth" = **8** ⇒ **adopted**
-  (B3 says logs live in `<data root>/log/`, so "has a `log` dir" is the invariant). Residual FP =
+  (命名与版本 says logs live in `<data root>/log/`, so "has a `log` dir" is the invariant). Residual FP =
   a foreign program's own `log/` (1 on the spot).
 - **Declared locations are not leaks** (`TMP_DECLARED_PATHS`): `reme-helper-builddata` is a fixed
   path **written down** in reme `scripts/build.bat:22` (`REME_HELPER_DATA_DIR=%TEMP%\…`, no cleanup
@@ -700,23 +699,23 @@ against me**.
   exit code** (otherwise it degrades into "a scary-looking WARN" that callers swallow). Origin:
   `check_md_tabs` kept a `@check` decorator on a helper that takes `Path` ⇒ four tools each
   reported an "exception", **looking like four broken tools**, and a whole round of investigation
-  went the wrong way. §J records it as「幽灵判据」.
+  went the wrong way. §实战坑 records it as「幽灵判据」.
 - **Two of my own readings, kept on the record**: (a) I reported the scan surface as "**643** top
   directories" — it was **entries** (dirs + files; **101 dirs / 634 entries**), and the surface is
   precisely the number two people must be able to compare, so `--temp-leak`'s RESULT line now
   prints **both, each labelled**; (b) the 20-name regression set is **self-calibrated** (the rule
   was calibrated on those names, then used to hit them) — that is **circular** and **not
   independent verification**, so "zero false positives" is withdrawn; the reviewer's independent
-  re-implementation gives **14**. §J gains both as rows.
+  re-implementation gives **14**. §实战坑 gains both as rows.
 - Also in this batch: this file's own `selftest` now **consumes** `_rmtree_strict`'s return value
-  (it called it and ignored the result — the very shape C-30 exists to catch).
+  (it called it and ignored the result — the very shape mkdtemp-owned-prefix exists to catch).
 
-## 2026-09-19 (C-36: assert the operator's *property*, not a frozen hash)
+## 2026-09-19 (normalize-eol-insensitive: assert the operator's *property*, not a frozen hash)
 
 The lead's proposal, implemented as a check: **a property assertion is the mechanical form of
 "the documented operator equals the implemented operator"** — no reader has to parse prose.
 
-- **C-36 (template channel, FAIL)**: take any template `.py`, assert
+- **normalize-eol-insensitive (template channel, FAIL)**: take any template `.py`, assert
   `sha256_text(LF) == sha256_text(CRLF) == sha256_text(CR)` **and** that it differs from a naive
   `split("\n")` control. Two clauses, both required:
   - the three-way equality is the *definition property* (**EOL-insensitivity**), independent of
@@ -734,7 +733,7 @@ The lead's proposal, implemented as a check: **a property assertion is the mecha
   copies were in fact correct. Prose and code are **two descriptions** of one rule, and the prose
   drifts first (the twin of discipline ⑦). Registered as **CONFORMANCE §4.1.24**; the first
   defence is `对齐台账.md §0` now pointing at the single implementation.
-- **Also in this batch: C-30's leg B was widened** after the lead reported fixed-name scratch
+- **Also in this batch: mkdtemp-owned-prefix's leg B was widened** after the lead reported fixed-name scratch
   dirs being missed. The old signature demanded "**exactly one** subdirectory", which is a
   *coincidental feature of the calibration sample*, not the invariant: synthetic shapes proved
   `log/{config.json,app.log}` hits while **“+ `ui-icons/`”** and **“`config.json` at top level”**
@@ -744,15 +743,15 @@ The lead's proposal, implemented as a check: **a property assertion is the mecha
   `config-at-top` must now hit). Registered in **§4.1.17**.
 - **And the batch's own accident, kept on the record**: while patching `_SHAPE_RULE` I used
   `read_text()` + `write_bytes()` and turned the 2968-line checker **LF-only** — the exact pair
-  the §J row warns about, caught by byte read-back and repaired byte-wise. Third occurrence today,
+  the §实战坑 row warns about, caught by byte read-back and repaired byte-wise. Third occurrence today,
   first one caused by me. Discipline did not stop it; reading the bytes did.
 
-## 2026-09-19 (§B4 and §J each gain a positive example, and a naming discipline)
+## 2026-09-19 (§公共模板库 and §实战坑 each gain a positive example, and a naming discipline)
 
 A rule that records only failures leaves behind deterrence and nothing else. Two edits, both
 prompted by the lead after a reader **took a generic phrase personally**:
 
-- **§B4's mirror counter-example now names the copiers** (dsh-helper and opencodex-helper, with
+- **§公共模板库's mirror counter-example now names the copiers** (dsh-helper and opencodex-helper, with
   the evidence that was already in the same paragraph: file mtime 16:09 vs my 16:06 edit, HEAD
   still `188bbcc`, eight files ` M`). The generic "实现者" was replaced because **a generic
   attribution of a fault makes every reader self-identify**: the tool that had done nothing
@@ -764,11 +763,11 @@ prompted by the lead after a reader **took a generic phrase personally**:
   "uncommitted" and waited** (once before the i18n re-copy, once for `log_kit`) — exactly the
   behaviour the rule is meant to produce. Counter-example and positive example are a pair; a
   reader can now see **which step differs** between the two behaviours.
-- **§J's stand-in signature row gains its positive half**: l-s2t's local `def log(*parts)`
+- **§实战坑's stand-in signature row gains its positive half**: l-s2t's local `def log(*parts)`
   compatibility layer satisfies **both** 1.0.2 (single-arg closure) and 1.0.3 (print form)
   **without breaking anything to satisfy a check** — when the contract itself is evolving, the
   right move is **the union of the widths, not either one of them**.
-- Byte evidence: `家族规范.md` CRLF=876 / LF-only=0 / TAB=0 / `sha256 83871832dd09313b`; C-28 `[ok]`.
+- Byte evidence: `家族规范.md` CRLF=876 / LF-only=0 / TAB=0 / `sha256 83871832dd09313b`; md-no-tab `[ok]`.
 
 ## 2026-09-19 (design discipline ⑦: one rule, one implementation)
 
@@ -779,12 +778,12 @@ building all night:
   of the same rule **drift independently, each with its own false positives**, and end at "nobody
   knows which one to believe" — i.e. **the check itself becomes the new source of drift**. Sits
   beside the same family's "an index missing an entry is itself a blind spot" (§4.1.18).
-- **The evidence is a refusal, not an accident**: while the reviewer's C-30 enhancement draft was
+- **The evidence is a refusal, not an accident**: while the reviewer's mkdtemp-owned-prefix enhancement draft was
   still in flight, I declined to write my own "strengthened" prefix check — not to save effort, but
   because **two implementations of one rule give the contract two different rulers**. When the draft
   arrives it must be **merged into the single check**, not run alongside it.
 - **Same family, second shape** (corrected by the lead the same day): mixing **a check's mechanism**
-  with **a piece of forensic method** in one sentence. C-30 has read source from v1 (does the
+  with **a piece of forensic method** in one sentence. mkdtemp-owned-prefix has read source from v1 (does the
   assignment's RHS contain `mkdtemp(`); "enumerate prefixes, then re-scan `%TEMP%`" is a
   **one-off measurement**, and the two belong in different documents — not in one sentence spoken
   in the voice of a second check.
@@ -793,21 +792,21 @@ building all night:
 - Both copies updated: `合规对照表.md` §5 (disciplines ①–⑦ in order, with the expansion) and this
   checker's docstring list, whose own first line says the index and the body must agree.
 
-## 2026-09-19 (anchors: content hash *or* commit; §J gains the injection-lock row)
+## 2026-09-19 (anchors: content hash *or* commit; §实战坑 gains the injection-lock row)
 
 Three doc-level refinements, all from the lead, plus one row I earned the hard way.
 
-- **§B4: the "copy the committed version" rule was a means stated as an end.** Replaced with the
+- **§公共模板库: the "copy the committed version" rule was a means stated as an end.** Replaced with the
   precise form: a declaration's **anchor is either a content hash (file sha256; normalized for
   `.py`, bytes for `.md`) or a commit sha (strictest: the `git rev-parse HEAD:<path>` blob id)**,
   and what actually holds the rule up is **anchor + drift detection** — `sync_check` is the drift
   detector, so reproducibility is guaranteed by *that*, not by the act of committing. Consequence
   written in: with a content-hash anchor and `sync_check` in place, **copies need not wait for the
-  template to commit** (this is what unblocked #39); the strict form still stands, i.e. when the
+  template to commit** (this is what unblocked ); the strict form still stands, i.e. when the
   template does commit, the declaring side adds a line pointing the content anchor at that commit.
   The old wording in the same block ("the source must be the announced commit, not the disk at
   some moment") was updated too — leaving it would have contradicted the new paragraph.
-- **§D7 item 10 (new): anchors and drift detection.** Three legal anchors, ordered by how absolute
+- **§观测工具纪律 item 10 (new): anchors and drift detection.** Three legal anchors, ordered by how absolute
   they are: revision + (when the worktree is dirty) file sha256 → answers "what was this repo at
   some moment"; **content hash** → git-independent and the best choice **across repos for the same
   template file**; **blob id** → strictly more absolute than "commit + line number" (it separates
@@ -817,7 +816,7 @@ Three doc-level refinements, all from the lead, plus one row I earned the hard w
   shell invocation** — two invocations mean the revision and the evidence come from two different
   moments, which is just "evidence without a timestamp" written differently. And the pairing rule:
   **an anchor without drift detection is a sentence that will expire.**
-- **§J: "the injection's precondition must be the one you meant to inject".** ls2t-dev caught
+- **§实战坑: "the injection's precondition must be the one you meant to inject".** ls2t-dev caught
   himself: to reproduce "cannot delete" he locked the marker file, first with `share=0` — which
   **blocks reads too**, so the case actually measured "read fails" (something the real path never
   does). Correct: `FILE_SHARE_READ | FILE_SHARE_WRITE` (readable, not deletable; `FILE_SHARE_DELETE`
@@ -825,7 +824,7 @@ Three doc-level refinements, all from the lead, plus one row I earned the hard w
   first proving that only the intended path is blocked** (the control read must succeed) —
   otherwise the red light points at the wrong repair target. Same family as "a stand-in must copy
   the production signature, no wider and no stricter".
-- **And the §J escape row grew two new carriers, because I hit both while writing the row above.**
+- **And the §实战坑 escape row grew two new carriers, because I hit both while writing the row above.**
   ① Writing text that contains backticks through `python -c "…"` in a double-quoted shell string:
   the shell treats the backticks as **command substitution**, executes them and swallows the
   result — the line landed with **eight code spans silently emptied**, looking merely mis-formatted.
@@ -834,11 +833,11 @@ Three doc-level refinements, all from the lead, plus one row I earned the hard w
   the only thing that does catch them — and the same session had already written "the only defence
   is mechanical read-back" into that very row. Five instances of this pit in one day now.
 - Byte evidence: `家族规范.md` CRLF=867 / LF-only=0 / TAB=0 / `sha256 1954399b66638586`; template
-  channel re-run: C-28 `[ok]` (`0 FAIL, 0 WARN`).
+  channel re-run: md-no-tab `[ok]` (`0 FAIL, 0 WARN`).
 
 ## 2026-09-19 (design discipline ⑥: "0 hits" and "nothing to hit" must look different)
 
-The lead promoted a defect I hit while writing C-30 into a standing rule, and it is the third
+The lead promoted a defect I hit while writing mkdtemp-owned-prefix into a standing rule, and it is the third
 face of a family this file already carries:
 
 - **⑥ "A check reporting ok / not-applicable / 0 hits must print its scan surface"** (which
@@ -847,7 +846,7 @@ face of a family this file already carries:
   ④ covers the **input shape** ("unrecognised ≠ violation"), §4.1.18 covers the **scope**
   ("the check exists ≠ the object is in range"), ⑥ covers the **coverage** ("no hit ≠ fine").
   Together they are the whole output side of a check.
-- **The evidence is mine, and it is a near-miss worth keeping**: C-30 v1 only recognised the
+- **The evidence is mine, and it is a near-miss worth keeping**: mkdtemp-owned-prefix v1 only recognised the
   bare call `X = mkdtemp(...)`, so reme's `root = Path(tempfile.mkdtemp(...))` was **silently
   skipped** — **the one file that most needed checking was reported as "this check does not
   apply"**. After switching to "the assignment's right-hand side contains `mkdtemp(`" plus
@@ -868,12 +867,12 @@ This is the **template side** of the wave only — the four tools are re-copied 
 wave (change everything → freeze → announce; an announcement followed by another template
 edit has to be re-issued naming what changed).
 
-- **C-31's first-run finding is fixed, not just reported.** The four LF-only dispatched files
+- **template-original-eol's first-run finding is fixed, not just reported.** The four LF-only dispatched files
   (`modules/autostart/autostart.py`, `modules/icons/icons.py`,
   `modules/service_link/{README.md,service_link.py}`) were converted to CRLF **byte-wise**:
   `read_text()`/`write_text()` would have "fixed" the file while silently rewriting the very
   bytes under comparison (that pair normalises on read and translates `\n` on write — the
-  exact mechanism that corrupted two files earlier tonight). C-31 now reports **27/27
+  exact mechanism that corrupted two files earlier tonight). template-original-eol now reports **27/27
   dispatched `.py`/`.md` CRLF**; before the conversion it was 4/27.
 - **`update_helper` 1.4.3 — the sweeper could not see one of its two products.**
   `TEMP_PREFIX` carried a trailing `-` (`f"{APP_ID}-update-"`), so `glob(…-update-*)` never
@@ -901,24 +900,24 @@ edit has to be re-issued naming what changed).
 - **`service_link/README.md`**: the opencodex-helper "exit-signature kill" is recorded as a
   **historical** counter-example (already fixed) — ocx uses a checkbox, unchecked by default.
 - Registered as **CONFORMANCE §4.1.21** (sweeper prefix) and **§4.1.22** (autostart self-heal);
-  the `autostart.py` version row in §1 went 1.1.1 → 1.1.2 so C-04 stays honest.
+  the `autostart.py` version row in §1 went 1.1.1 → 1.1.2 so registry-version-match stays honest.
 - **CONFORMANCE §1 (L1) was audited against disk and was wrong in 6 of 9 rows** — the table
   declares "对外接口（稳定承诺）" and carries a version column, but **no check has ever watched
-  that column** (C-04 only reads the tools' B2 table; the template channel only runs
-  C-28/C-31/C-32/C-33). Worst offenders: `update_helper` **1.0.1 vs 1.4.3** and `tray_kit`
+  that column** (registry-version-match only reads the tools' 工具登记表 table; the template channel only runs
+  md-no-tab/template-original-eol/no-delete-before-report/no-ping-as-sleep). Worst offenders: `update_helper` **1.0.1 vs 1.4.3** and `tray_kit`
   **2.0.1 vs 2.2.0** — a reader would interpret the interface by the semantics of a version
-  that is three releases old (1.0.1 is exactly the "two silent failures" revision from the B4
+  that is three releases old (1.0.1 is exactly the "two silent failures" revision from the 公共模板库
   arbitration rule). All rows now carry the on-disk `TEMPLATE-VER`, a `conformance_check.py`
   row was added (the table listed `sync_check` but not the checker that runs the table), and
   `paths.process_pending_update()` is marked deprecated. Registered as **§4.1.23**, with a
-  proposed **C-34** (assert table version == file header) so the column cannot drift again —
+  proposed **registry-ver-eq-header** (assert table version == file header) so the column cannot drift again —
   proposed, not implemented, so this batch stays scoped.
-- **§J gained the read-only-bit row** (lead's re-measurement, after his own misstatement): the
+- **§实战坑 gained the read-only-bit row** (lead's re-measurement, after his own misstatement): the
   read-only attribute is **partial insurance, not a structural guarantee**. Measured: it stops
   `os.remove` / `del` / `shutil.rmtree` (`PermissionError`), but **not** `rmdir /s /q <parent>`
   (rc=0, directory gone) and **not** `robocopy /e /purge` (overwrites and clears the R bit,
   mode → `0o100666`). Positioning: it protects the delete-the-stand-in path only, and **cannot
-  replace** R1 (stand-in always exists) + the `start` existence guards + the timeout-is-red
+  replace** the stand-in-always-exists rule + the `start` existence guards + the timeout-is-red
   rule. The row also records ls2t-dev's two implementation details: use `os.chmod(...S_IREAD)`
   rather than spawning `attrib.exe` (a console child flashes a black box — the family's own
   accident class), and clear the R bit recursively before cleanup because **robocopy copies it
@@ -932,7 +931,7 @@ edit has to be re-issued naming what changed).
   which is the lesson the row exists to record.
 - One near-miss worth keeping: I "tidied" `service_link`'s `.spectators` into `.spectators()`
   out of habit; reading the source back showed it is a **plain attribute** (`self.spectators
-  = []`), so the cell was restored with an explicit "(属性，非方法)" note. Same rule as §D7
+  = []`), so the cell was restored with an explicit "(属性，非方法)" note. Same rule as §观测工具纪律
   item 8 — enumerate the signature, never guess it.
 
 ## 2026-09-19 (identity line; `conformance_check` 1.9.1)
@@ -943,10 +942,10 @@ One line, printed by the tool about itself:
 never be the reason a check crashes.
 
 - **Why**: tonight the *same* disagreement happened **three times** (`tray_kit` version, the
-  `183`-line guard, C-11) — "which revision produced this output?" — and every time it was
+  `183`-line guard, run-detect-match-exe) — "which revision produced this output?" — and every time it was
   settled by hand, by comparing revision ids. An identity line lets any pasted output **prove
   its own identity**: the first line says whether it came from a stale snapshot or from the
-  file on disk. It is also R-EVID **automated**: R-EVID asks evidence to carry its own
+  file on disk. It is also 取证实读 **automated**: 取证实读 asks evidence to carry its own
   timestamp; making the tool print its own identity is more reliable than asking every person
   to remember to paste one — structure instead of discipline.
 - **Computed at runtime, never hard-coded**: a frozen hash string would itself go stale, which
@@ -959,10 +958,10 @@ never be the reason a check crashes.
 - Printed in both modes (normal run and `--selftest`), because a self-test result pasted
   without provenance is as ambiguous as any other evidence.
 
-## 2026-09-19 (C-30 grew a coverage-gap alarm; `conformance_check` 1.9.0)
+## 2026-09-19 (mkdtemp-owned-prefix grew a coverage-gap alarm; `conformance_check` 1.9.0)
 
 A check whose coverage can be switched off by renaming a literal to a variable is worse than
-the leak it was supposed to catch. C-30 v1 only asked "is the cleanup of a mkdtemp root
+the leak it was supposed to catch. mkdtemp-owned-prefix v1 only asked "is the cleanup of a mkdtemp root
 verifiable?" and never asked **where the prefix came from**.
 
 - **Prefixes are enumerated from source, never guessed.** `mkdtemp(prefix=...)` arguments are
@@ -1003,7 +1002,7 @@ verifiable?" and never asked **where the prefix came from**.
   file is still residue). The 20 are registered as the negative-sample regression set, and
   `--temp-leak` now always prints its **scan surface** (temp path, top-level dir count, prefix
   count, hits per leg), so "nothing found" can never again be confused with "nothing scanned".
-  Bare `mkdtemp()` moved from FAIL to WARN in C-30 (derivable but weak — leg B is its real
+  Bare `mkdtemp()` moved from FAIL to WARN in mkdtemp-owned-prefix (derivable but weak — leg B is its real
   judge).
 - **Opaque prefixes got a cheap second path: foldable module constants.** `APP_ID = "reme-helper"`
   plus `prefix=f"{APP_ID}-update-"` *is* derivable — constant-folding (module-level string
@@ -1011,21 +1010,21 @@ verifiable?" and never asked **where the prefix came from**.
   do not guess") turned reme's site green without asking anyone to write a registry entry. The
   remaining rule is two-state, as the reviewer upgraded it: **unregistered → FAIL, registered →
   OK** (leaving it at WARN would let "rename the literal to a variable" downgrade a FAIL to a
-  WARN while the leak stayed). After folding, C-30's only real-tree red is reme's
+  WARN while the leak stayed). After folding, mkdtemp-owned-prefix's only real-tree red is reme's
   `rmtree(work, ignore_errors=True)`.
-- **The template's own `.md` are now scanned too (C-28 pass over the template repo, once).**
+- **The template's own `.md` are now scanned too (md-no-tab pass over the template repo, once).**
   It turned out `main()` excluded the template with `d.name not in {..., TEMPLATE_DIR.name}`, so
-  C-28 had never looked at the very files every copy descends from — **"a check exists" is not
+  md-no-tab had never looked at the very files every copy descends from — **"a check exists" is not
   "the checked object is in scope"** (CONFORMANCE §4.1.18). Worst instance of the class: the
-  C-28 rule text itself had **two real TABs** in its own CHANGELOG entry — the author meant the
+  md-no-tab rule text itself had **two real TABs** in its own CHANGELOG entry — the author meant the
   two characters `` `\t` `` and wrote a real TAB instead — and it was already in `HEAD`
   (`188bbcc`). *The document describing the trap had fallen into it.* The template pass runs
   through the new `TEMPLATE_CHECKS` registry (once, not once per tool).
-- **New C-32 (FAIL): no "read the evidence -> delete the evidence -> report it" order.** The
+- **New no-delete-before-report (FAIL): no "read the evidence -> delete the evidence -> report it" order.** The
   irreversible step must not precede a statement whose *call boundary* can fail: arity/signature
   mismatches, missing attributes and undefined names are raised **before** the callee's body runs,
   so the callee's own `try/except` cannot protect you — that is exactly how l-s2t really blew up
-  under the C-29 contract conflict (TypeError + marker already deleted + the notice gone). The
+  under the log-accepts-varargs contract conflict (TypeError + marker already deleted + the notice gone). The
   lead's first phrasing ("irreversible actions must come after every statement that might raise")
   was rejected as too wide: `log_kit.log()` swallows everything internally and **never raises**,
   so it would have reported `quit_watch_loop`'s `unlink -> log` five times. Final narrow form
@@ -1042,7 +1041,7 @@ verifiable?" and never asked **where the prefix came from**.
   first version skipped (found by the sample, not by luck). Live findings: template + **dsh +
   ocx** `update_helper.pop_failed_update_note():385 -> 386 -> 390`; l-s2t and reme are already
   fixed (report first, delete last). Fixing the template implies the same "re-copyable freeze"
-  constraint as C-31 for the dsh/ocx copies.
+  constraint as template-original-eol for the dsh/ocx copies.
 - **`ping -n 2 127.0.0.1` is not a one-second sleep, and the wait loop was lying about it.**
   On a machine that drops loopback ICMP (this one), each packet waits out the full timeout:
   `cmd /c "ping -n 2 127.0.0.1"` measured **9.04 / 9.00 / 9.00 s**. So the "1 s" tick was 9 s, the
@@ -1055,22 +1054,22 @@ verifiable?" and never asked **where the prefix came from**.
   including PowerShell startup), splits the constants into **polls** (`UPDATE_WAIT_LIMIT`) ×
   **ms per tick** (`UPDATE_WAIT_TICK_MS`) = nominal budget (`UPDATE_WAIT_BUDGET_S`, a **lower
   bound**), and the timeout line now reports `%tries% polls x {tick_ms}ms` instead of a "seconds"
-  figure nobody measured. New mechanical check **C-33** forbids `ping` as a wait tick (comments
+  figure nobody measured. New mechanical check **no-ping-as-sleep** forbids `ping` as a wait tick (comments
   and `rem` lines excluded — the thing to catch is the executed tick, including the one rendered
   from a `.py` string template); `sync_check.py`'s bat-semantics assertion follows. Same family as
   "robocopy rc=0 means *nothing was copied*": **every unit assumption in a wait/timeout must be
   measured, not assumed.**
 - The tool now obeys its own rule: the selftest scratch dir is removed with `_rmtree_strict`
   (delete, read back, raise on failure) instead of `rmtree(..., ignore_errors=True)`.
-- First run on the real tree: C-30 is 1 FAIL (reme, both halves), other three tools green.
+- First run on the real tree: mkdtemp-owned-prefix is 1 FAIL (reme, both halves), other three tools green.
   Samples grew to 11 (7 prefix + 4 cleanup), selftest ALL PASS.
-- **New C-31 (WARN, template-only): dispatched `.py`/`.md` must be CRLF throughout.** C-22 only
+- **New template-original-eol (WARN, template-only): dispatched `.py`/`.md` must be CRLF throughout.** bat-byte-hygiene only
   covers `.bat`/`.cmd`, so a dispatched `.py`/`.md` rewritten with LF line endings by an editor
   passes every layer — `py_compile` is green, and `sync_check` is green too (both sides LF, the
   normalized hashes still match). That is exactly how `log_kit.py` was caught: by reading the
   bytes back, not by a check. Since the template is copied, the template's line endings become
   the four tools' line endings. A new `TEMPLATE_CHECKS` registry runs template-scoped checks
-  **once** (they describe the source, not any one tool), so C-31 does not print the same row four
+  **once** (they describe the source, not any one tool), so template-original-eol does not print the same row four
   times. Scoped to `modules/**` `.py`/`.md`, excluding the template-only `build_release/` and
   `baseline/`. Four samples (CRLF ok / LF-only / mixed / template-only dir not flagged).
   First real run: **4 of 27 flagged** (`modules/autostart/autostart.py`, `modules/icons/icons.py`,
@@ -1078,7 +1077,7 @@ verifiable?" and never asked **where the prefix came from**.
   copies are LF too, so normalizing is a "re-copyable freeze" event (template + every affected
   copy in one wave); changing only the template would turn those copies into `[DIFF]` at once.
 
-## 2026-09-19 (log contract: two shipped modules disagreed; `log_kit` 1.0.3; new C-29)
+## 2026-09-19 (log contract: two shipped modules disagreed; `log_kit` 1.0.3; new log-accepts-varargs)
 
 Two dispatched modules said different things, and **three tools each hid it in their own way**.
 
@@ -1092,11 +1091,11 @@ Two dispatched modules said different things, and **three tools each hid it in t
   **narrower** `def log(message)` yet still passed `log=log` to template modules. Three local
   wrappers, three private accommodations: at the template level, nobody could ever see that two
   shipped modules contradicted each other. Same shape as the "majority is a false judge" rule in
-  B4 — three accommodations look like consensus and are just three workarounds.
+  公共模板库 — three accommodations look like consensus and are just three workarounds.
 - **Fixed**: `log_kit` 1.0.3 makes `log(*parts)` (space-joined `str(part)`), matching its callers.
   The `log=` contract is now written into the `log_kit` / `update_helper` / `tray_kit` README
   interface tables (a dispatched file, so the four tool copies need a re-copy).
-- **New C-29** makes it mechanical: a `log=<name>` handed to a template module must resolve to a
+- **New log-accepts-varargs** makes it mechanical: a `log=<name>` handed to a template module must resolve to a
   tool-code definition that takes varargs. First run on the real tree flagged **l-s2t**
   (`src/main.py:80` plus `log=log` at `231`/`998`/`1043`). The defect was then **measured**, not
   inferred: a one-argument `log` passed to `launch_pending_cmd` / `pop_failed_update_note` raises
@@ -1105,13 +1104,13 @@ Two dispatched modules said different things, and **three tools each hid it in t
   `log=HELPER_UPDATE_LOG` is a **log file path** handed to the bat template, and firing on it
   would be a diagnosis that contradicts the facts.
 - Three samples (`varargs_log_ok` / `single_arg_wired_flagged` / `single_arg_unused_ok`); selftest
-  is ALL PASS. STANDARDS §J gains "a more permissive stand-in hides contract conflicts — copy the
+  is ALL PASS. STANDARDS §实战坑 gains "a more permissive stand-in hides contract conflicts — copy the
   production signature, err on the strict side".
 
-## 2026-09-19 (C-11 false red fixed: recognize the PowerShell form, and WARN when unrecognized)
+## 2026-09-19 (run-detect-match-exe false red fixed: recognize the PowerShell form, and WARN when unrecognized)
 
-Same class as the C-10 false red, found the same way: dsh/ocx do their running-instance check
-with **PowerShell `Get-Process -Name <APPNAME>`**, while C-11 only looked for
+Same class as the smoke-no-bypass-startup false red, found the same way: dsh/ocx do their running-instance check
+with **PowerShell `Get-Process -Name <APPNAME>`**, while run-detect-match-exe only looked for
 `tasklist | findstr` — so it reported "未找到运行检测" about tools that plainly have one.
 
 - **Two forms recognized now**: `tasklist | findstr /c:"..."` and `Get-Process -Name <name>`;
@@ -1123,12 +1122,12 @@ with **PowerShell `Get-Process -Name <APPNAME>`**, while C-11 only looked for
 - **A fifth bite from the same J-坑**: writing these samples, `
 ` inside heredocs turned into
   real bytes twice more (broken comment, split literals). Both are now built with explicit byte
-  values (`bytes([13, 10])`); the harness rules in §D7 cover the family of causes, and this is
+  values (`bytes([13, 10])`); the harness rules in §观测工具纪律 cover the family of causes, and this is
   now the fourth distinct occasion in one day.
 
-## 2026-09-19 (C-10 false red fixed on reme; C-28 .md TAB probe)
+## 2026-09-19 (smoke-no-bypass-startup false red fixed on reme; md-no-tab .md TAB probe)
 
-The lead found C-10 reporting a **false red with an inverted diagnosis** on reme, and both
+The lead found smoke-no-bypass-startup reporting a **false red with an inverted diagnosis** on reme, and both
 halves of the analysis were right.
 
 - **Root cause, precisely**: reme's `smoke()` is *correct* — the probe is passed as an argument
@@ -1146,14 +1145,14 @@ halves of the analysis were right.
   `pos_probe_passed_to_check_helper` (must pass) and `pos_guard_name_in_comment_only` (must
   pass — reme's exact shape), plus `neg_real_guard_ast` (a real `acquire_single_instance` call
   node still fails). Real tree: **all four tools ok**, reme included.
-- **C-28 (WARN)**: `.md` files must not contain 0x09. The lead's ruling: do **not** widen it to
+- **md-no-tab (WARN)**: `.md` files must not contain 0x09. The lead's ruling: do **not** widen it to
   every text file (`.py` indentation, `.json` escapes are legitimate), but a hand-written CJK
   doc with a TAB is always an accident — which is exactly the incident I hit when a `\t` inside
   a Python string landed in CHANGELOG.md as a real TAB. Positive/negative samples included.
 - **That J-坑 recurred twice more while writing this very entry**: the heredoc turned my
   `\t`/`
 
-` into real bytes twice (once inside the C-28 sample itself, once in a comment
+` into real bytes twice (once inside the md-no-tab sample itself, once in a comment
   about it). Both were caught by reading the bytes back and are now written with **explicit byte
   values** (`bytes([9])`, `bytes([13, 10])`). Three occurrences in one day, all in code that was
   *about* this hazard.
@@ -1191,39 +1190,39 @@ Both rulings from the lead, executed.
   `_STATE` and `LANG` is now **derived by a module-level `__getattr__`** — there is no scalar to
   rebind, and `from .i18n import *` cannot carry it (`import *` does not move derived names), so
   the defect that cost us a menu that never refreshed **cannot be reproduced structurally**.
-  This is the same shape `update_helper` 1.4.0 adopted; C-23 flagging all four tools is what
+  This is the same shape `update_helper` 1.4.0 adopted; no-global-rebind flagging all four tools is what
   showed it was a *template-level* form problem rather than one tool's slip.
   Reverse proof: `LANG in vars(package)` → False, `LANG in vars(submodule)` → False, and
   `init('en')` still flips `LANG`/`current_lang()`/`t()` immediately.
 
-## 2026-09-19 (C-25/26/27: three clauses for the day's defects; update_helper 1.4.2)
+## 2026-09-19 (gate-steps-runnable/26/27: three clauses for the day's defects; update_helper 1.4.2)
 
 Four defects surfaced today that **none of the 76 existing clauses could catch**, so three of
-them are now mechanical checks (C-22, the byte one, shipped earlier).
+them are now mechanical checks (bat-byte-hygiene, the byte one, shipped earlier).
 
-- **C-25 门禁步骤必须"既存在又能被执行"** — an invocation whose path is missing is a FAIL
+- **gate-steps-runnable 门禁步骤必须"既存在又能被执行"** — an invocation whose path is missing is a FAIL
   (reme's `build.bat:201` was `tests<TAB>est_update_bat.py`: the whole gate never ran, and with
-  D1-01 ahead of it, it never even got the chance to fail). A call sitting after a **top-level**
+  工程·拒重复构建 ahead of it, it never even got the chance to fail). A call sitting after a **top-level**
   unconditional `exit /b` / `goto :eof` is also reported as dead code; `exit /b` inside an
   `if (...)` block is *conditional* and does not count — the first version flagged every tool's
   normal gates, which is exactly the false red the discipline warns about.
-- **C-26 `start` 前必须存在性守卫** — `robocopy` returning rc 0 means **"nothing copied, no
+- **start-existence-guard `start` 前必须存在性守卫** — `robocopy` returning rc 0 means **"nothing copied, no
   error"**, so "only exclude >=8" calls an empty stage a success and the following `start`
   points at a missing exe: a GUI-subsystem modal box that `DETACHED_PROCESS` cannot suppress.
   Every `start "" "<path>"` needs an existence guard. It scans **`.py` templates too** —
   the update bats are rendered, so scanning only `.bat` files found nothing (first version
   reported "no start calls" for all four tools).
-- **C-27 采纳 = 拷贝 + 接线** — a module README declares `<!-- MUST-WIRE: symbol -->`; the
+- **module-wiring-referenced 采纳 = 拷贝 + 接线** — a module README declares `<!-- MUST-WIRE: symbol -->`; the
   checker looks for the symbol **in tool code** (`src/**/*.py`, excluding the copied module
   and `__init__.py` re-exports). `sync_check` saying `[ok]` only proves the files were copied:
   dsh/ocx had `sweep_stale_update_dirs` / `pop_failed_update_note` **only in the README they
   copied**, with zero code references. Declarations are read from the **template** copy so the
   requirement takes effect immediately instead of waiting for a re-copy. It now fails dsh/ocx on
-  `launch_pending_cmd` only — which is exactly pending tasks #27/#28.
+  `launch_pending_cmd` only — which is exactly pending tasks /.
 - **`update_helper` 1.4.1 → 1.4.2**: the reviewer found the **third** unguarded `start`
   (`:install_failed`, after the restore). rc<8 means "the restore did not error", not "the exe
   is there" — a snapshot can be missing it. Every branch reaching a `start` must verify on its
-  own; a guard elsewhere does not prove this one. (C-26 as written still accepts a guard
+  own; a guard elsewhere does not prove this one. (start-existence-guard as written still accepts a guard
   *somewhere* on the flow — path-specific reachability needs control-flow analysis; the runtime
   E-group sample covers the empty-stage path end to end.)
 - **The E group caught my own violation**: the first version of that new comment block was
@@ -1275,12 +1274,12 @@ The lead's review asked for a runtime reverse sample for the two `start` sites (
   refers to the missing *new* exe; the old one is what the user gets back, so the tool is not
   left dead. The second guard ends in `:install_dead` (no start at all) when the copy is bad.
 
-## 2026-09-19 (C-22 bat byte hygiene; a generated-bat LF instance found by it)
+## 2026-09-19 (bat-byte-hygiene bat byte hygiene; a generated-bat LF instance found by it)
 
 The lead's byte scan of the family's `.bat`/`.cmd` files turned the "bats are CRLF + ASCII"
 line into a requirement, so it is now a mechanical check rather than a sentence.
 
-- **`conformance_check.py` 1.3.0 — new C-22**: every `.bat`/`.cmd` in a tool repo must be
+- **`conformance_check.py` 1.3.0 — new bat-byte-hygiene**: every `.bat`/`.cmd` in a tool repo must be
   **CRLF, contain no 0x09, and be pure ASCII**, reported per file and per line. Build output
   and scratch directories are skipped (`release/ out/ dist/ _internal/ .cache/ .verify-scratch/`)
   because they are neither hand-written nor committed. Five selftest samples pin the three
@@ -1288,15 +1287,15 @@ line into a requirement, so it is now a mechanical check rather than a sentence.
 - **State on the real tree**: the three instances from the lead's scan are **already fixed**
   by their owners — `reme-helper/scripts/build.bat` (was `tests<TAB>est_update_bat.py`),
   `local-speak2text/release.bat` and `run.bat` (were LF-only) now all report
-  `CRLF/LF=0/TAB=0/nonASCII=0`. C-22's only remaining hit is
+  `CRLF/LF=0/TAB=0/nonASCII=0`. bat-byte-hygiene's only remaining hit is
   `reme-helper/.cache/gate_proof.bat` — a **generated, git-ignored** scratch script written
   by a verification run: the file is not authored source (hence the exemption) but it is
   still the *evidence* for the J-坑 "a script that writes a .bat silently produces LF".
-- **Template side**: C-22 does not scan the template repo, so
+- **Template side**: bat-byte-hygiene does not scan the template repo, so
   `modules/build_release/verify_build_bat.py` gained the same byte check for the template's
   own bats — the template is the dispatch source, so one TAB here becomes four in the tools.
-- **STANDARDS**: B1's bat line now points at the executable criterion, with the **self-proof
-  obligation** ("after every added/edited bat line, run C-22") and the reason the corruptions
+- **STANDARDS**: the 目录结构 bat line now points at the executable criterion, with the **self-proof
+  obligation** ("after every added/edited bat line, run bat-byte-hygiene") and the reason the corruptions
   are invisible: they never error, they only make *one line* silently stop working — and if an
   earlier gate stops the build first, that line is never reached. **J 坑 gained two entries**:
   the escaping one (`"\t"` written into a file becomes a real TAB), and the console-subsystem
@@ -1305,7 +1304,7 @@ line into a requirement, so it is now a mechanical check rather than a sentence.
   ⚠️ **This very CHANGELOG entry reproduced that J 坑**: it was written from a Python string
   where `\t` was interpreted, so the first version contained a literal TAB (found by re-reading
   the bytes; fixed in `cbad9b0`). The lesson is not "be careful" — it is **verify the bytes of
-  what you just wrote**, which is exactly what C-22 automates for bat files.
+  what you just wrote**, which is exactly what bat-byte-hygiene automates for bat files.
 
 ## 2026-09-19 (ALIGNMENT: icons closed as [decl]; the second update path assessed)
 
@@ -1316,7 +1315,7 @@ Two verdicts the lead asked for; **no code changed** for either.
   names, `TRAY_SIZES`, `TASKBAR_SIZES` (value-for-value; the template source already cites
   reme as the origin of that list), and the multi-frame `save(sizes=[...])` write. The
   difference is the graphic itself: reme hardcodes its "R" mark, while the template injects
-  it per app via `ICON_DRAW(size)` / `ICON_ASSET` — that is the *definition* of the T6
+  it per app via `ICON_DRAW(size)` / `ICON_ASSET` — that is the *definition* of the icons
   extraction, so "make the template match reme" does not apply (it would bake one tool's
   trademark into a shared module). Residual absorbable item, low priority: `icon_font()`'s
   font fallback chain (only useful to tools that draw text).
@@ -1333,7 +1332,7 @@ Two verdicts the lead asked for; **no code changed** for either.
   one update can be applied twice. Proposed order: land the stable-install entry in
   `update_helper` → switch l-s2t and delete its fork → only then remove the `paths` copy.
 
-## 2026-09-19 (tray_kit 2.2.0 — one validity criterion for all three; C-10 now AST-based)
+## 2026-09-19 (tray_kit 2.2.0 — one validity criterion for all three; smoke-no-bypass-startup now AST-based)
 
 The lead's review of the 2.1.0 delivery asked for two things that were genuinely missing, so
 this round adds them (2.1.0 stays as the historical step; dsh/ocx should re-copy).
@@ -1350,13 +1349,13 @@ this round adds them (2.1.0 stays as the historical step; dsh/ocx should re-copy
     so the guard and the probe cannot drift apart;
   * a docstring escape bug (`\`` inside a non-raw docstring) was caught by importing with
     `-W error::SyntaxWarning` — it would have printed a SyntaxWarning in every consumer.
-- **`conformance_check.py` C-10 is now AST-based**, as requested: it takes the real
+- **`conformance_check.py` smoke-no-bypass-startup is now AST-based**, as requested: it takes the real
   `def smoke` body (any nesting), requires a probe call whose result **is consumed** by an
   `if` / `while` / `assert`, and reports "called but unchecked" separately. A new selftest
   sample pins the case a substring judge silently accepted: the probe name appearing **only
   in a comment**.
-- **STANDARDS §D3.3 extended** with the shared-criterion requirement and the AST judgement;
-  §D3.1 now points at it explicitly ("coverage must not be traded away to avoid the hang").
+- **STANDARDS §自检与测试·探针形态 extended** with the shared-criterion requirement and the AST judgement;
+  §自检与测试·诊断不绕行 now points at it explicitly ("coverage must not be traded away to avoid the hang").
   The **J 坑 list** gains "modal dialog on an unattended path" — it degrades "turns red" into
   "hangs forever", and this family has now hit it twice.
 - **`sync_check --selftest` group F grew to 7**: adds the shape matrix (None / "" / no prefix /
@@ -1366,7 +1365,7 @@ this round adds them (2.1.0 stays as the historical step; dsh/ocx should re-copy
   already taken 2.1.0 and wired the probe, so for them this is a re-copy only; l-s2t and reme
   still need the copy plus the probe call in `smoke()`.
 
-## 2026-09-19 (tray_kit 2.1.0 — the smoke probe; D3.3; C-10 now tells "covered" from "bypassed")
+## 2026-09-19 (tray_kit 2.1.0 — the smoke probe; D3.3; smoke-no-bypass-startup now tells "covered" from "bypassed")
 
 `--smoke` must cover the single-instance guard, but "run the real guard in smoke" is not an
 option: with the user's tray running, the guard takes the duplicate path and pops a **modal**
@@ -1382,12 +1381,12 @@ answer is to **change the form, not the position**.
   exactly why the latter cannot be used as a smoke assertion (false red).
   `__init__.py` VER follows; README interface table gains the probe (and documents
   `single_instance_free`, which had been missing from the table).
-- **STANDARDS §D3.3** (new): the correct shape for smoke guard coverage is a **probe**, not
+- **STANDARDS §自检与测试·探针形态** (new): the correct shape for smoke guard coverage is a **probe**, not
   the real guard; "moving `--smoke` earlier" is explicitly **not** coverage. Records that
   this modal-box shape has now been hit twice in this family (l-s2t `test_startup_path.py`,
   ocx `--smoke`) and that any modal dialog on an unattended path degrades "turns red" into
   "hangs forever".
-- **`conformance_check.py` 1.2.0 — C-10 judgement rewritten** so it separates the three
+- **`conformance_check.py` 1.2.0 — smoke-no-bypass-startup judgement rewritten** so it separates the three
   cases instead of matching a substring: probe + result checked → ok; probe called but
   result ignored → FAIL ("coverage ≠ call"); **real guard** in smoke → FAIL (modal box);
   nothing → FAIL. `single_instance_free` deliberately does not count as a probe. Four
@@ -1396,7 +1395,7 @@ answer is to **change the form, not the position**.
   reme — no coverage.**
 - **Cascade: all four tools must re-copy `modules/tray_kit/`** (`tray_kit.py`,
   `__init__.py`, `README.md`). Adoption for dsh/ocx/reme is "add the probe to `smoke()` and
-  make it fail the build", which is also what closes C-10 family-wide.
+  make it fail the build", which is also what closes smoke-no-bypass-startup family-wide.
 
 ## 2026-09-19 (state rule into STANDARDS D6; update_helper 1.4.0; reme reference re-audit)
 
@@ -1404,14 +1403,14 @@ reme-dev published `reme-helper/UPDATE-CHAIN-REFERENCE.md` (`10c76df`) as the co
 baseline. Re-auditing against it produced one new rule, one module hardening, and three
 corrections to conclusions people (including me) were carrying around.
 
-- **STANDARDS gains §D6 — "状态的唯一写入点与暴露方式"**: state is exposed either as a
+- **STANDARDS gains §状态唯一写入点 — "状态的唯一写入点与暴露方式"**: state is exposed either as a
   **container mutated in place** or through an **accessor**; state promised to outside
   readers must have a **single write point**; a module-level scalar rebound via `global`
   while outsiders read it through a package `import *` is banned. One shape, three real
   silent failures: `i18n.LANG` (menu stayed Chinese), `update_helper.PENDING_CMD` (update
   downloaded, never installed), and reme's `tray_signature()` missing the update state
   (the "download and update" item never lit up). The rule carries a **mechanical ladder**:
-  C-21 (FAIL, already broken) → C-23 (WARN, fragile shape) → C-24 (WARN, menu state not
+  no-star-import-state (FAIL, already broken) → no-global-rebind (WARN, fragile shape) → menu-state-in-signature (WARN, menu state not
   in the signature).
 - **`modules/update_helper/` 1.3.0 → 1.4.0**, absorbing §1/§2 of the baseline's transport
   list as *structure* rather than convention:
@@ -1430,11 +1429,11 @@ corrections to conclusions people (including me) were carrying around.
     dismiss — the bat hangs forever. Now: no exe in stage → don't touch the install dir,
     write the failure marker, bring the old version back. Every `start` also gained an
     existence guard (start a non-existent exe is the one unrecoverable action here).
-- **`conformance_check.py`: new C-23 / C-24** (C-22 is taken by the bat hygiene task),
-  both WARN, both with `--selftest` positive/negative samples. On the real tree C-23
+- **`conformance_check.py`: new no-global-rebind / menu-state-in-signature** (bat-byte-hygiene is taken by the bat hygiene task),
+  both WARN, both with `--selftest` positive/negative samples. On the real tree no-global-rebind
   correctly names `modules/i18n/i18n.py: LANG` in three tools (the same fragile shape,
-  still to be converted) and C-24 names dsh/ocx's missing menu-signature mechanism, while
-  reme and l-s2t pass. The first C-24 regex swallowed a *different* function body whenever
+  still to be converted) and menu-state-in-signature names dsh/ocx's missing menu-signature mechanism, while
+  reme and l-s2t pass. The first menu-state-in-signature regex swallowed a *different* function body whenever
   the signature had a return annotation (`def f() -> tuple:` has no `):`), which produced a
   false red on reme — the fix and the reason are recorded in a code comment.
 - **`sync_check.py` selftest group E** grew from 17 to 21 assertions: the five new ones
@@ -1492,7 +1491,7 @@ The user set the rule for common-module conflicts, and it immediately changed a 
 **when versions of a shared module disagree, reme-helper's implementation is the standard —
 not whichever version has more adopters, because everyone can be wrong together.**
 
-- **STANDARDS B4 gained the arbitration rule with its rationale.** "Majority" is a
+- **STANDARDS 公共模板库 gained the arbitration rule with its rationale.** "Majority" is a
   *bogus judge* here, for a structural reason: this family distributes by **copying files**,
   not by resolving dependencies. A defect written into the template is copied verbatim by
   every tool that adopts it, so the more it spreads, the more it looks like consensus —
@@ -1502,7 +1501,7 @@ not whichever version has more adopters, because everyone can be wrong together.
   **synthetic** implementation that had never been run once — while dsh/ocx had adopted it.
   Deviation from reme is still allowed (premise ② of the "allowed inconsistency" rules),
   but the burden of a *verifiable* better reason lies with the deviating side; the rule
-  also requires the verdict to be mechanised where possible (C-21 came from reme's correct
+  also requires the verdict to be mechanised where possible (no-star-import-state came from reme's correct
   shape — no mutable globals copied into the package namespace).
 - **`modules/update_helper/` rewritten to reme semantics, contract unchanged** (`1.1.0 →
   1.3.0`). 1.2.0 had already ported waiting/limit/backup/`/purge`/sweep/quota-hint; a full
@@ -1552,7 +1551,7 @@ with reme-helper as the reference. Turned into a template-side artifact.
   trigger), with three **INSERT POINTS** where tool-specific steps may go and
   nothing else may be invented:
   0 preflight (VERSION parse / target dir free / target-directory guard) →
-  1 cheap gates (compile → template sync → i18n (T1) → tray suites → tests) →
+  1 cheap gates (compile → template sync → i18n (中英双语 i18n) → tray suites → tests) →
   2 business selftest (real resources) →
   3 package (icon → PyInstaller → assemble → deliverable checks) →
   4 frozen verify (smoke with dual env pin → trigger checks → DONE).
@@ -1599,12 +1598,12 @@ it killed a whole feature silently: dsh/ocx automatic updates were dead.
 - **Accessors added**: `update_ready()` / `pending_cmd()` are the recommended readers
   (the i18n 2.1.1 rule: state is read through an accessor, never as a mutable global).
   The globals stay for compatibility and now read live through the delegation.
-- **New conformance check C-21** (in `conformance_check.py`, with a `--selftest` that
+- **New conformance check no-star-import-state** (in `conformance_check.py`, with a `--selftest` that
   reverse-proves it on synthetic samples): for every `src/modules/<m>/`, if
   `__init__.py` does `from .<m> import *` **and** `<m>.py` has a public module-level name
   rebound via `global`, it is reported as "state that gets statically copied — external
   reads get a stale value". This shape has now appeared twice and both times failed
-  silently; C-21 makes a third instance mechanical to catch. On the current tree it
+  silently; no-star-import-state makes a third instance mechanical to catch. On the current tree it
   names exactly `dsh-helper` and `opencodex-helper` (`src/modules/update_helper/__init__.py: PENDING_CMD`).
 
 ## 2026-09-19 (i18n 2.1.1 — the package no longer copies mutable state)
@@ -1636,8 +1635,8 @@ notification but never rebuilt the menu — **the menu stayed Chinese forever**.
   "repeatable reverse proof" slot, so the assertion inherits "breaks → exit 1".
 - **VERSION 2.1.0 → 2.1.1**; `modules/i18n/README.md` documents `current_lang()` and
   the rule "state is read through an accessor, never as a mutable global".
-- **Docs (task #9): release cadence recorded.** STANDARDS **G3 item 7** (+ pointer in
-  B3): development does local commits only and does **not** touch the version number;
+- **Docs (task #9): release cadence recorded.** STANDARDS **item 7** (+ pointer in
+  命名与版本): development does local commits only and does **not** touch the version number;
   bump + tag + push happen together as the single "release" action, and unreleased
   work lives under `## Unreleased`. CONFORMANCE **§4.1.12** records the rule and the
   currently non-conforming instances (dsh 1.8.2 / ocx 1.2.2 / reme 1.2.6 / l-s2t
@@ -1726,7 +1725,7 @@ freezes the template so the four tools can re-copy in a controlled wave.
 - **`modules/tray_kit/tray_kit.py` 2.0.1 → 2.0.2** — user-visible strings in
   `confirm_quit_dialog` / `warn_duplicate_instance` are now injectable
   (`title/body_text/confirm_text/cancel_text/message`) with Chinese defaults, so i18n
-  tools satisfy E4-02; an empty `checkbox_text` no longer renders a blank checkbox.
+  tools satisfy ; an empty `checkbox_text` no longer renders a blank checkbox.
   Backward compatible.
 - **`modules/paths/paths.py` 1.1.2 → 1.1.3** — `CONFIG_PATH` can be pinned via
   `<APP_ID-derived>_CONFIG`, delivering what the module README had promised all along
@@ -1749,16 +1748,16 @@ Three layers of protection (smoke / gates / review) stayed green because
 - **NEW `合规对照表.md`** — 76 numbered atomic clauses × 4 tools status matrix,
   reproducible check command per row, five deep-dive tables (exit / single-instance /
   service hosting / naming / docs), a registry of spec-vs-disk contradictions (§4),
-  and a "can be scripted today" checklist (§5.1, C-01..C-20).
+  and a "can be scripted today" checklist (§5.1, root-dir-no-py..no-uncharted-chinese).
 - **STANDARDS**: framework header now four documents (README→STANDARDS→CONFORMANCE→REVIEW);
-  **A3-03 reversed** — named mutex is adopted (`tray_kit` 2.0.1 already standardised it),
+  **暂缓·命名互斥量 reversed** — named mutex is adopted (`tray_kit` 2.0.1 already standardised it),
   with two hard rules: name may not contain a second backslash after the `Local\` prefix,
   and **a guard that fails must fail open**; **new D3.1** — diagnostic switches (`--smoke`)
   must not bypass the normal startup path; **new D3.2** — every guard must declare its
-  failure direction (family answer: open); B2 registry version for reme-helper 1.2.4→1.2.5.
+  failure direction (family answer: open); 工具登记表 registry version for reme-helper 1.2.4→1.2.5.
 - **README**: four-piece framework, CONFORMANCE wired into the assembly guide and tree.
-- **REVIEW**: T7 row corrected — the claim that l-s2t is the `--quit` blueprint was false
-  (no `--quit` on disk); R1 now points at CONFORMANCE §5.1.
+- **REVIEW**: tray_kit row corrected — the claim that l-s2t is the `--quit` blueprint was false
+  (no `--quit` on disk); 机械比对（三轮之一）now points at CONFORMANCE §5.1.
 - **blueprints.txt**: documents the exemption's blind spot — an exempted blueprint is
   never checked, so template progress leaves it behind silently; each template bump now
   requires the blueprint to answer "follow / not follow" with a REVIEW note.
@@ -1771,26 +1770,26 @@ Three layers of protection (smoke / gates / review) stayed green because
 ## 2026-09-18 (standards alignment, no module code changed)
 
 - STANDARDS / README / REVIEW / blueprints updated per user rulings (2026-09-18):
-  - **D16 version-tier authority & release cadence** (STANDARDS B3/G3): +0.0.1 AI-tierable
+  - **version-tier authority & release cadence** (STANDARDS 命名与版本): +0.0.1 AI-tierable
     with per-commit verification; **+0.1 / +1 user-approval only**; batch commits allowed
     for independent changes but a full regression pass is required before version bump +
     push; routine maintenance does NOT release — releases batch up when commits
-    accumulate; no unattended "bump + push + release" pipeline (G3 item 6).
-  - **B4 principle #3: template-everything, no special cases** — all four tools consume
+    accumulate; no unattended "bump + push + release" pipeline (item 6).
+  - **公共模板库 principle #3: template-everything, no special cases** — all four tools consume
     templates (`src/modules/<module>/` whole-folder adoption: README + code + `__init__.py`);
     when a tool cannot fit, improve the template's interface/architecture (readability and
     maintainability first) instead of exempting the tool; code/data separation is the floor.
     blueprints.txt is a temporary migration state, list only shrinks.
   - REVIEW: #2 (inline-equivalent modules) and #3 (reme-helper blueprint exemption)
-    redirected to the new policy; R3 explicitly includes human regression as the release gate.
+    redirected to the new policy; 回归验证（三轮之一）explicitly includes human regression as the release gate.
   - STANDARDS J pitfalls +3: frozen smoke ≠ dev-mode runnable / commit message ≠ disk fact /
     py_compile catches syntax only.
-  - B2 registry versions refreshed to on-disk values.
+  - 工具登记表 registry versions refreshed to on-disk values.
 
 ## 1.0.0
 
-- Initial library: T1 appconfig, T2 paths (with data-root env redirect per F11),
-  T3 autostart, T4 update_helper, T5 i18n skeleton, T6 icons, T7 tray_kit,
-  T10 sync_check, T12 log_kit, build/release scripts and CI workflow skeletons.
+- Initial library: appconfig, paths (with data-root env redirect per ),
+  autostart, update_helper, i18n skeleton, icons, tray_kit,
+  sync_check, log_kit, build/release scripts and CI workflow skeletons.
 - Blueprints: local-speak2text (mechanisms), reme-helper (tray discipline,
-  logging parameters, menu standard D14).
+  logging parameters, menu standard ).
