@@ -5785,6 +5785,39 @@ def selftest() -> int:
               % ("PASS" if good else "FAIL", "instrument_failure_is_its_own_tier",
                  (_bf, _bw, _bb)))
 
+        # registry-version-match：登记表按 **目录名** 匹配（--roots 传路径时由 run_tool 归一化）。
+        # 反例（登记表无此行）必须报出；正例（有行且磁盘 VERSION 与表一致）必须放行。
+        # 版本值从**真登记表现值动态读**——登记表 bump 后本腿不假红。
+        _std_txt = (TEMPLATE_DIR / "家族规范.md").read_text(encoding="utf-8", errors="replace")
+        _m = re.search(r"\|\s*dsh-helper\s*\|[^|]*\|[^|]*\|\s*`([\d.]+)`", _std_txt)
+        good = _m is not None
+        failed += 0 if good else 1
+        print("[selftest] %s  registry-version-match table_row_readable: found=%s"
+              % ("PASS" if good else "FAIL", bool(_m)))
+        if _m:
+            d = base / "c04_match" / "src"
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "main.py").write_text('VERSION = "%s"\n' % _m.group(1), encoding="utf-8")
+            ok, detail = c04(Ctx("dsh-helper", base / "c04_match"))   # 目录名 ⇒ 命中登记表行 ⇒ 版本一致放行
+            good = ok is True
+            failed += 0 if good else 1
+            print("[selftest] %s  registry-version-match match_and_equal: ok=%s | %s"
+                  % ("PASS" if good else "FAIL", ok, detail))
+            (d / "main.py").write_text('VERSION = "0.0.0"\n', encoding="utf-8")
+            ok, detail = c04(Ctx("dsh-helper", base / "c04_match"))   # 版本不一致 ⇒ 必须报出（False）
+            good = ok is False and "表 " in str(detail)
+            failed += 0 if good else 1
+            print("[selftest] %s  registry-version-match mismatch_reported: ok=%s | %s"
+                  % ("PASS" if good else "FAIL", ok, detail))
+        d = base / "c04_norow" / "src"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "main.py").write_text('VERSION = "9.9.9"\n', encoding="utf-8")
+        ok, detail = c04(Ctx("no-such-tool-x", base / "c04_norow"))   # 登记表无行 ⇒ 必须报出（False）
+        good = ok is False and "无 no-such-tool-x 行" in detail
+        failed += 0 if good else 1
+        print("[selftest] %s  registry-version-match no_row_reported: ok=%s | %s"
+              % ("PASS" if good else "FAIL", ok, detail))
+
         print("[selftest] " + ("ALL PASS" if not failed else "%d FAILED" % failed))
         rc = 1 if failed else 0
     finally:
@@ -5936,7 +5969,11 @@ def _run_checks(c: Ctx, checks, only=None):
 
 
 def run_tool(name: str, only=None) -> tuple:
-    c = Ctx(name, ROOT / name)
+    # Ctx.name 契约 = **目录名**（登记表/blueprints 名单按目录名匹配）：--roots 允许传
+    # 绝对/相对路径，这里归一化——否则 c04 永 WARN、c18 的 blueprints 豁免在 --roots
+    # 下静默失效（"判据存在 ≠ 判据工作"，2026-10-08 修，selftest c04 两腿自证）。
+    # tool_dir 仍用原 name：pathlib 对绝对段做替换，ROOT / "X:/..." 正确解析到该路径。
+    c = Ctx(Path(name).name, ROOT / name)
     return c, _run_checks(c, CHECKS, only)
 
 
