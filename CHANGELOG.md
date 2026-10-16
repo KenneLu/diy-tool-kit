@@ -2,6 +2,23 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-16 (repo refactor: 拷贝模式 → git submodule 引用模式)
+
+本仓由「模板拷贝库」就地转型为**共享模块库**：公共模块收成一份，工具以 git submodule 借条
+消费 `src/template/`，改一次、全家生效，消灭 N 份拷贝的人工同步与随之滋生的审计机器。
+
+- **参数卡机制**：`appconfig` 改「出厂默认值 + `try: import app_params` 覆盖」，工具差异参数
+  移到自持的 `src/app_params.py`（借条外），kit 自身保持可独立 import。PyInstaller 冻结环境
+  已验证生效。
+- **模块挪位**：`template/<模块>/` → 仓库根（`git mv` 保历史），工具侧 `src/template/<模块>`
+  与 import 面 `template.*` 对齐。仓库根 = 11 公共模块 + 2 模板自有件（baseline / build_release）。
+- **文档大整理**：新建《托盘工具工程规范.md》（三来源通识合并为普适规范）；退役五旧档
+  （对齐台账 / blueprints.txt / 复审记录 / 合规对照表 / 家族规范，git 历史可取回）。
+- **脚本换岗**：`sync_check` 瘦身为两条借条职责（指针落后→黄 / 私改→红）；`conformance_check` 退休。
+- **门面重写**：README 重写为共享库门面（submodule 接入 + 参数卡说明）。
+
+工具侧迁移（Wave 2，逐家：参数搬家 → 摘拷贝 → 挂借条 → 接线验证 → 门禁）另启。
+
 ## 2026-10-14 (repo cleanup: 交接/ retired to git history)
 
 - **交接/ 文件夹整体退役**：其为 2026-09-19 会话移交的一次性材料（索引 / 主封存单 /

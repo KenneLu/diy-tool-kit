@@ -1,70 +1,89 @@
-# my-diy-tool-template —— 家族工具模板库与开发流程框架（拷贝式）
+# my-diy-tool-template —— DIY 工具模板：公共模块多工具复用 + 一致性检查
 
-> **规范与实现**：本仓是托盘/GUI 小工具的共享模块库。
-> 工程规范正文见 **[托盘工具工程规范.md](托盘工具工程规范.md)**（能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 判据工程 / 过程纪律 / 坑清单），执行时依此。
-> 各模块目录（如 `appconfig/`、`paths/`）是规范对应的**实现件**（模块超详细文档 + 模板代码）。
-> 规范与实现冲突时：以 托盘工具工程规范.md 为准，回改实现并登记；文档与磁盘冲突时改文档或改代码，禁止并存。
+> 托盘/GUI 小工具的**共享模块库**：一套公共模块，多个工具以 **git submodule 借条**复用——
+> 改一次、全家生效，不再有 N 份拷贝的人工同步。一致性由 `sync_check.py`（借条检查）把关。
 
-## 目录结构
+## 快速接入（首屏）
 
-```
-my-diy-tool-template\
-  README.md              ← 本文档：标准索引 + 拼接指南
-  托盘工具工程规范.md ← 工程规范正文（A–K 分节）
-  sync_check.py          ← 借条检查（指针落后→黄 / 私改→红，构建门禁的一个闸）
-  CHANGELOG.md / LICENSE / .gitignore
-  <模块名>\
-    README.md          ← 该模块的超详细文档（接口/采纳/坑）
-    <代码文件>          ← 一份可直接拷贝的模板代码
+**拉取本库（含子模块）**：
+
+```bash
+git clone --recurse-submodules <本库 git 地址>
 ```
 
-## 模块索引（选型表）
+> 忘了 `--recurse-submodules`、模块目录为空？补救：
+>
+> ```bash
+> git submodule update --init
+> ```
 
-| 模块 | 能力 | 规范出处 | 蓝本 | 现役用户 |
-|---|---|---|---|---|
-| [appconfig](appconfig/README.md) | 参数区：唯一要改的文件 | F2 | — | dsh、opencodex |
-| [paths](paths/README.md) | 数据区/播种/稳定位/**数据根重定向** | F1 | local-speak2text | （dsh/ocx 内联等构，见 REVIEW 矩阵） |
-| [autostart](autostart/README.md) | 自启三件套（Run 键名参数化） | G4.1 | —（基线已归模板正本） | dsh、opencodex、local-speak2text、reme |
-| [update_helper](update_helper/README.md) | 在线更新三段式（含 marker 语义） | G4、H6 | — | dsh、opencodex、local-speak2text、reme （字节级一致） |
-| [i18n](i18n/README.md) | 轻量中英双表 | E4、A2-i18n | local-speak2text | local-speak2text（完整版蓝本） |
-| [icons](icons/README.md) | 代码生成双 ico | G5 | local-speak2text | local-speak2text |
-| [tray_kit](tray_kit/README.md) | 单实例/--quit/token 掩码/签名重画/三循环 | E2 | reme + local-speak2text | （机制以蓝本内联形态服役） |
-| [build_release](build_release/README.md) | 门禁构建 + tag 发版链 | D1、G3/G4、H | local-speak2text | dsh、opencodex（工作流变体）、local-speak2text |
-| [log_kit](log_kit/README.md) | 滚动日志 1MB×3 + 打开日志目录 | — | reme-helper | local-speak2text（dsh/ocx 内联等构） |
-| [baseline](baseline/README.md) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
-| [service_link](service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | opencodex、reme（已接入） |
-| [tunnel_kit](tunnel_kit/README.md) | ssh 反向隧道统一（三层探测/退避自愈/N=3 确认/OWNED-only 停止） | — | opencodex、reme（前内联形态） | opencodex、reme |
+**在你的工具仓里挂借条**（把公共模块落到 `src/template/`，import 面恒为 `template.*`）：
 
-> **"现役用户/蓝本"列的目标态（2026-09-18 用户定，§公共模板库 原则③）**：四个工具**全部**
-> 消费模板（`src/template/<模块>/` 整文件夹采纳，路径统一）；"蓝本""内联等构"都是迁移中的
-> 临时形态——工具与模板合不上时，优先优化模板的接口与架构，不给工具留豁免。
+```bash
+git submodule add <本库 git 地址> src/template
+```
 
-## 新工具拼接指南（从零到发布）
+之后工具业务代码直接 `from template.appconfig import ...`、`from template.paths import ...`——
+本库对工具的 import 面完全透明，业务代码一行不改。
 
-1. **定级**：对照 §能力分级总表 全表逐条过（别只看触发列——基线 8 这类挂在
-   "开源/交付他人"下的条目最容易漏，2026-09-18 实测翻过车）；
-   **收尾时对照 §2 全表逐行自查**，每行给出 `文件:行号` 证据；
-2. **必拷**：`appconfig/`（填参数）+ `paths/`；
-3. **按需选模块**：托盘工具 → `tray_kit` + `log_kit` + `autostart` + `build_release`；
-   公开发布 → `baseline`（双语 README）+ `update_helper`；要图标 → `icons`；双语 UI → `i18n`；
-4. 每个拷贝文件**顶部加**：`# TEMPLATE-FROM: my-diy-tool-template/<模块>/<文件> | TEMPLATE-VER: <模板版本>`；
-   有意定制改加 `# TEMPLATE-LOCAL-OVERRIDE: <原因>`；
-5. `main()` 装配顺序：单实例 → paths.seed → 日志 → 自启自愈 → 托盘（八段）→ 更新检查；
-6. build.bat 门禁加 sync_check 闸（本地；CI 检出不含 my-diy-tool-template，跑不了）；
-7. `--smoke` 写上、CHANGELOG 开张、tag `v<semver>` 发版。
+## 参数卡（工具差异只住一处）
 
-## 同步与复审（摘要有意短，细节各自成文）
+工具的差异参数（托盘显示名、版本号、图标、GitHub 仓库坐标等）**不改公共模块**，而是写在工具
+自持的**参数卡** `src/app_params.py`（放在借条外，工具自己保管）。公共模块 `appconfig` 运行时
+`try: import app_params` 读取覆盖；无参数卡时用出厂默认值（kit 自身始终可独立 import）。
 
-- **通用经验的内化来源**：见 [托盘工具工程规范.md](托盘工具工程规范.md)（通用工程规范的落点）。
+```python
+# src/app_params.py（示例）
+APP_ID = "my-tool"
+APP_NAME = "我的工具"
+VERSION = "1.0.0"
+```
 
-- **模板升级**：改 `template/<x>/` → 升该文件 `TEMPLATE-VER` → 各工具跑 sync_check →
-  逐工具独立 commit（**每个 commit 前验证修改有效**）+ 门禁绿 + semver 判级
-  （+0.0.1 可自判；**+0.1 / +1 仅用户确认**——；push 是用户决定权）；
-  **日常维护一般不发版，commit 累计较多才集中发版**，发版前必须人工功能回归；
-- **三轮复核**：机械比对 / 语义对照 / 回归验证——机制见 [托盘工具工程规范.md](托盘工具工程规范.md) 的「复核方法论」。模板升位后必跑三轮；工具发版前至少跑机械比对（三轮之一）。
+可覆盖键与默认值见 [appconfig](appconfig/README.md)。
 
-## 两条红线（全文最短、违者必翻车）
+## 仓库内容
 
-1. **实例隔离**：测试/工具链实例必须 `<APP>_DATA_DIR` 重定向独立数据区，
-   严禁与常驻实例共享任何落盘文件（血案）；
-2. **路径只出自 paths**：任何模块禁止自己拼 config/log/update 路径。
+- **代码**：11 个公共模块（位于仓库根）+ 2 个模板自有件（[baseline](baseline/README.md) 仓库基线规范、
+  [build_release](build_release/README.md) 构建脚手架）+ 各模块 README。
+- **规范**：[托盘工具工程规范.md](托盘工具工程规范.md)（通用工程规范）+ 本 README + [CHANGELOG.md](CHANGELOG.md)。
+- **检查**：[sync_check.py](sync_check.py)（借条检查）。
+
+## 模块索引
+
+| 模块 | 能力 |
+|---|---|
+| [appconfig](appconfig/README.md) | 参数区（参数卡机制：出厂默认值 + `app_params` 覆盖） |
+| [paths](paths/README.md) | 数据区 / 播种 / 稳定位 / 数据根重定向 |
+| [autostart](autostart/README.md) | 自启三件套（Run 键名参数化） |
+| [update_helper](update_helper/README.md) | 在线更新三段式（查→下→换，含 marker 语义） |
+| [i18n](i18n/README.md) | 轻量中英双表 |
+| [icons](icons/README.md) | 代码生成双 ico |
+| [tray_kit](tray_kit/README.md) | 单实例 / `--quit` / token 掩码 / 签名重画 / 三循环 |
+| [tray_icons](tray_icons/README.md) | 托盘状态贴图运行时加载 |
+| [log_kit](log_kit/README.md) | 滚动日志 1MB×3 + 打开日志目录 |
+| [service_link](service_link/README.md) | 服务唯一性 / 接入 / 有界清理（状态机） |
+| [tunnel_kit](tunnel_kit/README.md) | ssh 反向隧道统一（三层探测 / 退避自愈 / OWNED-only 停止） |
+| [baseline](baseline/README.md) | 仓库基线件规范（双语 README / CHANGELOG / LICENSE / .gitignore） |
+| [build_release](build_release/README.md) | 门禁构建 + tag 发版链 |
+
+## 一致性检查（sync_check）
+
+`sync_check.py` 对每个工具仓的 `src/template` 借条做两条检查（构建门禁的一个闸）：
+
+- **指针落后**（黄，不阻断）：借条钉住的 commit 落后于本库最新 ⇒ `[LAG]`，跟不跟由人定。
+- **私改**（红，阻断）：借条工作树有未提交改动 `[LOCAL-MOD]`；或借条 HEAD ≠ 记录 gitlink
+  （静默移指针）`[POINTER-MOVED]`。
+
+```bash
+python sync_check.py --roots <工具仓名>   # 或不带 --roots，查与本库同级的全部工具仓
+```
+
+## 工程规范
+
+通用工程规范（能力分级 / 工程纪律 / 界面 / 数据 / 发布 / 判据工程 / 过程纪律 / 坑清单）见
+**[托盘工具工程规范.md](托盘工具工程规范.md)**。规范与实现冲突时以规范为准，回改实现并登记。
+
+## 两条红线（违者必翻车）
+
+1. **实例隔离**：测试 / 工具链实例必须 `<APP>_DATA_DIR` 重定向独立数据区，严禁与常驻实例共享任何落盘文件。
+2. **路径只出自 paths**：任何模块禁止自己拼 config / log / update 路径。
