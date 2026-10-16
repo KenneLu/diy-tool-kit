@@ -15,7 +15,7 @@ README 早已承诺的接口，消除「模板相对蓝本功能回退」（§4.
 1.1.4：新增 **exe-delete-guard** `hold_no_delete()` / `hold_exe_delete_guard()`——活实例对自己的
 exe 持一个**不含 `FILE_SHARE_DELETE`** 的句柄，把"别删正在运行的实例目录"从**纪律**
 升级成**内核强制**（删除方大声失败 winerror 32，而不是静默掏空目录）。**必须由
-`main()` 在托盘/窗口创建之前调用**（README 有 MUST-WIRE 声明，module-wiring-referenced 会打红没接线的工具）。
+`main()` 在托盘/窗口创建之前调用**——晚一步，那一步的窗口期就没保护。
 """
 import os
 import shutil

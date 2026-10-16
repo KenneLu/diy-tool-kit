@@ -33,8 +33,6 @@
 4. **`main()` 在托盘/窗口创建之前调用 `hold_exe_delete_guard(log=log)`**（exe-delete-guard，1.1.4+）——
    顺序不能再往后挪，晚一步就等于那一步的窗口期没有保护。
 
-<!-- MUST-WIRE: hold_exe_delete_guard -->
-
 ## 边界与坑
 
 > **⛔ `process_pending_update()` 已弃用（2026-09-19）**：本函数用 `os.system('robocopy … /MIR …')`
