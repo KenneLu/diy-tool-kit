@@ -36,16 +36,12 @@
 > 替换脚本永不拉起（更新装了等于没装）、"下载并更新"永久灰着，**且无任何报错**。
 > 现在即便有人把 `import *` 加回来也复现不了——`import *` 不搬运 `__getattr__` 的派生名，
 > 只会明确报"没有该属性"。
-> 回归：`python my-diy-tool-template/sync_check.py --selftest`（E 组，含反向自证）
-> 与 `conformance_check.py --selftest`（no-star-import-state / no-global-rebind 正反样本）。
 
 目标目录 `target_dir` 二选一：有稳定安装位的工具传 `INSTALL_DIR`（local-speak2text
 形态）；没有的传运行中 exe 所在目录（dsh/opencodex 形态）。`update_dir` 必须在目标目录
 **之外**（备份/快照/marker 都落在它旁边）。
 
 ## 替换脚本的语义要点（1.3.0/1.4.0，缺一即回归）
-
-回归资产：`python my-diy-tool-template/sync_check.py --selftest`（E 组，含反向样本）。
 
 1. **等待旧进程退出用镜像名，且不用管道**：脚本以 DETACHED_PROCESS 起，无 console；
    那种上下文里 `tasklist | find` **永不返回**（`find` 永远阻塞在 stdin），更新会静默不发生。
@@ -57,7 +53,7 @@
    丢弃 loopback ICMP 的机器上实测 **9.0s/拍** —— 名义 120s 变成约 18 分钟，而超时日志
    仍写 "after 120s"（**日志说谎**）。现用 `powershell -NoProfile -Command
    "Start-Sleep -Milliseconds {tick_ms}"`（不依赖网络；DETACHED 无 console ⇒ 不弹窗；
-   本机实测每拍 ≈1.29s，含 PowerShell 启动费）。机械判据：`conformance_check.py` **no-ping-as-sleep**。
+   本机实测每拍 ≈1.29s，含 PowerShell 启动费）。
 3. **替换前先快照，且只在替换成功后轮转为备份**：旧备份是**回退源**，绝不能在新版落地前删。
 4. **检查 robocopy 退出码（>=8 = 失败）**：失败时**绝不启动新 exe**，改为从快照回铺并启动
    旧版本；回铺也失败则**不启动任何 exe**，保留快照供人工恢复，并写失败 marker——1.5.0 起 marker **按实况**只列真实存在的 SNAPSHOT/BACKUP（不指向已轮转不存在的路径）。

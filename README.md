@@ -11,8 +11,7 @@
 my-diy-tool-template\
   README.md              ← 本文档：标准索引 + 拼接指南
   托盘工具工程规范.md ← 工程规范正文（A–K 分节）
-  sync_check.py          ← 漂移检查（构建门禁的一个闸）
-  conformance_check.py   ← 机械判据（语义 slug 判据本体）
+  sync_check.py          ← 借条检查（指针落后→黄 / 私改→红，构建门禁的一个闸）
   CHANGELOG.md / LICENSE / .gitignore
   <模块名>\
     README.md          ← 该模块的超详细文档（接口/采纳/坑）

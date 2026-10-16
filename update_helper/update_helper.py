@@ -32,10 +32,9 @@
 自相矛盾，而且它只出现在**日志**里，不会让任何门禁变红。现为
 `budget_s=limit * UPDATE_WAIT_TICK_MS // 1000`。`UPDATE_WAIT_BUDGET_S` 保留为
 "默认 limit 下的名义预算"，**不再被渲染器使用**。
-（本条可机械判据化：渲染 `limit=2` 必须出现 `budget 2s`。判据落点在 `sync_check --selftest`
-的 update_helper 组，不在本文件。）
+（本条可机械判据化：渲染 `limit=2` 必须出现 `budget 2s`。）
 
-1.4.3（2026-09-19）：**两处修复**（都可机械判据化，见 conformance_check no-delete-before-report/no-ping-as-sleep）：
+1.4.3（2026-09-19）：**两处修复**（都可机械判据化）：
 
   * **等待节拍不再用 `ping`**：`ping -n 2 127.0.0.1` 看着像“睡 1 秒”，在**丢弃 loopback ICMP**
     的机器上实测 **9.0s/拍**（两次 4.5s 超时）
