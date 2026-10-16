@@ -2,6 +2,17 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-14 (repo cleanup: 交接/ retired to git history)
+
+- **交接/ 文件夹整体退役**：其为 2026-09-19 会话移交的一次性材料（索引 / 主封存单 /
+  R2 续篇 / TASKLEDGER / 交接话术），有效结论（12 坑、18 决策）已沉淀进 家族规范.md
+  与 合规对照表.md。原件不销毁——永久留存于 git 历史（`git log --all -- 交接/`）。
+- README：删除交接指针块与目录树行，加退役说明。各文档中的「交接 TL/R1/R2」字样
+  保持原样——它们是历史证据出处，改动即篡改证据。
+- 退役复审结论（同日）：对齐台账.md 与 blueprints.txt **暂不退役**——两者均被
+  sync_check.py / conformance_check.py 运行时读取，且对齐台账仍是在账黄灯待判项的
+  登记处（当前 2 项未结）；待拷贝→引用改造完成、黄灯清账后再议。
+
 ## [tunnel_kit 0.1.2] - 2026-09-29
 
 - **alive() 的 probe 回调异常改 fail-open**（蓝本 对齐）：探测跑不成 ≠ 不健康——
