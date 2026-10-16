@@ -79,13 +79,6 @@
 
 ## 采纳步骤
 
-<!-- 下面三个符号是 module-wiring-referenced「采纳 = 拷贝 + 接线」的机械判据锚点：
-     README 里声明"必须调用"，检查器就在**工具代码**里找引用；只在 README 出现不算接线。
-     反面教材：dsh/ocx 曾把三件拷到位（哈希全绿）而 sweep/pop 零引用——失败通知永不触发。 -->
-<!-- MUST-WIRE: sweep_stale_update_dirs -->
-<!-- MUST-WIRE: pop_failed_update_note -->
-<!-- MUST-WIRE: launch_pending_cmd -->
-
 1. `appconfig.py` 填 `APP_ID / REPO_OWNER / REPO_NAME / EXE_NAME`；
 2. 拷 `update_helper.py`（**零修改**）；
 3. 托盘加"检查更新 / 下载并更新"两项（更新区），quit 收尾处拉起 `pending_cmd()`；
