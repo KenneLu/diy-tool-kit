@@ -46,7 +46,7 @@
 
 ## 采纳步骤
 
-1. 拷 `tray_kit.py`（零依赖，纯标准库）；
+1. 本模块经工具仓 `src/template` 借条自动落地（零依赖，纯标准库）；
 2. `main()` 最早处 `acquire_single_instance()` → False 则 `warn_duplicate_instance()` 退出；
 3. 菜单重建走 `MenuSignature(rebuild, menu_is_open=tray_kit.menu_is_open)`（探测器已配套下沉，勿再内联）；管理 Web 面板的工具用 `mask_token` + 「复制面板地址」紧贴地址行；
 4. 需要 `--quit` 的工具：`quit_watch_loop` + 独立数据区（paths）。

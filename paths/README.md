@@ -26,7 +26,7 @@
 
 ## 采纳步骤
 
-1. 拷 `paths.py`，确认 `appconfig.py` 在位（唯一 import）；
+1. 本模块经工具仓 `src/template` 借条自动落地；确认 `appconfig` 在位（唯一 import）；
 2. `main()` 最先调用 `seed_config()`，之后所有模块从这里拿路径；
 3. 测试/CI 里设 `<APP>_DATA_DIR` 指向临时目录（实例隔离）；
    需要连配置文件位置也钉死时再设 `<APP>_CONFIG`（1.1.3+）；

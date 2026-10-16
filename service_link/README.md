@@ -43,7 +43,7 @@ OWNED ──进程已消失──▶ NONE（自然收敛）
 
 ## 采纳步骤（回调注入，模块零依赖）
 
-1. 拷 `service_link.py`；
+1. 本模块经工具仓 `src/template` 借条自动落地；
 2. 注入四个回调：
    - `probe`：规范端点健康探测（如 `GET /health_check`）；
    - `launch`：启动服务进程（subprocess），返回句柄；

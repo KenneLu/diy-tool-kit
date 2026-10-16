@@ -18,7 +18,7 @@
 
 ## 采纳步骤
 
-1. 拷 `log_kit.py`（依赖 `appconfig.APP_ID`）；
+1. 本模块经工具仓 `src/template` 借条自动落地（依赖 `appconfig.APP_ID`）；
 2. 初始化：`log, open_log_dir = log_kit.make_logger(LOG_DIR)`；
 3. 菜单「打开日志目录」→ `open_log_dir`；启动/退出/关键动作各记一行。
 

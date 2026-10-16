@@ -18,7 +18,7 @@
 
 ## 采纳步骤
 
-1. 拷 `autostart.py`（依赖 `appconfig.APP_NAME` 与 paths 的 `INSTALL_EXE`）；
+1. 本模块经工具仓 `src/template` 借条自动落地（依赖 `appconfig.APP_NAME` 与 paths 的 `INSTALL_EXE`）；
 2. `main()` 早期调 `migrate_autostart()`；
 3. 托盘菜单加"开机自启"开关项（偏好区），checked 绑 `is_autostart_enabled()`。
 

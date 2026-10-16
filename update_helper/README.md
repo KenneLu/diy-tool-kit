@@ -80,7 +80,7 @@
 ## 采纳步骤
 
 1. `appconfig.py` 填 `APP_ID / REPO_OWNER / REPO_NAME / EXE_NAME`；
-2. 拷 `update_helper.py`（**零修改**）；
+2. 本模块经工具仓 `src/template` 借条自动落地（**零修改**）；
 3. 托盘加"检查更新 / 下载并更新"两项（更新区），quit 收尾处拉起 `pending_cmd()`；
 4. 启动后台 `check_update(VERSION)` 一次；**启动时先** `sweep_stale_update_dirs()`，
    再 `pop_failed_update_note(update_dir)`，非空就通知用户；
