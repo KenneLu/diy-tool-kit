@@ -17,7 +17,7 @@ for /f 的执行环境），把两行抠出来单独跑通，不能证明它在*
   工具登记表 反向 × 预置目录：旧写法必须**认不出**那个目录、继续往下走（0.2 闸失效）。
 
 模板不派发本文件（`build_release/` 为模板专属目录）；工具侧只要 `build.bat`。
-用法：`python my-diy-tool-template/template/build_release/verify_build_bat.py`（退出码 0 = 全过）。
+用法：`python my-diy-tool-template/build_release/verify_build_bat.py`（退出码 0 = 全过）。
 """
 import shutil
 import subprocess

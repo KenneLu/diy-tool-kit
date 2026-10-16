@@ -35,18 +35,18 @@ my-diy-tool-template\
 
 | 模块 | 能力 | 规范出处 | 蓝本 | 现役用户 |
 |---|---|---|---|---|
-| [appconfig](template/appconfig/README.md) | 参数区：唯一要改的文件 | F2 | — | dsh、opencodex |
-| [paths](template/paths/README.md) | 数据区/播种/稳定位/**数据根重定向** | F1 | local-speak2text | （dsh/ocx 内联等构，见 REVIEW 矩阵） |
-| [autostart](template/autostart/README.md) | 自启三件套（Run 键名参数化） | G4.1 | —（基线已归模板正本） | dsh、opencodex、local-speak2text、reme |
-| [update_helper](template/update_helper/README.md) | 在线更新三段式（含 marker 语义） | G4、H6 | — | dsh、opencodex、local-speak2text、reme （字节级一致） |
-| [i18n](template/i18n/README.md) | 轻量中英双表 | E4、A2-i18n | local-speak2text | local-speak2text（完整版蓝本） |
-| [icons](template/icons/README.md) | 代码生成双 ico | G5 | local-speak2text | local-speak2text |
-| [tray_kit](template/tray_kit/README.md) | 单实例/--quit/token 掩码/签名重画/三循环 | E2 | reme + local-speak2text | （机制以蓝本内联形态服役） |
-| [build_release](template/build_release/README.md) | 门禁构建 + tag 发版链 | D1、G3/G4、H | local-speak2text | dsh、opencodex（工作流变体）、local-speak2text |
-| [log_kit](template/log_kit/README.md) | 滚动日志 1MB×3 + 打开日志目录 | — | reme-helper | local-speak2text（dsh/ocx 内联等构） |
-| [baseline](template/baseline/README.md) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
-| [service_link](template/service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | opencodex、reme（已接入） |
-| [tunnel_kit](template/tunnel_kit/README.md) | ssh 反向隧道统一（三层探测/退避自愈/N=3 确认/OWNED-only 停止） | — | opencodex、reme（前内联形态） | opencodex、reme |
+| [appconfig](appconfig/README.md) | 参数区：唯一要改的文件 | F2 | — | dsh、opencodex |
+| [paths](paths/README.md) | 数据区/播种/稳定位/**数据根重定向** | F1 | local-speak2text | （dsh/ocx 内联等构，见 REVIEW 矩阵） |
+| [autostart](autostart/README.md) | 自启三件套（Run 键名参数化） | G4.1 | —（基线已归模板正本） | dsh、opencodex、local-speak2text、reme |
+| [update_helper](update_helper/README.md) | 在线更新三段式（含 marker 语义） | G4、H6 | — | dsh、opencodex、local-speak2text、reme （字节级一致） |
+| [i18n](i18n/README.md) | 轻量中英双表 | E4、A2-i18n | local-speak2text | local-speak2text（完整版蓝本） |
+| [icons](icons/README.md) | 代码生成双 ico | G5 | local-speak2text | local-speak2text |
+| [tray_kit](tray_kit/README.md) | 单实例/--quit/token 掩码/签名重画/三循环 | E2 | reme + local-speak2text | （机制以蓝本内联形态服役） |
+| [build_release](build_release/README.md) | 门禁构建 + tag 发版链 | D1、G3/G4、H | local-speak2text | dsh、opencodex（工作流变体）、local-speak2text |
+| [log_kit](log_kit/README.md) | 滚动日志 1MB×3 + 打开日志目录 | — | reme-helper | local-speak2text（dsh/ocx 内联等构） |
+| [baseline](baseline/README.md) | README 双语/CHANGELOG/LICENSE/.gitignore | A1 基线 7/8、G5 | reme/local-speak2text | 家族内各工具 |
+| [service_link](service_link/README.md) | 服务唯一性/接入/有界清理（状态机） | G4.2 | reme（探测+managed 语义）、dsh（接管设计） | opencodex、reme（已接入） |
+| [tunnel_kit](tunnel_kit/README.md) | ssh 反向隧道统一（三层探测/退避自愈/N=3 确认/OWNED-only 停止） | — | opencodex、reme（前内联形态） | opencodex、reme |
 
 > **"现役用户/蓝本"列的目标态（2026-09-18 用户定，§公共模板库 原则③）**：四个工具**全部**
 > 消费模板（`src/template/<模块>/` 整文件夹采纳，路径统一）；"蓝本""内联等构"都是迁移中的
@@ -58,10 +58,10 @@ my-diy-tool-template\
 1. **定级**：对照 §能力分级总表 全表逐条过（别只看触发列——基线 8 这类挂在
    "开源/交付他人"下的条目最容易漏，2026-09-18 实测翻过车）；
    **收尾时对照 §2 全表逐行自查**，每行给出 `文件:行号` 证据；
-2. **必拷**：`template/appconfig/`（填参数）+ `template/paths/`；
+2. **必拷**：`appconfig/`（填参数）+ `paths/`；
 3. **按需选模块**：托盘工具 → `tray_kit` + `log_kit` + `autostart` + `build_release`；
    公开发布 → `baseline`（双语 README）+ `update_helper`；要图标 → `icons`；双语 UI → `i18n`；
-4. 每个拷贝文件**顶部加**：`# TEMPLATE-FROM: my-diy-tool-template/template/<模块>/<文件> | TEMPLATE-VER: <模板版本>`；
+4. 每个拷贝文件**顶部加**：`# TEMPLATE-FROM: my-diy-tool-template/<模块>/<文件> | TEMPLATE-VER: <模板版本>`；
    有意定制改加 `# TEMPLATE-LOCAL-OVERRIDE: <原因>`；
 5. `main()` 装配顺序：单实例 → paths.seed → 日志 → 自启自愈 → 托盘（八段）→ 更新检查；
 6. build.bat 门禁加 sync_check 闸（本地；CI 检出不含 my-diy-tool-template，跑不了）；
