@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: log_kit | TEMPLATE-VER: 1.0.4
+# TEMPLATE-MODULE: log_kit | TEMPLATE-VER: 1.0.5
+# 1.0.5：日志初始化彻底 fail-safe：目录创建/滚动/普通文件处理器全部失败时退化为
+#   NullHandler，并把原因记入 LAST_INIT_ERROR；`open_log_dir` 同样吞异常。
+#   此前「滚动失败→FileHandler」的回退在文件被占用时两者都失败，异常会逃到模块导入，
+#   直接崩掉助手启动（2026-10-19 用户实测；工具侧已各自兜底，本版把承诺落到模板层）。
 # 1.0.4：模块互引改双式导入（try modules. / except template.）；收尾步统一。
 # 1.0.3：`log` 改 **print 形态**（`def log(*parts)`，空格拼接 `str(part)`）。
 #   根因是**契约冲突**：`update_helper`（同批派发件）里 7 处按 print 形态调用
@@ -27,30 +31,43 @@ LOG_MAX_BYTES = 1 << 20      # 1 MB per file
 LOG_BACKUPS = 3              # <app>.log.1 ... .3
 
 _logger = None
+# 最近一次初始化失败的原因（成功为空串）。工具想在崩溃日志里交代“日志为什么没写”时读它；
+# 不读也不影响任何行为——初始化失败已退化为 NullHandler，绝不把主流程弄死。
+LAST_INIT_ERROR = ""
 
 def get_logger(log_dir):
-    global _logger
+    global _logger, LAST_INIT_ERROR
     if _logger is None:
         import logging
         from logging.handlers import RotatingFileHandler
 
-        log_dir.mkdir(parents=True, exist_ok=True)
         lg = logging.getLogger(APP_ID)
         if not lg.handlers:
+            handler = None
             try:
-                handler = RotatingFileHandler(
-                    log_dir / (APP_ID + ".log"),
-                    maxBytes=LOG_MAX_BYTES,
-                    backupCount=LOG_BACKUPS,
-                    encoding="utf-8",
-                )
+                log_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    handler = RotatingFileHandler(
+                        log_dir / (APP_ID + ".log"),
+                        maxBytes=LOG_MAX_BYTES,
+                        backupCount=LOG_BACKUPS,
+                        encoding="utf-8",
+                    )
+                except Exception:
+                    # 升级窗口期另一实例还开着日志文件时改名会失败（Windows）：
+                    # 宁可这一轮不滚，也不要因为日志装不上而启动失败（reme-helper 语义，1.0.2 沉淀）
+                    handler = logging.FileHandler(
+                        log_dir / (APP_ID + ".log"), encoding="utf-8")
+            except Exception as exc:
+                # 1.0.5：目录不可建 / 两次打开都失败（文件被另一实例占用等）也绝不外抛，
+                # 退化为 NullHandler；启动继续，原因留给 LAST_INIT_ERROR 与调用方自报。
+                LAST_INIT_ERROR = "%s: %s" % (type(exc).__name__, exc)
+                handler = logging.NullHandler()
+            try:
+                handler.setFormatter(
+                    logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
             except Exception:
-                # 升级窗口期另一实例还开着日志文件时改名会失败（Windows）：
-                # 宁可这一轮不滚，也不要因为日志装不上而启动失败（reme-helper 语义，1.0.2 沉淀）
-                handler = logging.FileHandler(
-                    log_dir / (APP_ID + ".log"), encoding="utf-8")
-            handler.setFormatter(
-                logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+                pass
             lg.addHandler(handler)
             lg.setLevel(logging.INFO)
             lg.propagate = False
@@ -73,7 +90,11 @@ def make_logger(log_dir):
             pass
 
     def open_log_dir():
-        log_dir.mkdir(parents=True, exist_ok=True)
-        os.startfile(str(log_dir))  # noqa: S606
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+            os.startfile(str(log_dir))  # noqa: S606
+        except Exception:
+            # 1.0.5：目录不可建/系统没注册打开程序时也不能在产品里抛异常
+            pass
 
     return log, open_log_dir

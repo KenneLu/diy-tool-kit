@@ -24,6 +24,7 @@
 
 ## 边界与坑
 
+- **1.0.5 起初始化彻底 fail-safe**：目录不可建、滚动处理器失败后普通 FileHandler 也失败（典型：另一实例占着日志文件）时退化为 `logging.NullHandler`，原因记入模块级 `LAST_INIT_ERROR`，**绝不再从初始化处外抛**；`open_log_dir` 同样吞异常。工具若想交代“这轮没日志”，读 `LAST_INIT_ERROR` 写进崩溃日志即可。
 - 崩溃兜底（`crash.log` 全量 traceback）与运行日志是**两份**：崩溃文件要能独立于日志子系统存活（`--noconsole` 打包后 stderr 不存在）；
 - **禁止**密钥进日志；多实例共享同一日志文件 = 事故，实例隔离见 paths；
 - 日志是 helper 类工具的"账本"——但账本消费者要挑权威来源（reme-helper 的教训：日志可能缺失，workspace 产物才是权威）。

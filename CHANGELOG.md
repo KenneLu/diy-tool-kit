@@ -2,6 +2,13 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-20 (文档规范增补 + log_kit 1.0.5 fail-safe)
+
+- 《托盘工具工程规范》§4.4 增补「中英文混排空格」规则与判据：中文与拉丁字母/英文词之间一个半角空格；数字与中文单位不强制；URL/命令/代码/路径/占位符保持原样；用户可见文案与 zh 词表值不得出现汉字与拉丁字母直接相邻；机检正则 `[\u4e00-\u9fff][A-Za-z]|[A-Za-z][\u4e00-\u9fff]`（白名单仅命令/URL/占位符）。
+- `i18n/README.md` 新增「文案排版（中英文混排空格）」小节与机检建议（本次四家工具审计的沉淀）。
+- `log_kit` **1.0.5**：日志初始化彻底 fail-safe——目录不可建、滚动处理器失败后普通 FileHandler 也失败时退化为 `logging.NullHandler`，原因记入模块级 `LAST_INIT_ERROR`，绝不再从初始化处外抛；`open_log_dir` 同样吞异常。此前异常会逃到模块导入，直接崩助手启动（2026-10-19 用户实测；工具侧已各自先兜底，本版把承诺落到模板层）。
+- 说明：本仓提交后四家工具的 submodule 指针仍钉旧版，需下一次借条更新才生效；工具侧兜底已在各自版本落地。
+
 ## 2026-10-19 (仓库改名：my-diy-tool-template → diy-tool-kit)
 
 - GitHub 仓库更名为 **`diy-tool-kit`**（旧地址自动 301 跳转）；本仓 README 门面引用同步更新。
