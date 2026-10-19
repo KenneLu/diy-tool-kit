@@ -2,6 +2,13 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-19 (仓库改名：my-diy-tool-template → diy-tool-kit)
+
+- GitHub 仓库更名为 **`diy-tool-kit`**（旧地址自动 301 跳转）；本仓 README 门面引用同步更新。
+- 四家工具（dsh-helper / opencodex-helper / reme-helper / local-speak2text）已完成 Wave 2 迁移：
+  `src/template` 改为 submodule 借条（钉本仓 `c600cec`），工具参数搬入各自 `src/app_params.py`；
+  各仓 `.gitmodules` URL 同步改为新仓名。**本库模块内容不变**（借条只是消费方式变化）。
+
 ## 2026-10-16 (repo refactor: 拷贝模式 → git submodule 引用模式)
 
 本仓由「模板拷贝库」就地转型为**共享模块库**：公共模块收成一份，工具以 git submodule 借条

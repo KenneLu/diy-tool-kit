@@ -1,4 +1,6 @@
-# my-diy-tool-template —— DIY 工具模板：公共模块多工具复用 + 一致性检查
+# diy-tool-kit —— DIY 工具模板：公共模块多工具复用 + 一致性检查
+
+> 原名 `my-diy-tool-template`，2026-10-19 更名为 **`diy-tool-kit`**（旧地址自动跳转）。
 
 > 托盘/GUI 小工具的**共享模块库**：一套公共模块，多个工具以 **git submodule 借条**复用——
 > 改一次、全家生效，不再有 N 份拷贝的人工同步。一致性由 `sync_check.py`（借条检查）把关。
