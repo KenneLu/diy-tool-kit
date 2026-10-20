@@ -2,6 +2,11 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-20 (规范补：测试不得产生真实窗口副作用)
+
+- 《托盘工具工程规范》§6.7 新增：**测试/冒烟不得产生真实可见窗口副作用**——`os.startfile`/`MessageBoxW`/托盘/系统对话框必须替身或重定向；否则测试在开发机弹窗，临时目录清理后还会留下「位置不可用」资源管理器错误框。判据：全量测试零新增可见窗口，相关调用点在测试里都有替身断言。
+- 起因：工具仓 `test_log_failopen` 为验证兜底闭包可调用，直接对临时目录调用 `open_log_dir()` → `os.startfile` 打开资源管理器；测试清理临时目录后 Windows 弹「位置不可用」（2026-10-20 实测截图）。相关测试已改为先替身 `os.startfile`。
+
 ## 2026-10-20 (log_kit 包门面修复：LAST_INIT_ERROR 实时委托)
 
 - `log_kit` 包门面（`log_kit/__init__.py`）此前的 `from .log_kit import *` 会把 `LAST_INIT_ERROR` 的**导入时快照**（空串）绑到包上；1.0.5 起该值在初始化失败后才会被实现模块改写，导致 `from template import log_kit; log_kit.LAST_INIT_ERROR` **永远读到空串**（工具侧 log fail-open 测试在 CI 上因此红）。现改为 `__getattr__` 实时委托 + `last_init_error()` 访问器，包门面版本号同步到 1.0.5。
