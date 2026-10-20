@@ -2,6 +2,11 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-20 (log_kit 包门面修复：LAST_INIT_ERROR 实时委托)
+
+- `log_kit` 包门面（`log_kit/__init__.py`）此前的 `from .log_kit import *` 会把 `LAST_INIT_ERROR` 的**导入时快照**（空串）绑到包上；1.0.5 起该值在初始化失败后才会被实现模块改写，导致 `from template import log_kit; log_kit.LAST_INIT_ERROR` **永远读到空串**（工具侧 log fail-open 测试在 CI 上因此红）。现改为 `__getattr__` 实时委托 + `last_init_error()` 访问器，包门面版本号同步到 1.0.5。
+- 工具侧无需改 import；消费 `LAST_INIT_ERROR` 的诊断逻辑即可拿到真实原因。
+
 ## 2026-10-20 (规范重排：按项目生命周期分章 + 阶段门禁清单 + 文案断言语言解耦)
 
 - 《托盘工具工程规范》按**项目生命周期**彻底重排章号：1 立项与分级 → 2 骨架与设计 → 3 实现·工程纪律与注释 → 4 实现·界面与交互 → 5 实现·数据与配置 → 6 验证与门禁 → 7 打包与发版 → 8 运行、升级与观测 → 9 协作·过程纪律 → 10 协作·复核方法论。旧主题章节号全部重排（旧→新对照见附录 B；未列出的编号不变）。
