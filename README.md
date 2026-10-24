@@ -45,7 +45,7 @@ VERSION = "1.0.0"
 
 ## 仓库内容
 
-- **代码**：11 个公共模块（位于仓库根）+ 2 个模板自有件（[baseline](baseline/README.md) 仓库基线规范、
+- **代码**：12 个公共模块（位于仓库根）+ 2 个模板自有件（[baseline](baseline/README.md) 仓库基线规范、
   [build_release](build_release/README.md) 构建脚手架）+ 各模块 README。
 - **规范**：[托盘工具工程规范.md](托盘工具工程规范.md)（通用工程规范）+ 本 README + [CHANGELOG.md](CHANGELOG.md)。
 - **检查**：[sync_check.py](sync_check.py)（借条检查）。
@@ -58,6 +58,7 @@ VERSION = "1.0.0"
 | [paths](paths/README.md) | 数据区 / 播种 / 稳定位 / 数据根重定向 |
 | [autostart](autostart/README.md) | 自启三件套（Run 键名参数化） |
 | [update_helper](update_helper/README.md) | 在线更新三段式（查→下→换，含 marker 语义） |
+| [mcp_kit](mcp_kit/README.md) | 模型上下文协议服务公共层（协议循环 + 生成器 + 薄适配） |
 | [i18n](i18n/README.md) | 轻量中英双表 |
 | [icons](icons/README.md) | 代码生成双 ico |
 | [tray_kit](tray_kit/README.md) | 单实例 / `--quit` / token 掩码 / 签名重画 / 三循环 |
