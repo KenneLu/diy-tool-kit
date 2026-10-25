@@ -2,6 +2,12 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-25 (目录命名统一：doc → docs)
+
+- 文档目录统一采用 `docs/`（含 `docs/en/`、`docs/zh/`）；构建、运行时读取和发布复制按新目录名处理。历史条目中的 `doc/` 保留为当时记录。
+- 规范拆分为 `docs/公共规范.md` + `docs/工具类型/托盘工具.md` + `docs/工具类型/命令行工具.md` + `docs/迁移与工具对照.md`；旧综合规范归档到 `docs/归档/`，只作历史参考。
+- 新增命令行/无托盘工具专章：PyInstaller onedir、`--console`、无 Python 用户环境、release 根布局、`run.bat` 语义、stdio MCP 范围和类型差异登记。
+
 ## 2026-10-24 (规范补：项目工作区与样例边界)
 
 - 《托盘工具工程规范》§5.5 新增项目工作区约定：项目是工具安装目录之外的独立文件夹，推荐 `<工具短名>-workspace-<项目名>` 前缀；`project.json` 是文字化项目标记；项目数据与 `.render/` 输出放项目内；工具级配置和日志放用户数据区；产品不附带示例，测试数据放 `tests/fixtures/`；不做双击关联，也不做成代码模块。
