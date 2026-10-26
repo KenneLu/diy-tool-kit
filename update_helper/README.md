@@ -12,12 +12,32 @@
 铺目标目录 → **检查 rc**，失败回铺快照 → 重启 → 自删）。为什么换目录必须独立脚本：Windows
 上运行中的 exe 换不掉。
 
+## 包根解析与命名规则（1.5.1）
+
+`download_and_prepare()` 先把 zip 解压到 `<update_dir>/package/`（与暂存根里的 zip/
+`.sha256` 隔离），再按**内容**选"要铺的包根"（`resolve_staged_dir(package_dir, exe_name=None)`）：
+
+| 布局 | 例子 | 说明 |
+|---|---|---|
+| 嵌套·稳定目录 | `<APP_ID>/` | 推荐发布布局：zip 内层是稳定 `<APP_ID>`，**不带版本号**（旧版版本化目录名也能被认出，名称不是判据） |
+| 扁平 | exe 直接在 zip 根 | 无顶层目录的扁平 zip（local-speak2text 现有布局） |
+
+0 个或 >1 个含 exe 的顶层目录 → 抛 `RuntimeError`（fail-closed）。**绝不**把暂存根
+（还放着 zip 与 `.sha256`）当包根：1.5.0 的故障就是兜底分支按"zip 里有没有 exe"猜，
+而任何嵌套包都满足该条件，于是包根落到暂存根，替换脚本源校验报 `STAGE INVALID`
+（reme-helper 1.2.16→1.2.17 实测；安装目录未动，失败安全，但更新装不上）。
+
+**命名规则**：安装目录、exe 文件名、zip 内层目录都不携带版本号；版本只进 exe 的 PE
+文件属性（`build_release/version_file.py` + `PyInstaller --version-file`）与发布资产名
+（下载 URL 需要）。本地验收用 `ota_test/run_local_ota_test.py`。
+
 ## 对外接口（稳定承诺）
 
 | 函数/全局 | 说明 |
 |---|---|
 | `check_update(current_version, force=False, repo=None)` | 返回 `dict(latest, current, newer, error)`；失败写 `error` 不抛（带配额人话）。**成功时顺带更新 `UPDATE_READY`**（1.1.0 起）。**`repo=`（1.4.5）**：覆盖更新源，缺省走 appconfig 的 `REPO`——给"更新源运行时可配"的工具（l-s2t 的 `config.json:update_repo`）留的接口，**不得静默丢掉** |
-| `download_and_prepare(latest, target_dir, update_dir, log=…, backup_dir=None, snapshot_dir=None, repo=None, exe_name=None)` | 下载+校验+暂存+生成替换脚本；成功返回脚本路径并置 `PENDING_CMD`。sha256 不匹配**或缺失**即抛 `RuntimeError`。**`repo=` / `exe_name=`（1.4.5）**：`repo=` 同 `check_update`；`exe_name=` 是**测试替身口子**（缺省走 `EXE_NAME`） |
+| `download_and_prepare(latest, target_dir, update_dir, log=…, backup_dir=None, snapshot_dir=None, repo=None, exe_name=None)` | 下载+校验+暂存+生成替换脚本；成功返回脚本路径并置 `PENDING_CMD`。sha256 不匹配**或缺失**即抛 `RuntimeError`。**`repo=` / `exe_name=`（1.4.5）**：`repo=` 同 `check_update`；`exe_name=` 是**测试替身口子**（缺省走 `EXE_NAME`，1.5.1 起透传到渲染层）。**包根（1.5.1）**：按内容解析，见上节 |
+| `resolve_staged_dir(update_dir, exe_name=None)` | 解压后选包根的纯函数（1.5.1）：扁平 exe，或恰好一个含 exe 的顶层目录；否则抛错 |
 | **`update_ready()`** | 有新版时的版本号，否则 `None`（**推荐读法**，1.1.0）。"下载并更新"菜单可用性据此判断 |
 | **`pending_cmd()`** | 已就绪的脚本路径，否则 `None`（**推荐读法**，1.1.0）。托盘退出后由此拉起 |
 | **`pop_failed_update_note(update_dir, log=…)`** | 启动时读一次上次失败 marker，返回人话（无则空串）并删除（1.3.0）。读到就通知用户 |

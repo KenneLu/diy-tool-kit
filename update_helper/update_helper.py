@@ -1,5 +1,17 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.5.0
+# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.5.1
+# 1.5.1（2026-10-26）：**暂存根按 zip 实际顶层目录解析**（"暂存根"= 解压后要铺的那一包的根）。
+#   旧实现把"发布资产名"（`<APP_ID>-<版本>-windows-x64`）当成"解压后目录名"，而 zip
+#   内层目录其实是 `<APP_ID>-<版本>`：找不到就落进"扁平 zip"兜底，把 update_dir 根
+#   （里面还放着刚下载的 zip 与 .sha256）当成包根；替换脚本的源前置校验因此报
+#   `STAGE INVALID - no <exe> in stage; install untouched`。
+#   实测：reme-helper 1.2.16 → 1.2.17 托盘更新失败。失败**是安全的**（安装目录分毫
+#   未动），但更新永远装不上——而且只有"旧版 + 新 Release"同时存在时才会暴露。
+#   现按**内容**解析：扁平 exe，或"唯一一个直接含 exe 的顶层目录"；0 个/多个都抛
+#   RuntimeError（fail-closed，绝不把暂存根当包根）。目录名与版本号**不参与判据**。
+#   命名规则（本版确立）：安装目录、exe、zip 内层目录都不携带版本号；版本只进 exe 的
+#   PE 文件属性（FileVersion/ProductVersion）与发布资产名（下载 URL 需要）。发布脚本用
+#   `--version-file` 写元数据；发布工作流在发布前校验 zip 内层 == 稳定 `<APP_ID>/`。
 # 1.5.0：**吸收 reme 的两条失败可见性语义**（-①②）——
 #   ①`:giveup` 超时**写 FAILED marker**（此前只写日志：bat 在应用退出后运行，
 #   "只写日志"等于"用户永远不知道更新没发生"；日志随暂存目录被清扫，marker
@@ -497,13 +509,44 @@ def pop_failed_update_note(update_dir, log=lambda *a: None):
     return ("上次自动更新失败，已回退到原版本并保留现场；详见 update.log"
             + (f"（{detail}）" if detail else ""))
 
+def resolve_staged_dir(update_dir, exe_name=None):
+    """解压后确定"要铺的包根"（1.5.1 修复；纯函数，便于回归断言）。
+
+    判据**与目录名/版本号无关**（命名规则：目录与 exe 名都不携带版本号，版本只进
+    exe 的 PE 文件属性）：
+      1. 扁平 zip：exe 就在解压根目录；
+      2. 嵌套包：**恰好一个**顶层目录里直接含 exe——目录叫什么都行
+         （发布约定是稳定的 ``<APP_ID>/``，但不把名字当判据，避免"资产名 vs 解压
+         目录名"这类漂移再次变成更新故障）。
+
+    0 个含 exe 的顶层目录、或出现多个（歧义）都抛 ``RuntimeError``（**fail-closed**）：
+    绝不把暂存根（还放着 zip 与 ``.sha256``）当成包根——1.5.0 的故障正是"按名字猜 +
+    兜底"，兜底把暂存根当成了包根，替换脚本因此 ``STAGE INVALID``。
+    """
+    update_dir = Path(update_dir)
+    _exe = exe_name or EXE_NAME
+    if (update_dir / _exe).is_file():
+        return update_dir
+    candidates = [p for p in update_dir.iterdir() if p.is_dir() and (p / _exe).is_file()]
+    if len(candidates) == 1:
+        return candidates[0]
+    raise RuntimeError(
+        "staged exe missing after extract: %s not found under %s as a flat file "
+        "or inside exactly one top-level folder (found %d candidate folder(s))"
+        % (_exe, update_dir, len(candidates))
+    )
+
+
 def download_and_prepare(latest, target_dir, update_dir, log=lambda *a: None,
                          backup_dir=None, snapshot_dir=None, repo=None, exe_name=None):
     """下载 zip（sha256 校验）→ 解包暂存 → 生成退出时执行的一次性替换脚本。
 
     签名与 1.0.x 一致（`backup_dir` / `snapshot_dir` 是新增可选参数，默认 `update_dir`
-    同级 `_backup` / `_backup.pre`，必须在 target **之外**——见脚本内注释）。zip 打包约定
-    （release.yml）：压缩包里带一层 <APP_ID>-<版本>/ 目录。
+    同级 `_backup` / `_backup.pre`，必须在 target **之外**——见脚本内注释）。
+    **包根（1.5.1）**：解压到 `<update_dir>/package/` 后按**内容**选包根——扁平 exe，
+    或恰好一个含 exe 的顶层目录；否则抛错（fail-closed）。版本号不参与路径。
+    （1.5.0 把资产名当解压目录名，导致 reme 1.2.16→1.2.17 的更新在源校验处
+    `STAGE INVALID`——安装目录未动，但更新装不上。）
     """
     update_dir = Path(update_dir)
     base = f"https://github.com/{repo or REPO}/releases/download/v{latest}"
@@ -522,21 +565,25 @@ def download_and_prepare(latest, target_dir, update_dir, log=lambda *a: None,
     if not ok:
         raise RuntimeError(detail)
     log("sha256 ok")
+    # 解压到固定子目录：暂存根里还放着 zip 与 .sha256，若把暂存根当包根（扁平 zip 的
+    # 自然结果），替换脚本会把这两个下载物一起铺进安装目录。固定 `<update_dir>/package/`
+    # 后，包根解析永远只看见包内容，扁平/嵌套两种布局都干净。
+    package_dir = update_dir / "package"
+    package_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(str(zip_path)) as z:
-        names = z.namelist()
-        z.extractall(str(update_dir))
-    staged = update_dir / stem
-    _exe = exe_name or EXE_NAME       # update_helper/#32：同 build_apply_script 的替身口子
-    if not (staged / _exe).is_file():
-        if any(n == _exe or n.endswith("/" + _exe) for n in names):
-            staged = update_dir  # 兜底：扁平 zip
-        else:
-            raise RuntimeError("staged exe missing after extract")
+        z.extractall(str(package_dir))
+    # 1.5.1：包根必须按**解压后的真实内容**判断（名称/版本号都不作判据）。1.5.0 把
+    # 资产名（带 -windows-x64）当解压目录名，找不到就落"扁平 zip"兜底、把 update_dir
+    # 根（含 zip/sha256）当包根——替换脚本的源前置校验因此 STAGE INVALID
+    # （实测；安装目录未动，失败安全）。
+    staged = resolve_staged_dir(package_dir, exe_name=exe_name)
     if backup_dir is None:
         backup_dir = update_dir.parent / "_backup"
     log_path = update_dir.parent / "update.log"
+    # exe_name 必须一路透传到渲染层：OTA 本地测试用 probe.vbs 当替身，渲染层若无视
+    # 它就会去等待/启动真 exe（测试环境没有，白等 120 拍）。
     text = build_apply_script(target_dir, staged, update_dir, backup_dir, log_path,
-                              snapshot_dir=snapshot_dir)
+                              snapshot_dir=snapshot_dir, exe_name=exe_name)
     # 脚本放 %TEMP%：不能放 STAGE 内（收尾删 STAGE 会锁住正在执行的它）
     script = Path(tempfile.gettempdir()) / f"{APP_ID}-update.bat"
     try:

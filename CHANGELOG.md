@@ -2,6 +2,33 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-26 (update_helper 1.5.1：包根按内容解析 + 命名规则：路径不带版本)
+
+- **缺陷（1.5.0 起，实测由 reme-helper 1.2.16→1.2.17 暴露）**：`download_and_prepare()`
+  解压后把**发布资产名**（`<APP_ID>-<版本>-windows-x64`）当成解压后目录名，而 zip 内层
+  目录是 `<APP_ID>-<版本>`；`staged` 找不到就落进"扁平 zip"兜底——兜底条件
+  `any(n == exe or n.endswith("/" + exe))` 对任何嵌套包都成立 ⇒ **包根被误判成
+  `update_dir` 根**（那里还放着刚下载的 zip 与 `.sha256`）。替换脚本的源前置校验因此报
+  `STAGE INVALID - no <exe> in stage; install untouched`：失败是安全的（安装目录分毫
+  未动），但**更新永远装不上**，而且只在"旧版 + 新 Release"同时存在时才暴露。
+- **修法（1.5.1）**：新增 `resolve_staged_dir(update_dir, exe_name=None)`，按**内容**解析
+  包根——扁平 exe，或"恰好一个直接含 exe 的顶层目录"；目录名/版本号不参与判据，0 个或
+  多于 1 个候选即抛 `RuntimeError`（fail-closed）。zip 固定解压到 `<update_dir>/package/`，
+  与暂存根里的 zip/`.sha256` 隔离（扁平包不会把下载物铺进安装目录）。
+  `download_and_prepare()` 同时开始把 `exe_name=` 透传给渲染层（否则替身 OTA 测试会被
+  渲染成真实 exe 名）。
+- **命名规则（用户 2026-10-26 定）**：安装目录、exe 文件名、zip 内层目录**都不携带版本
+  号**；版本只进两处——exe 的 PE 文件属性（FileVersion/ProductVersion）与发布资产名
+  （下载 URL 需要）。发布脚本用新增的 `build_release/version_file.py` 生成
+  `--version-file`；发布工作流加 **OTA 布局门禁**，发布前断言 zip 内层 == 稳定
+  `<APP_ID>/` 且 exe 的 PE FileVersion == 版本号。
+- **新增模板自带的本地 OTA 验收**：`ota_test/run_local_ota_test.py` —— 包根解析（稳定/
+  任意单一目录/扁平/歧义/缺 exe）+ 真 `download_and_prepare()` + 真渲染 bat 的完整替换链
+  （快照、铺设、重启、备份轮转、收尾），无网络、无真应用、无可见窗口；工具仓直接调用。
+- **规范落地**：`docs/公共规范.md` §7.1 新增「命名与版本元数据（强制）」、§8 与附录 A
+  增加 OTA 本地验收/PE 版本/稳定目录门禁；`docs/工具类型/托盘工具.md` §5/§7 同步；
+  `build_release/README.md` 记录 `--version-file` 在 `--specpath` 下必须用绝对路径的坑。
+
 ## 2026-10-25 (目录命名统一：doc → docs)
 
 - 文档目录统一采用 `docs/`（含 `docs/en/`、`docs/zh/`）；构建、运行时读取和发布复制按新目录名处理。历史条目中的 `doc/` 保留为当时记录。

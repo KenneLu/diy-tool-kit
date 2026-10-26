@@ -55,6 +55,12 @@ if not defined VERSION (
 set RELEASE_DIR=release\%APPNAME%-%VERSION%
 set FROZEN_EXE=%RELEASE_DIR%\%APPNAME%.exe
 echo [VERSION] %VERSION%  release: %RELEASE_DIR%
+rem 0.1b naming rule: the version goes into the exe's PE metadata, NEVER into the
+rem exe / folder names - those are stable paths for shortcuts, autostart and the
+rem updater. The versioned RELEASE_DIR above is an internal build artifact only.
+rem ABSOLUTE path on purpose: with --specpath, PyInstaller resolves relative
+rem --version-file / --add-data paths against the spec dir, not the repo root.
+set VERSION_INFO=%CD%\build\version_info.txt
 
 rem ---------------------------------------------------------------------------
 rem 0.2 target dir (RELAXED 2026-09-19, exe-delete-guard): existence is INFO, not a refusal.
@@ -169,9 +175,19 @@ if exist src\icons.py (
   )
 )
 
+echo [BUILD] 3.2a version metadata (PE FileVersion/ProductVersion) ...
+if not exist build mkdir build
+%PY% src\template\build_release\version_file.py "%VERSION_INFO%" %VERSION% %APPNAME% <COMPANY>
+if errorlevel 1 (
+  echo [ERROR] version metadata generation failed.
+  if not defined NOPAUSE pause
+  exit /b 1
+)
+
 echo [BUILD] 3.2 PyInstaller onedir noconsole ...
 %PY% -m PyInstaller --noconfirm --clean --onedir --noconsole ^
   --name %APPNAME% ^
+  --version-file "%VERSION_INFO%" ^
   --distpath build\dist_tmp ^
   --workpath build\work ^
   --specpath build ^
