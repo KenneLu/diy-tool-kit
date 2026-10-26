@@ -2,6 +2,25 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-26 (update_ui 1.0.0：统一更新交互｜update_helper 1.5.2：下载进度回调)
+
+- **新增公共模块 `update_ui` 1.0.0**（用户裁定，2026-10-26）：四个工具的「下载并更新」
+  原本各自弹气泡/甚至无反馈（点了像没反应）。统一为**唯一实现 + 唯一文案**：
+  1. 点击下载立即弹窗「正在下载更新…」+ 进度条；
+  2. 下载中实时刷新百分比 / 已下载 / 总大小（有 `Content-Length` 时确定进度）；
+  3. 下载完成弹窗刷新为「更新已下载完成」，进度条满格；
+  4. 出现「立即更新 / 稍后更新」两个按钮；
+  5. 明确说明**更新需要退出本软件后才能应用**；立即更新=退出并拉起替换脚本，
+     稍后更新=保留 pending，下次退出自动执行。
+  模块自带 zh/en 文案表、`format_progress()` 纯函数与 `demo.py`（本地视觉验收，
+  截「下载中/已完成」两态后自动关窗；CI 不跑，避免窗口副作用）；弹窗标题栏图标由
+  调用方传入各工具自己的 `.ico`/`.png`（`icon=`，2026-10-26 用户裁定）。
+- **`update_helper` 1.5.2**：`download_and_prepare(..., progress=None)` 与
+  `_download(..., progress=None)` 支持下载进度回调（`progress(done, total)`，
+  total 可能为 0；回调异常不影响下载）。
+- 规范：`docs/工具类型/托盘工具.md` 增加「更新交互统一走 `update_ui`，禁止各工具
+  自定义气泡/无反馈」；模块索引加入 `update_ui`。
+
 ## 2026-10-26 (update_helper 1.5.1：包根按内容解析 + 命名规则：路径不带版本)
 
 - **缺陷（1.5.0 起，实测由 reme-helper 1.2.16→1.2.17 暴露）**：`download_and_prepare()`

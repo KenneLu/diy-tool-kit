@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.5.1
+# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.5.2
+# 1.5.2（2026-10-26）：`download_and_prepare(..., progress=None)` 支持下载进度回调
+#   `progress(done, total)`（total 可能为 0）；回调异常不影响下载。给统一的
+#   `update_ui` 进度弹窗供数。
 # 1.5.1（2026-10-26）：**暂存根按 zip 实际顶层目录解析**（"暂存根"= 解压后要铺的那一包的根）。
 #   旧实现把"发布资产名"（`<APP_ID>-<版本>-windows-x64`）当成"解压后目录名"，而 zip
 #   内层目录其实是 `<APP_ID>-<版本>`：找不到就落进"扁平 zip"兜底，把 update_dir 根
@@ -414,15 +417,27 @@ def check_update(current_version, force=False, repo=None):
         return {"latest": "", "current": current_version, "newer": False,
                 "error": str(exc) + http_error_hint(exc)}
 
-def _download(url, dest, timeout=120.0):
+def _download(url, dest, timeout=120.0, progress=None):
+    """流式下载到 dest。`progress(done, total)` 可选（total 可能为 0）；回调异常绝不影响下载。"""
     req = urllib.request.Request(url, headers={"User-Agent": APP_ID})
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     with urllib.request.urlopen(req, timeout=timeout) as resp, open(dest, "wb") as f:
+        try:
+            total = int(resp.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            total = 0
+        done = 0
         while True:
             chunk = resp.read(1 << 16)
             if not chunk:
                 break
             f.write(chunk)
+            done += len(chunk)
+            if progress is not None:
+                try:
+                    progress(done, total)
+                except Exception:
+                    pass   # 进度条坏了也不能弄死下载
 
 def _sha256(path):
     h = hashlib.sha256()
@@ -538,11 +553,14 @@ def resolve_staged_dir(update_dir, exe_name=None):
 
 
 def download_and_prepare(latest, target_dir, update_dir, log=lambda *a: None,
-                         backup_dir=None, snapshot_dir=None, repo=None, exe_name=None):
+                         backup_dir=None, snapshot_dir=None, repo=None, exe_name=None,
+                         progress=None):
     """下载 zip（sha256 校验）→ 解包暂存 → 生成退出时执行的一次性替换脚本。
 
     签名与 1.0.x 一致（`backup_dir` / `snapshot_dir` 是新增可选参数，默认 `update_dir`
     同级 `_backup` / `_backup.pre`，必须在 target **之外**——见脚本内注释）。
+    **`progress=`（1.5.2）**：下载 zip 时的进度回调 `progress(done, total)`；total 可能为 0
+    （服务端没给 Content-Length）。回调异常不会影响下载。
     **包根（1.5.1）**：解压到 `<update_dir>/package/` 后按**内容**选包根——扁平 exe，
     或恰好一个含 exe 的顶层目录；否则抛错（fail-closed）。版本号不参与路径。
     （1.5.0 把资产名当解压目录名，导致 reme 1.2.16→1.2.17 的更新在源校验处
@@ -553,7 +571,7 @@ def download_and_prepare(latest, target_dir, update_dir, log=lambda *a: None,
     stem = f"{APP_ID}-{latest}-windows-x64"
     zip_path = update_dir / (stem + ".zip")
     log("downloading", stem)
-    _download(f"{base}/{stem}.zip", str(zip_path))
+    _download(f"{base}/{stem}.zip", str(zip_path), progress=progress)
     sha_path = str(zip_path) + ".sha256"
     try:
         _download(f"{base}/{stem}.zip.sha256", sha_path)

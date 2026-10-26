@@ -36,7 +36,7 @@
 | 函数/全局 | 说明 |
 |---|---|
 | `check_update(current_version, force=False, repo=None)` | 返回 `dict(latest, current, newer, error)`；失败写 `error` 不抛（带配额人话）。**成功时顺带更新 `UPDATE_READY`**（1.1.0 起）。**`repo=`（1.4.5）**：覆盖更新源，缺省走 appconfig 的 `REPO`——给"更新源运行时可配"的工具（l-s2t 的 `config.json:update_repo`）留的接口，**不得静默丢掉** |
-| `download_and_prepare(latest, target_dir, update_dir, log=…, backup_dir=None, snapshot_dir=None, repo=None, exe_name=None)` | 下载+校验+暂存+生成替换脚本；成功返回脚本路径并置 `PENDING_CMD`。sha256 不匹配**或缺失**即抛 `RuntimeError`。**`repo=` / `exe_name=`（1.4.5）**：`repo=` 同 `check_update`；`exe_name=` 是**测试替身口子**（缺省走 `EXE_NAME`，1.5.1 起透传到渲染层）。**包根（1.5.1）**：按内容解析，见上节 |
+| `download_and_prepare(latest, target_dir, update_dir, log=…, backup_dir=None, snapshot_dir=None, repo=None, exe_name=None, progress=None)` | 下载+校验+暂存+生成替换脚本；成功返回脚本路径并置 `PENDING_CMD`。sha256 不匹配**或缺失**即抛 `RuntimeError`。**`repo=` / `exe_name=`（1.4.5）**：`repo=` 同 `check_update`；`exe_name=` 是**测试替身口子**（缺省走 `EXE_NAME`，1.5.1 起透传到渲染层）。**`progress=`（1.5.2）**：下载进度回调 `progress(done, total)`（total 可能为 0；回调异常不影响下载）。**包根（1.5.1）**：按内容解析，见上节 |
 | `resolve_staged_dir(update_dir, exe_name=None)` | 解压后选包根的纯函数（1.5.1）：扁平 exe，或恰好一个含 exe 的顶层目录；否则抛错 |
 | **`update_ready()`** | 有新版时的版本号，否则 `None`（**推荐读法**，1.1.0）。"下载并更新"菜单可用性据此判断 |
 | **`pending_cmd()`** | 已就绪的脚本路径，否则 `None`（**推荐读法**，1.1.0）。托盘退出后由此拉起 |

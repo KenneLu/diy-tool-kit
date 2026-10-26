@@ -45,7 +45,7 @@ VERSION = "1.0.0"
 
 ## 仓库内容
 
-- **代码**：12 个公共模块（位于仓库根）+ 2 个模板自有件（[baseline](baseline/README.md) 仓库基线规范、
+- **代码**：13 个公共模块（位于仓库根）+ 2 个模板自有件（[baseline](baseline/README.md) 仓库基线规范、
   [build_release](build_release/README.md) 构建脚手架，内含 `version_file.py` 版本元数据写入器）+ 各模块 README。
 - **验收**：[ota_test/](ota_test/README.md) —— 模板自带的本地 OTA 验收测试（无网络/无真应用）；
   工具仓构建与 CI 直接调用。
@@ -60,6 +60,7 @@ VERSION = "1.0.0"
 | [paths](paths/README.md) | 数据区 / 播种 / 稳定位 / 数据根重定向 |
 | [autostart](autostart/README.md) | 自启三件套（Run 键名参数化） |
 | [update_helper](update_helper/README.md) | 在线更新三段式（查→下→换，含 marker 语义；包根按内容解析、路径不带版本号） |
+| [update_ui](update_ui/README.md) | 统一更新交互（下载进度弹窗 → 完成 → 立即更新 / 稍后更新） |
 | [mcp_kit](mcp_kit/README.md) | 模型上下文协议服务公共层（协议循环 + 生成器 + 薄适配） |
 | [i18n](i18n/README.md) | 轻量中英双表 |
 | [icons](icons/README.md) | 代码生成双 ico |

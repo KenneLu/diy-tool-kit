@@ -136,13 +136,18 @@ def full_chain_case(root: Path, app_id: str, exe_name: str) -> None:
 
     saved_download = uh._download
     saved_tempfile = uh.tempfile
+    progress_calls = []
     try:
-        def fake_download(url, dest, timeout=120.0):
+        def fake_download(url, dest, timeout=120.0, progress=None):
             dest = Path(dest)
             # 真 _download 会自建父目录；替身必须同形，否则会在"暂存根还不存在"时炸。
             dest.parent.mkdir(parents=True, exist_ok=True)
             if dest.name.endswith(".zip"):
                 dest.write_bytes(raw)
+                if progress is not None:   # 1.5.2：进度回调必须真的被调用
+                    progress(len(raw) // 2, len(raw))
+                    progress(len(raw), len(raw))
+                    progress_calls.extend([len(raw) // 2, len(raw)])
             elif dest.name.endswith(".zip.sha256"):
                 dest.write_text(digest + "  pkg.zip\n", encoding="utf-8")
             else:
@@ -151,7 +156,9 @@ def full_chain_case(root: Path, app_id: str, exe_name: str) -> None:
         uh._download = fake_download
         uh.tempfile = types.SimpleNamespace(gettempdir=lambda: str(tmpdir))
         uh.download_and_prepare("9.9.9", str(install), str(staging), log=lambda *a: None,
-                                repo="example/ota", exe_name=exe_name)
+                                repo="example/ota", exe_name=exe_name, progress=lambda *a: None)
+        check("download progress callback delivered (1.5.2)",
+              len(progress_calls) == 2 and progress_calls[-1] == len(raw), str(progress_calls))
         pending = uh.pending_cmd()
         check("replace script generated", bool(pending) and Path(pending).is_file(),
               str(pending))
@@ -200,7 +207,7 @@ def missing_exe_chain_case(root: Path) -> None:
     saved_download = uh._download
     saved_tempfile = uh.tempfile
     try:
-        def fake_download(url, dest, timeout=120.0):
+        def fake_download(url, dest, timeout=120.0, progress=None):
             dest = Path(dest)
             dest.parent.mkdir(parents=True, exist_ok=True)
             if dest.name.endswith(".zip"):
@@ -226,16 +233,63 @@ def missing_exe_chain_case(root: Path) -> None:
         uh._PUBLISHED["pending_cmd"] = None
 
 
+def update_ui_checks() -> None:
+    """统一更新交互的**无窗口**静态断言（弹窗行为本身用 --ui-demo 肉眼验收）。"""
+    print("[4/4] update_ui static checks (no window)", flush=True)
+    try:
+        from template.update_ui import update_ui as uu
+    except Exception as exc:  # noqa: BLE001
+        check("update_ui importable", False, "%s: %s" % (type(exc).__name__, exc))
+        return
+    check("update_ui importable", True)
+    check("zh/en key parity", set(uu.STRINGS["zh"]) == set(uu.STRINGS["en"]),
+          sorted(set(uu.STRINGS["zh"]) ^ set(uu.STRINGS["en"])))
+    zh = uu.format_progress(50, 100, "zh")
+    en = uu.format_progress(50, 100, "en")
+    check("zh progress contains 50%", "50%" in zh, zh)
+    check("en progress contains 50%", "50%" in en, en)
+    unknown = uu.format_progress(1234567, 0, "zh")
+    check("unknown total still shows downloaded bytes", "1.2 MB" in unknown, unknown)
+    for key in ("downloaded", "hint", "apply", "later", "error"):
+        check("both languages have %r" % key,
+              bool(uu.STRINGS["zh"].get(key)) and bool(uu.STRINGS["en"].get(key)))
+    check("hint states the exit requirement",
+          "退出" in uu.STRINGS["zh"]["hint"] and "quit" in uu.STRINGS["en"]["hint"].lower(),
+          uu.STRINGS["en"]["hint"][:60])
+
+
+def ui_demo(app_id: str) -> None:
+    """可选：打开真实更新弹窗（本地视觉验收；CI 不要开）。"""
+    try:
+        from template.update_ui import update_ui as uu
+    except Exception as exc:  # noqa: BLE001
+        print("[demo] update_ui unavailable: %s" % exc, flush=True)
+        return
+
+    def fake_download(progress, total=17_519_328, steps=40, delay=0.05):
+        for step in range(1, steps + 1):
+            progress(int(total * step / steps), total)
+            time.sleep(delay)
+        time.sleep(0.5)
+
+    print("[demo] opening the real update dialog (visual acceptance) ...", flush=True)
+    decision = uu.run_download_dialog(fake_download, lang="zh", app_name=app_id, log=print)
+    print("[demo] user decision: %r" % (decision,), flush=True)
+
+
 def main(argv: list[str]) -> int:
     if os.name != "nt":
         print("OTA LOCAL TEST SKIPPED (Windows-only replacement chain)", flush=True)
         return 0
     app_id = "ota-probe"
+    ui_demo_requested = False
     args = list(argv[1:])
     while args:
         arg = args.pop(0)
         if arg == "--app-id" and args:
             app_id = args.pop(0)
+        elif arg == "--ui-demo":
+            ui_demo_requested = True
         else:
             print("OTA LOCAL TEST FAILED: unknown argument %r" % arg, flush=True)
             return 2
@@ -249,6 +303,9 @@ def main(argv: list[str]) -> int:
         missing_exe_chain_case(root / "negative")
     finally:
         shutil.rmtree(root, ignore_errors=True)
+    update_ui_checks()
+    if ui_demo_requested:
+        ui_demo(app_id)
     print("OTA LOCAL TEST " + ("FAILED: " + ",".join(FAILS) if FAILS else "OK"), flush=True)
     return 1 if FAILS else 0
 
