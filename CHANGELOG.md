@@ -2,6 +2,15 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-26 (update_ui 1.0.2：失败态专用 UI + 长文本不再截断｜apply-bat 注释全 ASCII)
+
+- 失败态：状态行改为可换行，错误详情进独立可换行区域；新增「下载更新失败」标题、
+  网络/日志引导文案与「重试 / 关闭」按钮（重试会重新走下载，不用关窗重进）。
+- 长文本：状态行 `wraplength=470`；完成/失败后按 `winfo_reqheight` 自动增高窗口（560px 宽），
+  不再被右缘截断。
+- `update_helper`：apply-bat 内注释全部改 ASCII（l-s2t 的 bat 测试按 ascii 落盘，中文注释会
+  UnicodeEncodeError；cmd 用 OEM codepage 时中文注释也不安全）。
+
 ## 2026-10-26 (update_ui 1.0.1：Toplevel 模态支持，供设置页内嵌弹窗)
 
 - `run_download_dialog(parent=...)` 支持传入 Toplevel：改用 `wait_window` 跑嵌套事件循环

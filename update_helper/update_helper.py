@@ -216,9 +216,10 @@ echo [{stamp}] start target=%TARGET% backup=%BACKUP% >> "%LOG%"
 set "POLL=%LOG%.poll"
 set /a tries=0
 :wait
-rem NO PIPE HERE, on purpose: 等待循环用 tasklist 写文件 + find 读文件；不用管道
-rem（历史坑：曾以 DETACHED_PROCESS 无 console 起，管道形态 find 永久阻塞；1.5.3 虽改回
-rem CREATE_NO_WINDOW，但文件写法更稳，保留）。
+rem NO PIPE HERE, on purpose: the wait loop lets tasklist write a file and find
+rem reads that file. (Historical: with DETACHED_PROCESS and no console the pipe
+rem form blocked forever; 1.5.3 is back to CREATE_NO_WINDOW, but the file form
+rem is kept because it is strictly more robust.)
 rem
 rem %SystemRoot%\System32 ON EVERY EXTERNAL COMMAND BELOW - never the bare name.
 rem PATH is not ours to assume. Measured on one machine: `where find` ->
@@ -241,8 +242,8 @@ rem timeout = 9.0s (measured), so a nominal 120s budget really took ~18 minutes
 rem while the log still said "120s". Start-Sleep is ICMP-free; it does pay a
 rem PowerShell startup (~0.3s here, measured 1.29s per 1000ms tick), which is why
 rem the timeout line below reports a lower bound instead of a precise total.
-rem Spawned from a CREATE_NO_WINDOW bat（隐藏 console，子进程继承它）：tasklist/find/
-rem robocopy/powershell 全程无窗口。
+rem Spawned from a CREATE_NO_WINDOW bat (hidden console inherited by children):
+rem tasklist/find/robocopy/powershell all stay windowless.
 rem Absolute path for the same reason as the two lines above: never trust PATH.
 %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command "Start-Sleep -Milliseconds {tick_ms}" >nul 2>nul
 goto wait

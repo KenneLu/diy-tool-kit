@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_ui | TEMPLATE-VER: 1.0.1
+# TEMPLATE-MODULE: update_ui | TEMPLATE-VER: 1.0.2
 """update_ui｜统一更新交互：下载进度弹窗 → 下载完成 → 立即更新 / 稍后更新。
 
 为什么在模板：四个工具的「下载并更新」原本各自弹气泡/甚至没有反馈（点了像没反应）。
@@ -46,7 +46,10 @@ STRINGS = {
         "apply": "立即更新",
         "later": "稍后更新",
         "close": "关闭",
+        "error_title": "下载更新失败",
         "error": "下载更新失败：{detail}",
+        "error_hint": "请检查网络连接后重试；若多次失败，可在托盘菜单打开日志目录查看 update.log。",
+        "retry": "重试",
         "wait": "下载中，请稍候…",
     },
     "en": {
@@ -66,7 +69,10 @@ STRINGS = {
         "apply": "Apply now",
         "later": "Later",
         "close": "Close",
+        "error_title": "Update download failed",
         "error": "Update download failed: {detail}",
+        "error_hint": "Check your network connection and try again. If it keeps failing, open the log folder from the tray menu and check update.log.",
+        "retry": "Retry",
         "wait": "Downloading, please wait…",
     },
 }
@@ -161,8 +167,8 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
     pct_var = tk.StringVar(value="")
     detail_var = tk.StringVar(value=table["download_hint"])
 
-    ttk.Label(frame, textvariable=status_var, font=("Microsoft YaHei UI", 11, "bold")).pack(
-        anchor="w")
+    ttk.Label(frame, textvariable=status_var, font=("Microsoft YaHei UI", 11, "bold"),
+              wraplength=470, justify="left").pack(anchor="w")
     bar = ttk.Progressbar(frame, mode="indeterminate", length=470)
     bar.pack(fill="x", pady=(10, 4))
     bar.start(12)
@@ -175,6 +181,7 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
     btn_apply = ttk.Button(buttons, text=table["apply"])
     btn_later = ttk.Button(buttons, text=table["later"])
     btn_close = ttk.Button(buttons, text=table["close"])
+    btn_retry = ttk.Button(buttons, text=table["retry"])
 
     state = {"phase": "downloading", "decision": None, "determinate": False,
              "shot_running": False, "shot_done": False}
@@ -199,6 +206,14 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
 
     def show_close_button():
         btn_close.pack(side="left")
+
+    def show_error_buttons():
+        btn_retry.pack(side="left")
+        btn_close.pack(side="left", padx=(10, 0))
+
+    def refit():
+        root.update_idletasks()
+        root.geometry("%dx%d" % (560, max(250, root.winfo_reqheight() + 20)))
 
     def on_close():
         if state["phase"] == "downloading":
@@ -240,6 +255,7 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
                     pct_var.set(table["progress_done"])
                     detail_var.set(table["hint"])
                     show_done_buttons()
+                    refit()
                     if shots is not None and not state["shot_done"]:
                         state["shot_done"] = True
                         root.after(200, lambda: _grab(root, shots, "02-downloaded.png", log))
@@ -249,9 +265,11 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
                     bar.stop()
                     bar.configure(mode="determinate", maximum=100)
                     bar["value"] = 0
-                    status_var.set(table["error"].format(detail=payload))
-                    pct_var.set("")
-                    show_close_button()
+                    status_var.set(table["error_title"])
+                    pct_var.set(table["error"].format(detail=payload))
+                    detail_var.set(table["error_hint"])
+                    show_error_buttons()
+                    refit()
         except queue.Empty:
             pass
         root.after(80, poll)
@@ -271,7 +289,24 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
         root.grab_set()
     except tk.TclError:
         pass
-    threading.Thread(target=worker, name="update-download", daemon=True).start()
+    def start_download():
+        state["phase"] = "downloading"
+        state["determinate"] = False
+        bar.stop()
+        bar.configure(mode="indeterminate", maximum=100)
+        bar["value"] = 0
+        bar.start(12)
+        status_var.set(table["downloading"])
+        pct_var.set("")
+        detail_var.set(table["download_hint"])
+        btn_apply.pack_forget()
+        btn_later.pack_forget()
+        btn_close.pack_forget()
+        btn_retry.pack_forget()
+        threading.Thread(target=worker, name="update-download", daemon=True).start()
+
+    btn_retry.configure(command=start_download)
+    start_download()
     root.after(80, poll)
     if parent is None:
         root.mainloop()
