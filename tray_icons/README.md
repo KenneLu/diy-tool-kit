@@ -14,6 +14,19 @@ tray_icons.bind(icon, "default")
 tray_icons.set_state("running")   # 去重；同状态重复调用零闪动
 ```
 
+### 初态必须来自当前业务状态（1.8.8 教训，强制）
+
+`bind()` 的 `initial_state` **不得硬编码默认图**：它必须按“此刻已经解析出来的业务
+状态”计算（例如 `running if phase == "running" else "stopped"`）。
+
+为什么：典型启动顺序是“先刷新一次状态 → 再建托盘”。如果刷新时已经接管了一个正在
+运行的服务（phase=running），那次刷新往往已经把新签名记进 `MenuSignature`；托盘建好
+后状态不再变化 ⇒ 重建不会被触发 ⇒ 图标永久停在初态。硬编码 `stopped` 就会得到
+“菜单显示运行中、图标却是灰的”这种自相矛盾的界面（dsh-helper 1.8.5–1.8.7 实测）。
+
+判据：`tray_icons.get(bind 时传入的 state)` 渲染出的图，必须与同一时刻菜单首行显示的
+状态一致。消费方测试应直接断言“初态函数”在 running/stopped 下的返回值。
+
 ## API
 
 | 函数 | 语义 |
