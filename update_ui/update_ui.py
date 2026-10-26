@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_ui | TEMPLATE-VER: 1.0.2
+# TEMPLATE-MODULE: update_ui | TEMPLATE-VER: 1.1.0
 """update_ui｜统一更新交互：下载进度弹窗 → 下载完成 → 立即更新 / 稍后更新。
 
 为什么在模板：四个工具的「下载并更新」原本各自弹气泡/甚至没有反馈（点了像没反应）。
@@ -24,6 +24,7 @@ CI/门禁不要传：测试不得产生真实窗口副作用。
 """
 import queue
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
@@ -76,6 +77,65 @@ STRINGS = {
         "wait": "Downloading, please wait…",
     },
 }
+
+
+CHECK_STRINGS = {
+    "zh": {
+        "checking": "正在检查更新…",
+        "latest": "已是最新版本（{version}）",
+        "newer": "发现新版本 {latest}（当前 {version}），右键菜单可下载更新",
+        "failed": "检查更新失败：{error}",
+    },
+    "en": {
+        "checking": "Checking for updates…",
+        "latest": "Already on the latest version ({version})",
+        "newer": "New version {latest} available (current {version}); download it from the right-click menu",
+        "failed": "Update check failed: {error}",
+    },
+}
+
+
+def run_check_flow(check, notify, version, *, lang="zh", delay=1.0, on_result=None, log=print):
+    """统一「检查更新」消息流程（模板正本 1.1.0，四工具同一套）。
+
+    点击检查后**立即**发一条「正在检查更新…」消息，等 ``delay`` 秒（默认 1s，避免
+    两条消息贴太快看不清）再真正调用 ``check()``，然后按结果再发一条消息：
+    已是最新 / 发现新版本 / 检查失败。整个过程在后台线程执行，工具只提供 ``notify(message)``
+    与 ``check() -> {"newer","latest","error"}``（以及可选 ``on_result`` 用于刷新菜单状态）。
+
+    为什么放在模板：检查更新的**交互形态**（消息、节奏、文案）必须四个工具一致；
+    查询本身仍在 ``update_helper.check_update``，下载/替换在 update_helper，弹窗在
+    ``run_download_dialog``——本函数只负责“检查这一段的消息编排”。
+    """
+    strings = CHECK_STRINGS.get(lang) or CHECK_STRINGS["zh"]
+
+    def worker():
+        try:
+            notify(strings["checking"])
+        except Exception as exc:  # noqa: BLE001
+            log("update check notify failed:", exc)
+        time.sleep(max(0.0, float(delay)))
+        try:
+            result = check() or {}
+        except Exception as exc:  # noqa: BLE001
+            result = {"newer": False, "latest": "", "error": str(exc)}
+        if result.get("error"):
+            message = strings["failed"].format(error=result["error"])
+        elif result.get("newer"):
+            message = strings["newer"].format(latest=result.get("latest", ""), version=version)
+        else:
+            message = strings["latest"].format(version=version)
+        try:
+            notify(message)
+        except Exception as exc:  # noqa: BLE001
+            log("update check notify failed:", exc)
+        if on_result is not None:
+            try:
+                on_result(result)
+            except Exception as exc:  # noqa: BLE001
+                log("update check on_result failed:", exc)
+
+    threading.Thread(target=worker, name="update-check", daemon=True).start()
 
 
 def _mb(num):

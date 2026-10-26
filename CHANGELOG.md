@@ -2,6 +2,14 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-26 (update_ui 1.1.0：检查更新统一消息流程)
+
+- 新增 `update_ui.run_check_flow(check, notify, version, lang=…, delay=1.0, on_result=…)`：
+  点击「检查更新」立即发「正在检查更新…」消息 → 1 秒后真正查询 → 按结果再发
+  「已是最新 / 发现新版本 / 检查失败」消息；后台线程执行，工具只提供 `notify` 与 `check()`。
+  四个工具统一走这条流程（检查=消息，下载=弹窗，职责分开）。
+- 修 reme 检查结果弹窗标题被截断（"R."）的问题：该弹窗随本轮统一移除。
+
 ## 2026-10-26 (update_ui 1.0.2：失败态专用 UI + 长文本不再截断｜apply-bat 注释全 ASCII)
 
 - 失败态：状态行改为可换行，错误详情进独立可换行区域；新增「下载更新失败」标题、
