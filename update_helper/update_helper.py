@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.5.2
+# TEMPLATE-MODULE: update_helper | TEMPLATE-VER: 1.5.3
+# 1.5.3（2026-10-26）：替换链收尾两修（dsh-helper 1.8.9→1.8.10 实机暴露）：
+#   ① 等待到"进程已消失"后先静置 `UPDATE_SETTLE_MS` 再动安装目录（Windows 退出收尾仍短
+#      暂持有 exe 映像，robocopy 抢跑 ERROR 32 并默认 /W:30 干等 30 秒）；robocopy 改
+#      `/R:5 /W:1` 快速重试。② `launch_pending_cmd` 只用 `CREATE_NO_WINDOW`，不再叠
+#      `DETACHED_PROCESS`——DETACHED 会让子进程 robocopy 自建**可见** console（黑窗）。
 # 1.5.2（2026-10-26）：`download_and_prepare(..., progress=None)` 支持下载进度回调
 #   `progress(done, total)`（total 可能为 0）；回调异常不影响下载。给统一的
 #   `update_ui` 进度弹窗供数。
@@ -55,7 +60,8 @@
     的机器上实测 **9.0s/拍**（两次 4.5s 超时）
     ——名义 120s 的等待变成 ~18 分钟，而 `:giveup` 还打印 `after 120s`（**日志说谎**）。
     改成 `powershell -NoProfile -Command "Start-Sleep -Milliseconds {tick_ms}"`（ICMP-free；
-    DETACHED 进程无 console，子进程不弹窗），常量拆成 `UPDATE_WAIT_LIMIT`（**轮询次数**）×
+    DETACHED 进程无 console，子进程不弹窗（1.5.3 起改为 CREATE_NO_WINDOW 隐藏 console，
+同样无窗口且不会让 robocopy 自建可见 console）），常量拆成 `UPDATE_WAIT_LIMIT`（**轮询次数**）×
     `UPDATE_WAIT_TICK_MS`（每拍毫秒），超时行报告
     `%tries% polls x {tick_ms}ms (...) lower bound`——**不再打印没人量过的"秒"**。
   * **`pop_failed_update_note` 改成"先报告、最后删证据"**（no-delete-before-report）：旧顺序在 `unlink` 抛
@@ -81,7 +87,8 @@
     挡着，谁把 `import *` 加回来就又中招。现在：**唯一写入点**是 `_PUBLISHED` dict 的
     就地赋值，模块级**不存在**可被重绑的标量；`UPDATE_READY` / `PENDING_CMD` 由
     **PEP 562 `__getattr__` 派生**（读得到、永远是活值、无法被重新绑定）。
-  * **新增 `launch_pending_cmd()`**：以 `CREATE_NO_WINDOW | DETACHED_PROCESS` 拉起替换脚本
+  * **新增 `launch_pending_cmd()`**：以 `CREATE_NO_WINDOW` 拉起替换脚本（1.5.3 去掉
+  `DETACHED_PROCESS`，避免 robocopy 自建可见 console）
     （reme 形态，`main.py:7258-7260`）。此前"怎么拉起"留给消费方，工具就各写一遍
     `os.system('start "" /min ...')`——**bat 必须在主进程退出后继续跑**，且不该在用户桌面
     闪控制台；这段语义属于本模块。
@@ -145,6 +152,9 @@ CHECK_INTERVAL = 24 * 3600
 # 禁止 ping 当节拍已升级为机械判据 no-ping-as-sleep。
 UPDATE_WAIT_LIMIT = 120
 UPDATE_WAIT_TICK_MS = 1000
+# 1.5.3：等待循环报"进程已消失"后、真正动安装目录前，再静置这么久——Windows 退出收尾
+# 还会短暂持有 exe 映像，robocopy 抢跑会 ERROR 32 并以默认 /W:30 干等 30 秒。
+UPDATE_SETTLE_MS = 1500
 # 默认 limit 下的名义预算。**渲染器不得直接用它**（1.4.4 修复）：调用方可以传别的 limit，
 # 用了这个常量就会渲染出"2 polls x 1000ms (nominal budget 120s)"这种不可能的日志。
 # 渲染侧一律 `limit * UPDATE_WAIT_TICK_MS // 1000`，与 limit 同源。
@@ -206,10 +216,9 @@ echo [{stamp}] start target=%TARGET% backup=%BACKUP% >> "%LOG%"
 set "POLL=%LOG%.poll"
 set /a tries=0
 :wait
-rem NO PIPE HERE, on purpose: this script is spawned with DETACHED_PROCESS and has
-rem no console; in that context "tasklist | find" NEVER RETURNS (find blocks on
-rem stdin forever) and the update silently never happens. tasklist writes to a file
-rem and find reads that file instead. (reme-helper: measured 0.13s vs hang.)
+rem NO PIPE HERE, on purpose: 等待循环用 tasklist 写文件 + find 读文件；不用管道
+rem（历史坑：曾以 DETACHED_PROCESS 无 console 起，管道形态 find 永久阻塞；1.5.3 虽改回
+rem CREATE_NO_WINDOW，但文件写法更稳，保留）。
 rem
 rem %SystemRoot%\System32 ON EVERY EXTERNAL COMMAND BELOW - never the bare name.
 rem PATH is not ours to assume. Measured on one machine: `where find` ->
@@ -232,8 +241,8 @@ rem timeout = 9.0s (measured), so a nominal 120s budget really took ~18 minutes
 rem while the log still said "120s". Start-Sleep is ICMP-free; it does pay a
 rem PowerShell startup (~0.3s here, measured 1.29s per 1000ms tick), which is why
 rem the timeout line below reports a lower bound instead of a precise total.
-rem Spawned from a DETACHED_PROCESS bat, so the child has no console and no window
-rem appears (same reason `tasklist`/`find` in this file stay windowless).
+rem Spawned from a CREATE_NO_WINDOW bat（隐藏 console，子进程继承它）：tasklist/find/
+rem robocopy/powershell 全程无窗口。
 rem Absolute path for the same reason as the two lines above: never trust PATH.
 %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command "Start-Sleep -Milliseconds {tick_ms}" >nul 2>nul
 goto wait
@@ -244,13 +253,19 @@ rem or a manual cleanup can still take it): robocopy would then return 0-7 with 
 rem WIPE the install dir, and the "start" below would pop a modal error box for a missing
 rem exe - a dialog nobody can dismiss, so the bat hangs forever holding the lock.
 if not exist "%STAGE%\{exe}" goto stage_invalid
+rem 1.5.3: 进程从 tasklist 消失 != 映像句柄已释放。Windows 退出收尾还会短暂持有 exe，
+rem 此时 robocopy 会撞 ERROR 32 并默认 /W:30 干等 30 秒（dsh-helper 1.8.9->1.8.10 实测：
+rem Robocopy 黑窗等了 30s，更新最终成功但用户以为卡死）。先静置再复制，并把重试改成
+rem /R:5 /W:1：即使仍抢跑也只等 1 秒重试 5 次，不再出现 30 秒黑洞。
+%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command "Start-Sleep -Milliseconds {settle_ms}" >nul 2>nul
+echo [{stamp}] settled after wait - copying >> "%LOG%"
 rem Snapshot the CURRENT install first. The previous BACKUP is NOT deleted here: it is the
 rem rollback source and is only rotated AFTER a copy that succeeded.
 if exist "%SNAPSHOT%" rmdir /s /q "%SNAPSHOT%"
-%SystemRoot%\System32\Robocopy.exe "%TARGET%" "%SNAPSHOT%" /e /njh /njs /nfl /ndl >nul
+%SystemRoot%\System32\Robocopy.exe "%TARGET%" "%SNAPSHOT%" /e /njh /njs /nfl /ndl /R:5 /W:1 >nul
 echo [{stamp}] snapshot rc=%ERRORLEVEL% >> "%LOG%"
 rem /purge removes files the previous version left behind.
-%SystemRoot%\System32\Robocopy.exe "%STAGE%" "%TARGET%" /e /purge /njh /njs /nfl /ndl >> "%LOG%" 2>&1
+%SystemRoot%\System32\Robocopy.exe "%STAGE%" "%TARGET%" /e /purge /njh /njs /nfl /ndl /R:5 /W:1 >> "%LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
 echo [{stamp}] copied rc=%RC% >> "%LOG%"
 if %RC% geq 8 goto install_failed
@@ -275,7 +290,7 @@ rem robocopy: 0-7 = success, >=8 = failure. On failure NEVER start the new exe; 
 rem previous version from the snapshot so the tool comes back, and leave a marker for the app.
 > "%FAILED%" echo update failed {stamp}: install rc=%RC%
 echo [{stamp}] INSTALL FAILED rc=%RC% - restoring from snapshot >> "%LOG%"
-%SystemRoot%\System32\Robocopy.exe "%SNAPSHOT%" "%TARGET%" /e /purge /njh /njs /nfl /ndl >> "%LOG%" 2>&1
+%SystemRoot%\System32\Robocopy.exe "%SNAPSHOT%" "%TARGET%" /e /purge /njh /njs /nfl /ndl /R:5 /W:1 >> "%LOG%" 2>&1
 if errorlevel 8 goto install_dead
 rem rc<8 means "the restore did not error", NOT "the exe is now there" - the snapshot
 rem itself can be missing it. EVERY path that reaches a start must verify on its own:
@@ -346,16 +361,20 @@ def pending_cmd():
 def launch_pending_cmd(cmd=None, log=lambda *a: None):
     """在退出收尾处拉起替换脚本，返回是否已拉起。
 
-    必须**无控制台且脱离父进程**（`CREATE_NO_WINDOW | DETACHED_PROCESS`，reme 形态
-    `main.py:7258-7260`）：本进程马上就要退出，bat 要活到替换完成；而它若挂着一个控制台，
-    用户桌面会闪黑框。这段语义属于本模块——不要让每个工具各写一遍 `os.system('start ...')`。
+    必须**无控制台且脱离父进程**（`CREATE_NO_WINDOW`，1.5.3 起不再叠 DETACHED_PROCESS，
+    否则 robocopy 会自建可见 console）
 
     调用方看着 True 再退（同 reme 的"交出更新后必退"）。
     """
     cmd = cmd or _PUBLISHED["pending_cmd"]
     if not cmd or os.name != "nt":
         return False
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+    # 1.5.3：**只用 CREATE_NO_WINDOW，不要再叠 DETACHED_PROCESS**。DETACHED 让 cmd 没有
+    # console，它启动的 robocopy 于是自己新建一个**可见** console —— dsh-helper
+    # 1.8.9→1.8.10 实测弹出了 Robocopy 黑窗。CREATE_NO_WINDOW 给 cmd 一个隐藏 console，
+    # tasklist/find/robocopy/powershell 这些子进程继承它，全程无窗口。bat 本身不再依赖
+    # "无 console"（等待循环早已改成 tasklist 写文件 + find 读文件，不用管道）。
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         subprocess.Popen(["cmd.exe", "/c", str(cmd)], creationflags=flags, close_fds=True)
     except OSError as exc:
@@ -483,7 +502,7 @@ def build_apply_script(target_dir, stage_dir, work_dir, backup_dir, log_path,
         # 渲染层的落实（避免渲染成真 exe 名、被误当真实更新执行）。缺省仍走 `EXE_NAME`。
         exe=(exe_name or EXE_NAME),
         newexe=os.path.join(str(target_dir), (exe_name or EXE_NAME)),
-        limit=limit, tick_ms=UPDATE_WAIT_TICK_MS,
+        limit=limit, tick_ms=UPDATE_WAIT_TICK_MS, settle_ms=UPDATE_SETTLE_MS,
         # 1.4.4：budget **必须与 limit 同源**。旧写法传模块常量 `UPDATE_WAIT_BUDGET_S`
         # （按 UPDATE_WAIT_LIMIT=120 算），调用方传 `limit=2` 时会渲染出
         # "2 polls x 1000ms (nominal budget 120s)"——一句不可能的话。

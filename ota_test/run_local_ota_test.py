@@ -162,6 +162,15 @@ def full_chain_case(root: Path, app_id: str, exe_name: str) -> None:
         pending = uh.pending_cmd()
         check("replace script generated", bool(pending) and Path(pending).is_file(),
               str(pending))
+        # 1.5.3 两条实机修复：等待后必须静置再复制；robocopy 必须快速重试（不再 30s 黑洞）。
+        script_text = Path(pending).read_text(encoding="utf-8", errors="replace") if pending else ""
+        check("apply script settles after wait before copying (1.5.3)",
+              "settled after wait - copying" in script_text
+              and script_text.index("settled after wait - copying")
+              < script_text.index('"%STAGE%" "%TARGET%"'),
+              "settle marker missing or not before the copy line")
+        check("apply script uses fast robocopy retries (1.5.3)",
+              script_text.count("/R:5 /W:1") >= 2, str(script_text.count("/R:5 /W:1")))
         check("replace script lives outside the stage dir",
               bool(pending) and Path(pending).parent == tmpdir)
         check("pending script launches", uh.launch_pending_cmd(log=lambda *a: None))

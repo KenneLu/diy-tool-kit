@@ -2,6 +2,17 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-26 (update_helper 1.5.3：替换等待静置 + 快速重试 + 去掉可见 console)
+
+- **1.5.3**（实机暴露于 dsh-helper 1.8.9→1.8.10 的 OTA，2026-10-26 13:59）：
+  1. 等待循环报"旧进程已消失"后，`UPDATE_SETTLE_MS=1500` 静置再动安装目录——Windows
+     退出收尾仍短暂持有 exe 映像，robocopy 抢跑报 ERROR 32，并因默认 `/W:30` **干等 30 秒**
+     才重试成功（用户看到 Robocopy 黑窗以为卡死）；复制/回铺统一 `/R:5 /W:1`。
+  2. `launch_pending_cmd` 只用 `CREATE_NO_WINDOW`，**去掉 `DETACHED_PROCESS`**：DETACHED
+     让 cmd 无 console，子进程 robocopy 自建可见 console（黑窗根因）。
+  3. `ota_test` 增加替换脚本静态断言：等待后必须出现 `settled after wait - copying`、复制行
+     必须带 `/R:5 /W:1`，防止两条修复被静默回退。
+
 ## 2026-10-26 (update_ui 1.0.0：统一更新交互｜update_helper 1.5.2：下载进度回调)
 
 - **新增公共模块 `update_ui` 1.0.0**（用户裁定，2026-10-26）：四个工具的「下载并更新」

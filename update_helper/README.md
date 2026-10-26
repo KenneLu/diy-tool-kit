@@ -43,7 +43,7 @@
 | **`pop_failed_update_note(update_dir, log=…)`** | 启动时读一次上次失败 marker，返回人话（无则空串）并删除（1.3.0）。读到就通知用户 |
 | **`sweep_stale_update_dirs(max_age=3600)`** | 清 %TEMP% 里被中断的更新暂存（只清一小时前的），返回个数（1.2.0） |
 | **`verify_zip_sha256(zip_path, sha_text)`** | 纯函数校验，返回 `(ok, 人话)`；**期望值为空也算失败**（1.3.0） |
-| **`launch_pending_cmd(cmd=None, log=…)`** | 退出收尾**由此拉起**替换脚本：`CREATE_NO_WINDOW \| DETACHED_PROCESS`，返回是否已拉起（1.4.0）。别自己写 `os.system('start …')` |
+| **`launch_pending_cmd(cmd=None, log=…)`** | 退出收尾**由此拉起**替换脚本：`CREATE_NO_WINDOW`（1.5.3 起去掉 `DETACHED_PROCESS`——它会让 robocopy 自建可见 console），返回是否已拉起（1.4.0）。别自己写 `os.system('start …')` |
 | `http_error_hint(exc)` / `failed_marker_path(update_dir)` / `build_apply_script(…, exe_name=None)` | 配额人话 / marker 路径 / 脚本生成（纯函数，供回归断言）。**`exe_name=`（1.4.5）**：渲染替身 exe 名（l-s2t 的测试用 `probe.exe`/`probe.vbs`），缺省走 `EXE_NAME` |
 | `UPDATE_READY` / `PENDING_CMD` | 兼容别名，**只读派生**（1.4.0）：模块里没有这两个全局，由 PEP 562 `__getattr__` 现算。外部请改用访问器 |
 | **`log=` 的形态（稳定承诺）** | 收进来的 `log` 必须是 **print 形态**——本模块按 `log("downloading", stem)`、`log("update staged:", staged, "->", target, "(bat %s)" % s)` 调用（全文 7 处，最多 5 个位置参数），**只收一个 message 的 log 传进来，会在"每次下载"/"每次拉起替换脚本"这类真路径上直接 TypeError**。`log_kit.make_logger` 自 1.0.3 起即为该形态（log-accepts-varargs 机械检查工具侧包装是否照抄签名） |
@@ -63,9 +63,12 @@
 
 ## 替换脚本的语义要点（1.3.0/1.4.0，缺一即回归）
 
-1. **等待旧进程退出用镜像名，且不用管道**：脚本以 DETACHED_PROCESS 起，无 console；
-   那种上下文里 `tasklist | find` **永不返回**（`find` 永远阻塞在 stdin），更新会静默不发生。
-   故 `tasklist` **写文件**、`find` 读该文件。
+1. **等待旧进程退出用镜像名，且不用管道**：脚本以 `CREATE_NO_WINDOW` 起（隐藏 console）；
+   历史上曾用 `DETACHED_PROCESS`（无 console），那种上下文里 `tasklist | find` **永不返回**
+   （`find` 永远阻塞在 stdin），更新会静默不发生。故 `tasklist` **写文件**、`find` 读该文件。
+   **1.5.3**：等待到"进程已消失"后先静置 `UPDATE_SETTLE_MS`（1.5s）再动安装目录——Windows
+   退出收尾仍短暂持有 exe 映像，robocopy 抢跑会 ERROR 32；复制/回铺统一 `/R:5 /W:1`
+   （不再出现默认 `/W:30` 的 30 秒黑洞）。
 2. **等待有上限**：`UPDATE_WAIT_LIMIT`（**轮询次数**）× `UPDATE_WAIT_TICK_MS`（每拍毫秒）
    = `UPDATE_WAIT_BUDGET_S`（名义预算，**下界**），超时走 `:giveup` **记日志并写失败 marker**（1.5.0：日志随暂存被清扫，marker 是唯一幸存通道），日志报的是
    `%tries% polls x {tick_ms}ms` 而**不是一个没人量过的"秒"**。
