@@ -2,6 +2,12 @@
 
 Template library own versioning (TEMPLATE-VER), independent of any tool.
 
+## 2026-10-26 (update_ui 1.0.1：Toplevel 模态支持，供设置页内嵌弹窗)
+
+- `run_download_dialog(parent=...)` 支持传入 Toplevel：改用 `wait_window` 跑嵌套事件循环
+  （Toplevel 没有 `mainloop()`，此前只有 parent=None 的独立窗口路径）。reme 设置页等
+  “已有 Tk 主循环”的工具用这个形态，避免另起 Tk 线程。
+
 ## 2026-10-26 (update_helper 1.5.3：替换等待静置 + 快速重试 + 去掉可见 console)
 
 - **1.5.3**（实机暴露于 dsh-helper 1.8.9→1.8.10 的 OTA，2026-10-26 13:59）：

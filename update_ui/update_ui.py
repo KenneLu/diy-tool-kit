@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# TEMPLATE-MODULE: update_ui | TEMPLATE-VER: 1.0.0
+# TEMPLATE-MODULE: update_ui | TEMPLATE-VER: 1.0.1
 """update_ui｜统一更新交互：下载进度弹窗 → 下载完成 → 立即更新 / 稍后更新。
 
 为什么在模板：四个工具的「下载并更新」原本各自弹气泡/甚至没有反馈（点了像没反应）。
@@ -273,7 +273,12 @@ def run_download_dialog(download, *, lang="zh", app_name="", parent=None, log=pr
         pass
     threading.Thread(target=worker, name="update-download", daemon=True).start()
     root.after(80, poll)
-    root.mainloop()
+    if parent is None:
+        root.mainloop()
+    else:
+        # parent=(Toplevel) 时不能 mainloop()（Toplevel 没有这个方法）；wait_window 在
+        # 已存在的 Tk 解释器里跑**嵌套事件循环**，同样模态，且不会跟工具的常驻 mainloop 打架。
+        root.wait_window(root)
     try:
         root.destroy()
     except tk.TclError:
