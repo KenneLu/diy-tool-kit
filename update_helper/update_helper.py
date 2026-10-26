@@ -253,10 +253,10 @@ rem or a manual cleanup can still take it): robocopy would then return 0-7 with 
 rem WIPE the install dir, and the "start" below would pop a modal error box for a missing
 rem exe - a dialog nobody can dismiss, so the bat hangs forever holding the lock.
 if not exist "%STAGE%\{exe}" goto stage_invalid
-rem 1.5.3: 进程从 tasklist 消失 != 映像句柄已释放。Windows 退出收尾还会短暂持有 exe，
-rem 此时 robocopy 会撞 ERROR 32 并默认 /W:30 干等 30 秒（dsh-helper 1.8.9->1.8.10 实测：
-rem Robocopy 黑窗等了 30s，更新最终成功但用户以为卡死）。先静置再复制，并把重试改成
-rem /R:5 /W:1：即使仍抢跑也只等 1 秒重试 5 次，不再出现 30 秒黑洞。
+rem 1.5.3: tasklist says "gone" but Windows may still hold the image briefly.
+rem Measured (dsh-helper 1.8.9->1.8.10): robocopy hit ERROR 32 and the default
+rem /W:30 made it wait 30s (user saw a Robocopy console and thought it hung).
+rem Settle first, then copy with /R:5 /W:1 so a race costs at most a few seconds.
 %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command "Start-Sleep -Milliseconds {settle_ms}" >nul 2>nul
 echo [{stamp}] settled after wait - copying >> "%LOG%"
 rem Snapshot the CURRENT install first. The previous BACKUP is NOT deleted here: it is the
